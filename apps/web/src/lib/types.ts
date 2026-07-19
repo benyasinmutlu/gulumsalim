@@ -174,3 +174,28 @@ export interface AdminPayoutRow {
   processedAt: string | null;
   rejectionReason: string | null;
 }
+
+export interface AdminPage {
+  id: number;
+  slug: string;
+  title: string;
+  content: string;
+  updatedAt: string;
+}
+
+export interface AdminSlider {
+  id: number;
+  image: string;
+  linkUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface AdminPromoBanner {
+  id: number;
+  title: string;
+  image: string;
+  linkUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}

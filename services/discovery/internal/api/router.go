@@ -5,17 +5,18 @@ import (
 
 	"github.com/gulumsalim/discovery/internal/api/handlers"
 	"github.com/gulumsalim/discovery/internal/config"
+	"github.com/gulumsalim/discovery/internal/store"
 )
 
 // NewRouter, bu servisin tüm dış yüzeyini kurar. Kasıtlı olarak küçük:
 // sadece /healthz ve /discover var. Bu servis 127.0.0.1'e bağlı kalır
 // (nginx/firewalld dışarıya hiç yönlendirmez) — yine de her istekte
 // paylaşımlı gizli anahtar kontrolü yapılır, ek bir savunma katmanı olarak.
-func NewRouter(cfg *config.Config) http.Handler {
+func NewRouter(cfg *config.Config, rs *store.RedisStore, pg *store.PostgresStore) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", handlers.Healthz)
-	mux.Handle("GET /discover", requireSharedSecret(cfg, http.HandlerFunc(handlers.Discover)))
+	mux.Handle("GET /discover", requireSharedSecret(cfg, handlers.Discover(rs, pg)))
 
 	return mux
 }

@@ -19,6 +19,11 @@ import vendorFinanceRoutes from "./modules/vendors/vendor-finance.routes";
 import adminAuthRoutes from "./modules/admin/admin-auth.routes";
 import adminVendorsRoutes from "./modules/admin/admin-vendors.routes";
 import adminPayoutsRoutes from "./modules/admin/admin-payouts.routes";
+import adminPagesRoutes from "./modules/admin/admin-pages.routes";
+import adminSlidersRoutes from "./modules/admin/admin-sliders.routes";
+import adminPromoBannersRoutes from "./modules/admin/admin-promo-banners.routes";
+import contentRoutes from "./modules/content/content.routes";
+import discoveryRoutes from "./modules/discovery/discovery.routes";
 import uploadPlugin from "./plugins/upload";
 
 export function buildApp() {
@@ -57,6 +62,11 @@ export function buildApp() {
   app.register(adminAuthRoutes);
   app.register(adminVendorsRoutes);
   app.register(adminPayoutsRoutes);
+  app.register(adminPagesRoutes);
+  app.register(adminSlidersRoutes);
+  app.register(adminPromoBannersRoutes);
+  app.register(contentRoutes);
+  app.register(discoveryRoutes);
 
   // Deploy sonrası doğrulama ve systemd/uptime izleme için: hem Postgres
   // hem Redis'e gerçekten bağlanabildiğini kontrol eder, sadece process'in

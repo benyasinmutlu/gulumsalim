@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
+import type { FastifyInstance } from "fastify";
 import { env } from "../../config/env";
+import { emitBehavioralEvent } from "../analytics/events.client";
 import { findCustomerById } from "../auth/auth.repository";
 import { hydrateCart } from "../cart/cart.service";
 import type { CartLine } from "../cart/cart.types";
@@ -9,6 +11,7 @@ import {
   createOrder,
   fetchProductsForCheckout,
   findOrderByPaymentRef,
+  findOrderItemsWithProductInfo,
   markOrderPaid,
   markOrderPaymentFailed,
   setOrderPaymentRef,
@@ -127,13 +130,28 @@ export async function startCheckout(customerId: number, cart: CartLine[], shippi
   };
 }
 
-export async function handlePaymentCallback(token: string) {
+export async function handlePaymentCallback(app: FastifyInstance, token: string) {
   const result = await retrieveCheckoutForm(token);
   const order = await findOrderByPaymentRef(token);
   if (!order) return null;
 
   if (result.paymentStatus === "SUCCESS") {
     await markOrderPaid(order.id);
+
+    // Satın alma, en güçlü davranışsal sinyal (bkz. discovery servisi
+    // ağırlıkları) - her sipariş kalemi için ayrı bir event yayınlanır,
+    // genel bir "sipariş tamamlandı" event'i yerine (plan §4).
+    const items = await findOrderItemsWithProductInfo(order.id);
+    for (const item of items) {
+      emitBehavioralEvent(app, {
+        type: "purchase",
+        customerId: order.customerId,
+        productId: item.productId,
+        vendorId: item.vendorId,
+        categoryId: item.categoryId,
+      });
+    }
+
     return { orderNumber: order.orderNumber, success: true };
   }
   await markOrderPaymentFailed(order.id);

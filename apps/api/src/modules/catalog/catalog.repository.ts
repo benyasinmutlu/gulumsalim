@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, lt, or, type SQL } from "drizzle-orm";
 import { db } from "../../db/client";
 import { categories, productImages, products, vendors } from "../../db/schema/index";
 import type { Cursor } from "../../lib/pagination";
@@ -55,6 +55,27 @@ export async function listActiveProducts(params: ListProductsParams) {
     // Bir fazla satır çekilir: sıradaki sayfa var mı yok mu, ekstra bir
     // COUNT sorgusu atmadan bu şekilde anlaşılır.
     .limit(params.limit + 1);
+}
+
+// Go keşfet servisinden dönen ürün ID'lerini ürün kartı verisine çevirir.
+// Sıralama çağıran tarafından (bkz. discovery.service.ts) skor sırasına
+// göre yeniden kurulur - IN (...) sorgusu sıra garantisi vermez.
+export async function findProductsByIds(ids: number[]) {
+  if (ids.length === 0) return [];
+  return db
+    .select({
+      id: products.id,
+      name: products.name,
+      slug: products.slug,
+      basePrice: products.basePrice,
+      compareAtPrice: products.compareAtPrice,
+      createdAt: products.createdAt,
+      vendorStoreName: vendors.storeName,
+      vendorSlug: vendors.storeSlug,
+    })
+    .from(products)
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
+    .where(and(inArray(products.id, ids), eq(products.status, "active"), eq(vendors.status, "active")));
 }
 
 export async function findProductBySlug(slug: string) {

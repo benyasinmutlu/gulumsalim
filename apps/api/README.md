@@ -10,7 +10,12 @@ cp .env.example .env   # değerleri doldur (yerelde Postgres/Redis çalışıyor
 pnpm db:generate         # şema değiştiğinde migration üretir
 pnpm db:migrate           # migration'ları veritabanına uygular
 pnpm dev                   # http://localhost:3000/healthz
+pnpm test                    # birim testleri (vitest, DB gerektirmez)
 ```
+
+## Testler
+
+`pnpm test`, veritabanı gerektirmeyen saf mantığı kapsar: sepet birleştirme/güncelleme kuralları, keyset pagination cursor kodlama/çözme, satıcı sipariş durum makinesi ve komisyon hesaplama. DB'ye bağlı akışlar (auth, checkout, admin onayları vb.) bu oturumda geçici test verisiyle elle uçtan uca doğrulandı — kalıcı entegrasyon testlerine dönüştürülmesi ayrı bir iş.
 
 ## Klasör yapısı
 

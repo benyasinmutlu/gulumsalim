@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
-import type { Category } from "@/lib/types";
+import type { Category, ProductListItem } from "@/lib/types";
 
 async function getCategories(): Promise<Category[]> {
   try {
@@ -10,8 +10,21 @@ async function getCategories(): Promise<Category[]> {
   }
 }
 
+interface DiscoverFeed {
+  items: ProductListItem[];
+  strategy: "personalized" | "cold_start" | "unavailable";
+}
+
+async function getDiscoverFeed(): Promise<DiscoverFeed> {
+  try {
+    return await apiFetchJson<DiscoverFeed>("/discover");
+  } catch {
+    return { items: [], strategy: "unavailable" };
+  }
+}
+
 export default async function Home() {
-  const categories = await getCategories();
+  const [categories, discover] = await Promise.all([getCategories(), getDiscoverFeed()]);
 
   return (
     <main className="container" style={{ paddingBlock: "2.5rem" }}>
@@ -29,6 +42,25 @@ export default async function Home() {
             </Link>
           ))}
         </div>
+      )}
+
+      {discover.items.length > 0 && (
+        <>
+          <h2 style={{ marginTop: "2.5rem", fontSize: "1.1rem" }}>
+            {discover.strategy === "personalized" ? "Senin İçin" : "Keşfet"}
+          </h2>
+          <div className="product-grid">
+            {discover.items.map((p) => (
+              <Link key={p.id} href={`/urun/${p.slug}`} className="product-card">
+                <span>{p.name}</span>
+                <span style={{ fontSize: "0.8rem", opacity: 0.65 }}>{p.vendorStoreName}</span>
+                <span className="price">
+                  {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                </span>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
 
       <p style={{ marginTop: "1.5rem" }}>

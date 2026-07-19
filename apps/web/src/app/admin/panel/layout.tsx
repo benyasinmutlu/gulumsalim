@@ -29,6 +29,9 @@ export default async function AdminPanelLayout({ children }: { children: React.R
       <nav className="panel-nav" style={{ marginTop: "1.5rem" }}>
         <Link href="/admin/panel/saticilar">Satıcılar</Link>
         <Link href="/admin/panel/odemeler">Ödemeler</Link>
+        <Link href="/admin/panel/sayfalar">Sayfalar</Link>
+        <Link href="/admin/panel/slider">Slider</Link>
+        <Link href="/admin/panel/banner">Banner</Link>
       </nav>
 
       {children}

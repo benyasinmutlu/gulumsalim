@@ -10,3 +10,4 @@ services/discovery/discovery
 services/discovery/bin/
 *.pyc
 apps/api/uploads/
+.claude/settings.local.json

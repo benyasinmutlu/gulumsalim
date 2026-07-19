@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
+import { emitBehavioralEvent } from "../analytics/events.client";
 import { listProductsQuerySchema, productSlugParamsSchema } from "./catalog.schemas";
 import { getCategories, getProductBySlug, getProducts } from "./catalog.service";
 
@@ -19,6 +20,13 @@ const catalogRoutes: FastifyPluginAsync = async (app) => {
       reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
       return;
     }
+    emitBehavioralEvent(app, {
+      type: "view",
+      customerId: request.session.customerId,
+      productId: product.id,
+      vendorId: product.vendorId,
+      categoryId: product.categoryId,
+    });
     reply.send(product);
   });
 };

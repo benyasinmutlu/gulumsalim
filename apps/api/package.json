@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed:categories": "tsx ../../infra/postgres/seed/seed-categories.ts",
-    "db:seed:admin": "tsx ../../infra/postgres/seed/seed-admin.ts"
+    "db:seed:admin": "tsx ../../infra/postgres/seed/seed-admin.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -39,6 +40,7 @@
     "@types/pg": "^8.11.10",
     "drizzle-kit": "^0.28.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

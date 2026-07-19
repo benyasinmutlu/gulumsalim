@@ -8,6 +8,7 @@ export async function fetchProductsForCheckout(productIds: number[]) {
     .select({
       id: products.id,
       vendorId: products.vendorId,
+      categoryId: products.categoryId,
       status: products.status,
       vendorStatus: vendors.status,
     })
@@ -77,6 +78,20 @@ export async function markOrderPaid(orderId: number) {
 
 export async function markOrderPaymentFailed(orderId: number) {
   await db.update(orders).set({ paymentStatus: "failed" }).where(eq(orders.id, orderId));
+}
+
+// Satın alma event'lerini (bkz. checkout.service.ts handlePaymentCallback)
+// yayınlamak için sipariş kalemlerini kategori bilgisiyle birlikte döner.
+export async function findOrderItemsWithProductInfo(orderId: number) {
+  return db
+    .select({
+      productId: orderItems.productId,
+      vendorId: orderItems.vendorId,
+      categoryId: products.categoryId,
+    })
+    .from(orderItems)
+    .innerJoin(products, eq(orderItems.productId, products.id))
+    .where(eq(orderItems.orderId, orderId));
 }
 
 export async function findOrderByNumber(orderNumber: string, customerId: number) {

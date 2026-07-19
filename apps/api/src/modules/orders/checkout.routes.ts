@@ -39,7 +39,7 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
       return;
     }
 
-    const result = await handlePaymentCallback(body.token);
+    const result = await handlePaymentCallback(app, body.token);
     const query = result
       ? `order=${encodeURIComponent(result.orderNumber)}&success=${result.success}`
       : "success=false";
