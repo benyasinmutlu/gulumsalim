@@ -1,0 +1,21 @@
+[Unit]
+Description=Gulum Salim Web (Next.js)
+After=network.target gulumsalim-api.service
+Wants=gulumsalim-api.service
+
+[Service]
+Type=simple
+User=gulumsalim
+Group=gulumsalim
+WorkingDirectory=/opt/gulumsalim/app/apps/web
+EnvironmentFile=/opt/gulumsalim/app/apps/web/.env.local
+ExecStart=/opt/gulumsalim/app/apps/web/node_modules/.bin/next start -p 3001
+Restart=on-failure
+RestartSec=3
+MemoryMax=400M
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target

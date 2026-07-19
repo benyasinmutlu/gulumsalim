@@ -1,0 +1,22 @@
+[Unit]
+Description=Gulum Salim API (Fastify)
+After=network.target postgresql.service valkey.service
+Wants=postgresql.service valkey.service
+
+[Service]
+Type=simple
+User=gulumsalim
+Group=gulumsalim
+WorkingDirectory=/opt/gulumsalim/app/apps/api
+EnvironmentFile=/opt/gulumsalim/app/apps/api/.env
+ExecStart=/opt/gulumsalim/app/apps/api/node_modules/.bin/tsx src/server.ts
+Restart=on-failure
+RestartSec=3
+MemoryMax=400M
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/gulumsalim/uploads
+
+[Install]
+WantedBy=multi-user.target
