@@ -1,0 +1,16 @@
+{
+  "name": "gulumsalim",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @gulumsalim/api dev",
+    "dev:web": "pnpm --filter @gulumsalim/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @gulumsalim/api db:migrate",
+    "test": "pnpm --filter @gulumsalim/api test"
+  }
+}

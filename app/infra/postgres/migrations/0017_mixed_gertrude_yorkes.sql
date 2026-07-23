@@ -1,0 +1,1 @@
+ALTER TABLE "product_reviews" ADD COLUMN "vendor_reply" text;

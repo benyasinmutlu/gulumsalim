@@ -1,0 +1,124 @@
+import Link from "next/link";
+import { apiFetchJson } from "@/lib/api";
+import type { Category, ProductListResponse, PublicVendorListItem } from "@/lib/types";
+import ProductCard from "@/components/product-card";
+import ProductToolbar from "@/app/(site)/urunler/product-toolbar";
+
+export interface ProductListingParams {
+  category?: string;
+  cursor?: string;
+  search?: string;
+  saleOnly?: string;
+  size?: string;
+  color?: string;
+  vendor?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  sort?: string;
+}
+
+async function getProducts(params: ProductListingParams): Promise<ProductListResponse> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) query.set(key, value);
+  }
+  try {
+    return await apiFetchJson<ProductListResponse>(`/products?${query.toString()}`);
+  } catch {
+    return { items: [], nextCursor: null };
+  }
+}
+
+async function getCategories(): Promise<Category[]> {
+  try {
+    return await apiFetchJson<Category[]>("/categories");
+  } catch {
+    return [];
+  }
+}
+
+async function getVendors(): Promise<PublicVendorListItem[]> {
+  try {
+    return await apiFetchJson<PublicVendorListItem[]>("/vendors");
+  } catch {
+    return [];
+  }
+}
+
+interface Props {
+  params: ProductListingParams;
+  heading?: string;
+  basePath?: string;
+  lockedCategorySlug?: string;
+  beforeToolbar?: React.ReactNode;
+}
+
+// gulumsalim.com'daki products.php'nin ürün listesi gövdesi - /urunler ve
+// kategori/bölüm için temiz URL'ler kullanan sayfalar (/aksesuar,
+// /sana-ozel gibi) arasında ortak. `basePath`, "sonraki sayfa" linkinin
+// hangi temiz URL'e query ekleyerek devam edeceğini belirler.
+export default async function ProductListing({
+  params,
+  heading: headingOverride,
+  basePath = "/urunler",
+  lockedCategorySlug,
+  beforeToolbar,
+}: Props) {
+  const [{ items, nextCursor }, categories, vendors] = await Promise.all([
+    getProducts(params),
+    getCategories(),
+    getVendors(),
+  ]);
+
+  const heading =
+    headingOverride ??
+    (params.search
+      ? `"${params.search}" için sonuçlar`
+      : params.saleOnly
+        ? "İndirimli Ürünler"
+        : params.category
+          ? (categories.find((c) => c.slug === params.category)?.name ?? "Tüm Koleksiyon")
+          : "Tüm Koleksiyon");
+
+  const nextPageParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value && key !== "cursor") nextPageParams.set(key, value);
+  }
+  if (nextCursor) nextPageParams.set("cursor", nextCursor);
+
+  return (
+    <main className="main-content">
+      <div className="container products-page">
+        <h1 className="products-page-title">{heading}</h1>
+
+        {beforeToolbar}
+
+        <ProductToolbar
+          categories={categories}
+          vendors={vendors}
+          initial={params}
+          basePath={basePath}
+          lockedCategorySlug={lockedCategorySlug}
+        />
+
+        <div className="products-count">{items.length} adet ürün bulundu.</div>
+
+        {items.length === 0 ? (
+          <p className="empty-state">Bu filtrede ürün bulunamadı.</p>
+        ) : (
+          <div className="product-grid" id="productGrid">
+            {items.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        )}
+
+        {nextCursor && (
+          <Link href={`${basePath}?${nextPageParams.toString()}`} className="btn btn-secondary">
+            Sonraki sayfa
+          </Link>
+        )}
+      </div>
+    </main>
+  );
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "free_shipping" boolean DEFAULT false NOT NULL;

@@ -1,0 +1,1 @@
+ALTER TABLE "promo_banner_clicks" ADD COLUMN "event_type" text DEFAULT 'click' NOT NULL;

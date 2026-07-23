@@ -1,0 +1,21 @@
+[Unit]
+Description=Gulum Salim Discovery Service (Go)
+After=network.target postgresql.service valkey.service
+Wants=postgresql.service valkey.service
+
+[Service]
+Type=simple
+User=gulumsalim
+Group=gulumsalim
+WorkingDirectory=/opt/gulumsalim/app/services/discovery
+EnvironmentFile=/opt/gulumsalim/app/services/discovery/.env
+ExecStart=/opt/gulumsalim/app/services/discovery/discovery
+Restart=on-failure
+RestartSec=3
+MemoryMax=150M
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
