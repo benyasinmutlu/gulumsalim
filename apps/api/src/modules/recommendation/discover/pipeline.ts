@@ -6,6 +6,7 @@ import {
   personalHistorySource,
   popularFallbackSource,
   trendingSource,
+  type CandidateSource,
   type CatalogPort,
   type CatalogProduct,
   type CollaborativePort,
@@ -47,6 +48,9 @@ export interface DiscoverDeps {
   collaborative: CollaborativePort;
   loadProfile(req: DiscoverRequest): Promise<DiscoverProfile>;
   loadSeen(req: DiscoverRequest): Promise<Set<number>>; // yakında gösterilmiş ürünler
+  // Mevcut Go discovery servisini (zaten kişiselleştirilmiş) bir aday kaynağı
+  // olarak entegre eder — servisi değiştirmeden üstüne v1 katmanı eklenir.
+  legacySource?: CandidateSource;
   requestId: string;
   nowMs?: number;
 }
@@ -183,6 +187,7 @@ export async function runDiscover(req: DiscoverRequest, deps: DiscoverDeps): Pro
   };
   const sources = personalized
     ? [
+        ...(deps.legacySource ? [deps.legacySource] : []),
         personalHistorySource(deps.catalog),
         collaborativeSource(deps.collaborative),
         trendingSource(deps.catalog),
