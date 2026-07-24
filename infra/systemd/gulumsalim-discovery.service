@@ -2,6 +2,10 @@
 Description=Gulum Salim Discovery Service (Go)
 After=network.target postgresql.service valkey.service
 Wants=postgresql.service valkey.service
+# Restart storm koruması: 60 sn içinde 5'ten fazla çökerse durdurulur
+# (CLAUDE-012). Aksi halde zehirli bir hata sonsuz restart döngüsü yaratır.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -12,10 +16,31 @@ EnvironmentFile=/opt/gulumsalim/app/services/discovery/.env
 ExecStart=/opt/gulumsalim/app/services/discovery/discovery
 Restart=on-failure
 RestartSec=3
+# Graceful shutdown: main.go 5 sn'lik Shutdown yapıyor; 10 sn tampon.
+TimeoutStopSec=10
 MemoryMax=150M
-PrivateTmp=true
+
+# --- Sandbox hardening (CLAUDE-012) ---
 NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
 ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectKernelLogs=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Not: Disk'e yazmaz; ReadWritePaths gerekmez. Doğrulama:
+#   systemd-analyze security gulumsalim-discovery.service
 
 [Install]
 WantedBy=multi-user.target
