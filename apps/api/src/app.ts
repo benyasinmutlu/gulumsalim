@@ -4,6 +4,7 @@ import formbody from "@fastify/formbody";
 import { sql } from "drizzle-orm";
 import { db } from "./db/client";
 import redisPlugin from "./plugins/redis";
+import loginRateLimitPlugin from "./plugins/login-rate-limit";
 import errorHandlerPlugin from "./plugins/error-handler";
 import sessionPlugin from "./plugins/session";
 import csrfPlugin from "./plugins/csrf";
@@ -75,6 +76,7 @@ export function buildApp() {
   // gövdesini ayrıştırır.
   app.register(formbody);
   app.register(redisPlugin);
+  app.register(loginRateLimitPlugin);
   app.register(errorHandlerPlugin);
   app.register(sessionPlugin);
   app.register(csrfPlugin);

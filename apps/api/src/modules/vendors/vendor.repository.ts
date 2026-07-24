@@ -104,6 +104,15 @@ export async function findVendorById(id: number) {
   return row ?? null;
 }
 
+export async function findVendorAccessStatus(id: number) {
+  const [row] = await db
+    .select({ status: vendors.status })
+    .from(vendors)
+    .where(eq(vendors.id, id))
+    .limit(1);
+  return row?.status ?? null;
+}
+
 export async function createVendor(data: {
   storeName: string;
   storeSlug: string;

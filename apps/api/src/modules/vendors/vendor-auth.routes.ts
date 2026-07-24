@@ -55,6 +55,7 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
     const input = vendorRegisterSchema.parse(request.body);
     try {
       const vendor = await registerVendor(input);
+      await request.session.regenerate(["cart", "customerId", "adminId"]);
       request.session.vendorId = vendor.id;
       return reply.status(201).send(publicVendor(vendor));
     } catch (err) {
@@ -68,10 +69,11 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  app.post("/vendor/auth/login", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/vendor/auth/login", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const input = vendorLoginSchema.parse(request.body);
     try {
       const vendor = await verifyVendorCredentials(input);
+      await request.session.regenerate(["cart", "customerId", "adminId"]);
       request.session.vendorId = vendor.id;
       return reply.send(publicVendor(vendor));
     } catch (err) {

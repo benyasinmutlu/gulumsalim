@@ -10,10 +10,11 @@ function publicAdmin(a: { id: number; username: string; fullName: string }) {
 // Kasıtlı olarak public bir /admin/auth/register yok - admin hesapları
 // sadece infra/postgres/seed/seed-admin.ts ile sunucuya elle eklenir.
 const adminAuthRoutes: FastifyPluginAsync = async (app) => {
-  app.post("/admin/auth/login", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/admin/auth/login", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const input = adminLoginSchema.parse(request.body);
     try {
       const admin = await verifyAdminCredentials(input);
+      await request.session.regenerate(["cart", "customerId", "vendorId"]);
       request.session.adminId = admin.id;
       return reply.send(publicAdmin(admin));
     } catch (err) {

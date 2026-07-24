@@ -1,5 +1,7 @@
 import fp from "fastify-plugin";
 import { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import { findVendorAccessStatus } from "../modules/vendors/vendor.repository";
+import { isVendorSessionAllowed } from "./vendor-access";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -19,6 +21,12 @@ const authGuardPlugin: FastifyPluginAsync = async (app) => {
   app.decorate("requireVendor", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.session.vendorId) {
       return reply.status(401).send({ error: { message: "Satıcı girişi yapmanız gerekiyor" } });
+    }
+
+    const status = await findVendorAccessStatus(request.session.vendorId);
+    if (!isVendorSessionAllowed(status)) {
+      delete request.session.vendorId;
+      return reply.status(403).send({ error: { message: "Satıcı hesabınızın erişimi kapatılmış" } });
     }
   });
 
