@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
+import { env } from "../../config/env";
 import { checkoutSchema } from "./checkout.schemas";
 import {
   EmailBelongsToAccountError,
@@ -53,14 +54,14 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
   app.post("/payment-callback", async (request, reply) => {
     const body = request.body as { token?: string };
     if (!body.token) {
-      return reply.redirect(`${request.protocol}://${request.hostname}/siparis-sonucu?success=false`);
+      return reply.redirect(`${env.SITE_URL}/siparis-sonucu?success=false`);
     }
 
     const result = await handlePaymentCallback(app, body.token);
     const query = result
       ? `order=${encodeURIComponent(result.orderNumber)}&success=${result.success}`
       : "success=false";
-    return reply.redirect(`${request.protocol}://${request.hostname}/siparis-sonucu?${query}`);
+    return reply.redirect(`${env.SITE_URL}/siparis-sonucu?${query}`);
   });
 
   app.get("/orders", { preHandler: app.requireCustomer }, async (request, reply) => {

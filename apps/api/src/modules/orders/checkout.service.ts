@@ -20,6 +20,7 @@ import {
   markOrderPaymentFailed,
   setOrderPaymentRef,
 } from "./order.repository";
+import { createPublicOrderNumber, isVerifiedSuccessfulPayment } from "./order-security";
 
 export { InsufficientStockError };
 
@@ -89,7 +90,7 @@ export async function startCheckout(
   const subtotal = Number(hydrated.subtotal);
   const shippingFee = subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
   const total = subtotal + shippingFee;
-  const orderNumber = `GS${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const orderNumber = createPublicOrderNumber();
 
   const items = hydrated.items.map((item) => {
     const product = productMap.get(item.productId);
@@ -196,7 +197,15 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
   if (!order) return null;
 
   if (result.paymentStatus === "SUCCESS") {
-    await markOrderPaid(order.id);
+    if (!isVerifiedSuccessfulPayment(result, order)) {
+      app.log.warn({ orderId: order.id }, "Payment provider result did not match the pending order");
+      return { orderNumber: order.orderNumber, success: false };
+    }
+
+    const transitioned = await markOrderPaid(order.id);
+    if (!transitioned) {
+      return { orderNumber: order.orderNumber, success: order.paymentStatus === "paid" };
+    }
 
     // Satın alma, en güçlü davranışsal sinyal (bkz. discovery servisi
     // ağırlıkları) - her sipariş kalemi için ayrı bir event yayınlanır,
@@ -223,6 +232,9 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
 
     return { orderNumber: order.orderNumber, success: true };
   }
-  await markOrderPaymentFailed(order.id);
-  return { orderNumber: order.orderNumber, success: false };
+  const transitioned = await markOrderPaymentFailed(order.id);
+  return {
+    orderNumber: order.orderNumber,
+    success: !transitioned && order.paymentStatus === "paid",
+  };
 }

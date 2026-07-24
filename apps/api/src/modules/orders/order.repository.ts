@@ -120,18 +120,27 @@ export async function findOrderByPaymentRef(paymentRef: string) {
 }
 
 export async function markOrderPaid(orderId: number) {
-  await db.update(orders).set({ status: "processing", paymentStatus: "paid" }).where(eq(orders.id, orderId));
+  const transitioned = await db
+    .update(orders)
+    .set({ status: "processing", paymentStatus: "paid" })
+    .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")))
+    .returning({ id: orders.id });
+  return transitioned.length === 1;
 }
 
-// İdempotent: webhook/callback aynı token için birden fazla kez tetiklense
-// bile stok yalnızca bir kez geri yüklenir (zaten "failed" olan bir
-// siparişte hiçbir şey yapılmaz).
+// Koşullu update hem tekrarları hem de eşzamanlı success/failure callback'lerini
+// tek bir geçişe indirger. Paid bir sipariş asla failed'a çevrilmez ve stok
+// sadece pending -> failed geçişini kazanan transaction tarafından geri yüklenir.
 export async function markOrderPaymentFailed(orderId: number) {
-  await db.transaction(async (tx) => {
-    const [order] = await tx.select({ paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, orderId)).limit(1);
-    if (!order || order.paymentStatus === "failed") return;
-    await tx.update(orders).set({ paymentStatus: "failed" }).where(eq(orders.id, orderId));
+  return db.transaction(async (tx) => {
+    const transitioned = await tx
+      .update(orders)
+      .set({ paymentStatus: "failed" })
+      .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")))
+      .returning({ id: orders.id });
+    if (transitioned.length === 0) return false;
     await restoreOrderItemStock(tx, orderId);
+    return true;
   });
 }
 
@@ -164,7 +173,15 @@ export async function findOrderByNumber(orderNumber: string, customerId: number)
 // rastgele olduğu için tek başına yeterli bir erişim anahtarı sayılır -
 // eski sitenin order-success.php'sindeki aynı varsayım.
 export async function findOrderByNumberPublic(orderNumber: string) {
-  const [row] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber)).limit(1);
+  const [row] = await db
+    .select({
+      orderNumber: orders.orderNumber,
+      total: orders.total,
+      status: orders.status,
+    })
+    .from(orders)
+    .where(eq(orders.orderNumber, orderNumber))
+    .limit(1);
   return row ?? null;
 }
 
