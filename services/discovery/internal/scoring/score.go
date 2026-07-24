@@ -108,7 +108,15 @@ func ColdStart(ctx context.Context, pg *store.PostgresStore, excludeIDs []int64,
 // maxProductsPerVendor ürünle sınırlar - tek bir satıcının tüm akışı
 // doldurmasını engeller.
 func diversify(scored []scoredProduct, limit int) []int64 {
-	sort.Slice(scored, func(i, j int) bool { return scored[i].Score > scored[j].Score })
+	// Deterministik sıralama: eşit skorlu ürünlerde stable + ikincil
+	// tie-breaker (ProductID) ile sıra çağrıdan çağrıya sabit kalır; aksi halde
+	// unstable sort SSR/ISR cache ve sayfalamayı bozar (CLAUDE-011).
+	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].Score != scored[j].Score {
+			return scored[i].Score > scored[j].Score
+		}
+		return scored[i].ProductID > scored[j].ProductID
+	})
 
 	vendorCount := map[int64]int{}
 	out := make([]int64, 0, limit)
