@@ -63,8 +63,16 @@ export function buildApp() {
     // nginx TLS'i sonlandırıp API'ye 127.0.0.1 üzerinden düz HTTP ile
     // proxy yapıyor. trustProxy olmadan Fastify isteği "http" sanır ve
     // secure:true session çerezini hiç göndermez (bkz. plugins/session.ts) -
-    // bu satır olmadan prod'da oturum çerezi asla oluşmaz.
-    trustProxy: true,
+    // bu ayar olmadan prod'da oturum çerezi asla oluşmaz.
+    //
+    // GÜVENLİK (CLAUDE-013): `true` DEĞİL, `'loopback'`. `true` tüm
+    // X-Forwarded-For zincirine güvenir ve request.ip'yi EN SOLDAKİ
+    // (istemci-kontrollü) değere eşitler — saldırgan her istekte sahte bir
+    // X-Forwarded-For göndererek login-rate-limit anahtarını (request.ip)
+    // değiştirip rate-limit'i tamamen bypass eder. 'loopback' yalnızca
+    // loopback'teki nginx'e güvenir; request.ip nginx'in eklediği gerçek
+    // istemci IP'si olur (spoof edilemez), X-Forwarded-Proto yine onurlanır.
+    trustProxy: "loopback",
   });
 
   // origin:true, isteğin kendi Origin header'ını yansıtır - nginx arkasında
