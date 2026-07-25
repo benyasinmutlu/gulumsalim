@@ -5,8 +5,19 @@ package store
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	// affinityTTL: aktif kullanıcının affinity key'i her event'te yenilenir;
+	// bu süre boyunca hiç event üretmeyen kullanıcının verisi düşer. Set'lerin
+	// sınırsız büyümesini engelleyen ilk savunma (CLAUDE-009).
+	affinityTTL = 90 * 24 * time.Hour
+	// pruneThreshold: decay ile bu eşiğin altına inen üyeler ZREM ile budanır
+	// (skoru ~0, öneriye zaten girmiyor).
+	pruneThreshold = 0.1
 )
 
 type RedisStore struct {
@@ -29,10 +40,14 @@ func vendorKey(customerID string) string   { return "affinity:vendor:" + custome
 func (s *RedisStore) IncrAffinity(ctx context.Context, customerID string, categoryID, vendorID int64, weight float64) error {
 	pipe := s.Client.TxPipeline()
 	if categoryID != 0 {
-		pipe.ZIncrBy(ctx, categoryKey(customerID), weight, strconv.FormatInt(categoryID, 10))
+		ck := categoryKey(customerID)
+		pipe.ZIncrBy(ctx, ck, weight, strconv.FormatInt(categoryID, 10))
+		pipe.Expire(ctx, ck, affinityTTL) // kayan TTL: her event key'i tazeler (CLAUDE-009)
 	}
 	if vendorID != 0 {
-		pipe.ZIncrBy(ctx, vendorKey(customerID), weight, strconv.FormatInt(vendorID, 10))
+		vk := vendorKey(customerID)
+		pipe.ZIncrBy(ctx, vk, weight, strconv.FormatInt(vendorID, 10))
+		pipe.Expire(ctx, vk, affinityTTL)
 	}
 	_, err := pipe.Exec(ctx)
 	return err
@@ -66,7 +81,14 @@ func (s *RedisStore) DecayAllAffinities(ctx context.Context, factor float64) err
 		}
 		pipe := s.Client.TxPipeline()
 		for _, m := range members {
-			pipe.ZAdd(ctx, key, redis.Z{Score: m.Score * factor, Member: m.Member})
+			newScore := m.Score * factor
+			if newScore < pruneThreshold {
+				// Sıfıra yaklaşan (öneriye girmeyen) üyeleri buda — set'in
+				// sınırsız büyümesini engeller (CLAUDE-009).
+				pipe.ZRem(ctx, key, m.Member)
+				continue
+			}
+			pipe.ZAdd(ctx, key, redis.Z{Score: newScore, Member: m.Member})
 		}
 		pipe.Exec(ctx)
 	}
