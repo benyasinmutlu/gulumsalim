@@ -4,6 +4,7 @@ import formbody from "@fastify/formbody";
 import { sql } from "drizzle-orm";
 import { db } from "./db/client";
 import redisPlugin from "./plugins/redis";
+import loginRateLimitPlugin from "./plugins/login-rate-limit";
 import errorHandlerPlugin from "./plugins/error-handler";
 import sessionPlugin from "./plugins/session";
 import csrfPlugin from "./plugins/csrf";
@@ -66,8 +67,14 @@ export function buildApp() {
     // nginx TLS'i sonlandırıp API'ye 127.0.0.1 üzerinden düz HTTP ile
     // proxy yapıyor. trustProxy olmadan Fastify isteği "http" sanır ve
     // secure:true session çerezini hiç göndermez (bkz. plugins/session.ts) -
-    // bu satır olmadan prod'da oturum çerezi asla oluşmaz.
-    trustProxy: true,
+    // bu ayar olmadan prod'da oturum çerezi asla oluşmaz.
+    //
+    // GÜVENLİK (CLAUDE-013): `true` DEĞİL, `'loopback'`. `true` tüm
+    // X-Forwarded-For zincirine güvenip request.ip'yi en soldaki (istemci-
+    // kontrollü) değere eşitler; login-rate-limit request.ip'ye key'lendiğinden
+    // saldırgan sahte X-Forwarded-For ile limiti bypass eder. 'loopback'
+    // yalnız nginx'e (127.0.0.1) güvenir; request.ip gerçek istemci IP'si olur.
+    trustProxy: "loopback",
   });
 
   // origin:true, isteğin kendi Origin header'ını yansıtır - nginx arkasında
@@ -79,6 +86,7 @@ export function buildApp() {
   // gövdesini ayrıştırır.
   app.register(formbody);
   app.register(redisPlugin);
+  app.register(loginRateLimitPlugin);
   app.register(errorHandlerPlugin);
   app.register(sessionPlugin);
   app.register(csrfPlugin);

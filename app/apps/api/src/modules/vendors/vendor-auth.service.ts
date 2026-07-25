@@ -128,7 +128,9 @@ export async function verifyVendorCredentials(input: VendorLoginInput) {
   const valid = await bcrypt.compare(input.password, vendor.passwordHash);
   if (!valid) throw new InvalidCredentialsError();
 
-  if (vendor.status === "banned") throw new VendorBannedError();
+  if (vendor.status === "banned" || vendor.status === "suspended") {
+    throw new VendorBannedError();
+  }
 
   return vendor;
 }

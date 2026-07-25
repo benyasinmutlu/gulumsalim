@@ -37,6 +37,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     const input = registerSchema.parse(request.body);
     try {
       const customer = await registerCustomer(input);
+      await request.session.regenerate(["cart", "vendorId", "adminId"]);
       request.session.customerId = customer.id;
       return reply.status(201).send(publicCustomer(customer));
     } catch (err) {
@@ -47,10 +48,11 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  app.post("/auth/login", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/auth/login", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const input = loginSchema.parse(request.body);
     try {
       const customer = await verifyCustomerCredentials(input);
+      await request.session.regenerate(["cart", "vendorId", "adminId"]);
       request.session.customerId = customer.id;
       return reply.send(publicCustomer(customer));
     } catch (err) {
