@@ -1,0 +1,17 @@
+build_info (canonical app/ tree):
+  source_commit: 86e6b83eec261055cf07461a8632bc42da9374cb
+  branch: release/production-canonical-reconcile
+  build_timestamp_utc: 2026-07-25T11:12:35Z
+  node_version: v24.13.1
+  pnpm_version: 9.15.0
+  go_version_required: 1.26.x (server has 1.26.5)
+  migration_head: 0032_third_justice.sql (33 migrations — PRESERVED)
+  artifact: gulumsalim-app-86e6b83.tar.gz
+  artifact_sha256: 74018729799f2e6cc1ad6f7a701d50ed795009ab50829ee891a24c9b65eca6e5
+  test_summary: app/ api 114 tests / 16 files pass; api tsc=0; web tsc=0; web build=0
+  ports_applied: discovery hardening, auth/session/rate-limit, payment callback
+    verification + idempotency (refunds preserved), discover v1 (flag-gated),
+    event contract, infra hardening
+  preserved_features: forgot/reset password, SMTP mailer, customer+admin refunds,
+    individual seller / 2nd-hand, site feedback, vendor complaints, shipping,
+    vendor categories, 33-migration schema
