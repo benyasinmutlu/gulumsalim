@@ -1,6 +1,8 @@
 [Unit]
 Description=Meilisearch
 After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -14,9 +16,30 @@ EnvironmentFile=/etc/gulumsalim/meilisearch.env
 ExecStart=/usr/local/bin/meilisearch
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=15
 MemoryMax=700M
-PrivateTmp=true
+
+# --- Sandbox hardening (CLAUDE-012) ---
 NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectKernelLogs=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Meilisearch veritabanını buraya yazar; strict altında yazılabilir kalmalı.
+ReadWritePaths=/var/lib/meilisearch
 
 [Install]
 WantedBy=multi-user.target

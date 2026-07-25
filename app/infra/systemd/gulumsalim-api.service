@@ -2,6 +2,8 @@
 Description=Gulum Salim API (Fastify)
 After=network.target postgresql.service valkey.service
 Wants=postgresql.service valkey.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -12,10 +14,30 @@ EnvironmentFile=/opt/gulumsalim/app/apps/api/.env
 ExecStart=/opt/gulumsalim/app/apps/api/node_modules/.bin/tsx src/server.ts
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=15
 MemoryMax=400M
-PrivateTmp=true
+
+# --- Sandbox hardening (CLAUDE-012) ---
 NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
 ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectKernelLogs=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Ürün görselleri buraya yazılır (sharp). MemoryDenyWriteExecute BİLİNÇLİ
+# olarak yok — V8 JIT W^X'i bozar.
 ReadWritePaths=/opt/gulumsalim/uploads
 
 [Install]
