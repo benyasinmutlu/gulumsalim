@@ -28,6 +28,8 @@ import adminPromoBannersRoutes from "./modules/admin/admin-promo-banners.routes"
 import adminHomepageSectionsRoutes from "./modules/admin/admin-homepage-sections.routes";
 import contentRoutes from "./modules/content/content.routes";
 import discoveryRoutes from "./modules/discovery/discovery.routes";
+import discoverV1Routes from "./modules/recommendation/discover/discover.v1.routes";
+import { buildProductionDiscoverRuntime } from "./modules/recommendation/discover/discover.repository";
 import reviewsRoutes from "./modules/reviews/reviews.routes";
 import vendorReviewsRoutes from "./modules/reviews/vendor-reviews.routes";
 import adminReviewsRoutes from "./modules/admin/admin-reviews.routes";
@@ -112,6 +114,12 @@ export function buildApp() {
   app.register(adminHomepageSectionsRoutes);
   app.register(contentRoutes);
   app.register(discoveryRoutes);
+  // Personalized Discover v1 — flag arkasında (varsayılan KAPALI). Mevcut Go
+  // /discover davranışını değiştirmez; yalnız DISCOVER_V1_ENABLED=true iken
+  // /v1/discover ek endpoint'i açılır (allowlist/test hesabı ile doğrulama).
+  if (process.env.DISCOVER_V1_ENABLED === "true") {
+    app.register(discoverV1Routes, { runtime: buildProductionDiscoverRuntime() });
+  }
   app.register(reviewsRoutes);
   app.register(vendorReviewsRoutes);
   app.register(adminReviewsRoutes);
