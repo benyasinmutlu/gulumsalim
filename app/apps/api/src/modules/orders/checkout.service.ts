@@ -20,6 +20,7 @@ import {
   markOrderPaymentFailed,
   setOrderPaymentRef,
 } from "./order.repository";
+import { isVerifiedSuccessfulPayment } from "./order-security";
 
 export { InsufficientStockError };
 
@@ -196,7 +197,21 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
   }
 
   if (result.paymentStatus === "SUCCESS") {
-    await markOrderPaid(order.id, result.paymentId);
+    // Callback tutar + token doğrulaması: iyzico'dan server-to-server alınan
+    // sonuç, siparişin paymentRef'i/numarası ve tutarlarıyla (BigInt kuruş)
+    // birebir eşleşmeli. Tamper edilmiş/yanlış-tutarlı "success" reddedilir.
+    if (!isVerifiedSuccessfulPayment(result, order)) {
+      app.log.warn({ orderId: order.id }, "Ödeme sağlayıcı sonucu bekleyen siparişle eşleşmedi");
+      return { orderNumber: order.orderNumber, success: false };
+    }
+
+    // Koşullu geçiş (pending -> paid) yalnız BİR çağrıda başarılı olur;
+    // event/bildirim üretimi buna bağlanır → eşzamanlı/tekrarlı callback'te
+    // satın alma event'leri ve satıcı bildirimleri tekrar üretilmez.
+    const transitioned = await markOrderPaid(order.id, result.paymentId);
+    if (!transitioned) {
+      return { orderNumber: order.orderNumber, success: true };
+    }
 
     // Satın alma, en güçlü davranışsal sinyal (bkz. discovery servisi
     // ağırlıkları) - her sipariş kalemi için ayrı bir event yayınlanır,

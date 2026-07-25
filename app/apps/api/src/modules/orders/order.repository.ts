@@ -164,11 +164,17 @@ export async function findOrderByPaymentRef(paymentRef: string) {
   return row ?? null;
 }
 
-export async function markOrderPaid(orderId: number, paymentTransactionId?: string) {
-  await db
+// Koşullu geçiş: yalnız 'pending' -> 'paid'. RETURNING ile kaç satırın
+// gerçekten geçtiğini döndürür. Bu, eşzamanlı/tekrarlı callback'lerde
+// (TOCTOU) satın alma event'lerinin ve satıcı bildirimlerinin YALNIZCA BİR
+// KEZ üretilmesini garanti eder (bkz. checkout.service handlePaymentCallback).
+export async function markOrderPaid(orderId: number, paymentTransactionId?: string): Promise<boolean> {
+  const transitioned = await db
     .update(orders)
     .set({ status: "processing", paymentStatus: "paid", paymentTransactionId })
-    .where(eq(orders.id, orderId));
+    .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")))
+    .returning({ id: orders.id });
+  return transitioned.length === 1;
 }
 
 // İdempotent: webhook/callback aynı token için birden fazla kez tetiklense
@@ -177,7 +183,9 @@ export async function markOrderPaid(orderId: number, paymentTransactionId?: stri
 export async function markOrderPaymentFailed(orderId: number) {
   await db.transaction(async (tx) => {
     const [order] = await tx.select({ paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, orderId)).limit(1);
-    if (!order || order.paymentStatus === "failed") return;
+    // Yalnız 'pending' -> 'failed'. Zaten 'paid' bir sipariş asla failed
+    // yapılmaz (ve stoğu ikinci kez geri yüklenmez); zaten 'failed' ise no-op.
+    if (!order || order.paymentStatus !== "pending") return;
     await tx.update(orders).set({ paymentStatus: "failed" }).where(eq(orders.id, orderId));
     await restoreOrderItemStock(tx, orderId);
   });
