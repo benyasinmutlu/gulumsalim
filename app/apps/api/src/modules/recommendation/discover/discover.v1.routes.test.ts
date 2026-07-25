@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CatalogPort, CatalogProduct } from "./candidates";
 import discoverV1Routes from "./discover.v1.routes";
 import {
@@ -11,6 +11,20 @@ import {
 } from "./runtime";
 
 const NOW = 1_700_000_000_000;
+
+// Bu testler v1'in cohort'ta çalıştığını doğrular → rollout flag'lerini aç
+// (allowlist/percent mantığı ayrıca eligibility.test.ts'te test edilir).
+const SAVED_ENV = { ...process.env };
+beforeAll(() => {
+  process.env.DISCOVER_V1_ENABLED = "true";
+  process.env.DISCOVER_V1_ROLLOUT_PERCENT = "100";
+  process.env.DISCOVER_V1_ANONYMOUS_ENABLED = "true";
+});
+afterAll(() => {
+  process.env.DISCOVER_V1_ENABLED = SAVED_ENV.DISCOVER_V1_ENABLED;
+  process.env.DISCOVER_V1_ROLLOUT_PERCENT = SAVED_ENV.DISCOVER_V1_ROLLOUT_PERCENT;
+  process.env.DISCOVER_V1_ANONYMOUS_ENABLED = SAVED_ENV.DISCOVER_V1_ANONYMOUS_ENABLED;
+});
 
 function product(id: number, vendorId: number, categoryId: number, over: Partial<CatalogProduct> = {}): CatalogProduct {
   return {

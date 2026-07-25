@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { ALGORITHM_VERSION, type DiscoverRequest, type DiscoverSurface } from "./contract";
 import { cacheHeadersFor, runDiscoverV1, type DiscoverRuntime } from "./runtime";
+import { isEligibleForDiscoverV1, parseDiscoverFlags } from "./eligibility";
 
 // =============================================================================
 // GET /v1/discover (FAZ 3) — kişiye özel keşfet akışı. Kimlik DAİMA server-side
@@ -40,6 +41,25 @@ const discoverV1Routes: FastifyPluginAsync<DiscoverV1Options> = async (app, opts
     const stableId = customerId != null ? `c:${customerId}` : `s:${sessionId}`;
     const variant = runtime.experiment.variant(EXPERIMENT_ID, stableId);
 
+    // Rollout kapısı: global flag + müşteri allowlist + yüzdelik + anonim flag.
+    // Cohort dışındaki kullanıcı v1 ALMAZ — boş fallback döner, web mevcut
+    // (legacy) /discover'a düşer. Böylece v1 yalnız seçili kohortta çalışır.
+    const flags = parseDiscoverFlags(process.env);
+    if (!isEligibleForDiscoverV1({ customerId, stableId }, flags)) {
+      reply.header("Cache-Control", "private, no-store");
+      return reply.send({
+        requestId: "not-in-cohort",
+        algorithmVersion: ALGORITHM_VERSION,
+        sections: [],
+        cursor: null,
+        fallbackUsed: true,
+        cacheable: false,
+        eligible: false,
+        experimentId: EXPERIMENT_ID,
+        treatment: "control",
+      });
+    }
+
     const req: DiscoverRequest = {
       customerId,
       sessionId,
@@ -57,7 +77,7 @@ const discoverV1Routes: FastifyPluginAsync<DiscoverV1Options> = async (app, opts
       reply.headers(cacheHeadersFor(res));
       // Public yanıtta iç scoring ağırlıkları / profil vektörü / Redis key'leri
       // BULUNMAZ (DiscoverResponse yapısı bunları içermez — leak by construction).
-      return reply.send({ ...res, experimentId: EXPERIMENT_ID, treatment: variant });
+      return reply.send({ ...res, eligible: true, experimentId: EXPERIMENT_ID, treatment: variant });
     } catch (err) {
       // Kaynakların tümü başarısız olsa bile ana sayfa çökmez — güvenli boş yanıt.
       request.log.warn({ err }, "v1 discover akışı alınamadı");
