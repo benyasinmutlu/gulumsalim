@@ -1,6 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { products, vendors } from "../../db/schema/index";
+import { outer } from "../../lib/sql-helpers";
 
 type VendorStatus = "pending" | "active" | "suspended" | "banned";
 
@@ -14,8 +15,10 @@ export async function listVendorsByStatus(status?: VendorStatus) {
       fullName: vendors.fullName,
       phone: vendors.phone,
       status: vendors.status,
+      isVerified: vendors.isVerified,
       createdAt: vendors.createdAt,
-      productCount: sql<number>`(SELECT COUNT(*) FROM ${products} WHERE ${products.vendorId} = ${vendors.id})`,
+      commissionRate: vendors.commissionRate,
+      productCount: sql<number>`(SELECT COUNT(*) FROM ${products} WHERE ${products.vendorId} = ${outer(vendors.id)})`,
     })
     .from(vendors)
     .orderBy(desc(vendors.createdAt));
@@ -35,7 +38,32 @@ async function findVendorProductCount(vendorId: number) {
 }
 
 export async function updateVendorStatus(vendorId: number, status: Exclude<VendorStatus, "pending">) {
-  const [row] = await db.update(vendors).set({ status }).where(eq(vendors.id, vendorId)).returning();
+  const [row] = await db
+    .update(vendors)
+    .set({ status })
+    .where(eq(vendors.id, vendorId))
+    .returning({
+      id: vendors.id,
+      storeName: vendors.storeName,
+      storeSlug: vendors.storeSlug,
+      email: vendors.email,
+      fullName: vendors.fullName,
+      phone: vendors.phone,
+      status: vendors.status,
+      createdAt: vendors.createdAt,
+    });
+  return row ?? null;
+}
+
+// bkz. kullanıcı isteği: "her satıcıya admin üzerinden farklı komisyon
+// oranları belirlenebilecek" - null, platform varsayılanına dönmek
+// (vendors.commissionRate sütununu NULL yapmak) için kullanılır.
+export async function updateVendorCommission(vendorId: number, commissionRate: number | null) {
+  const [row] = await db
+    .update(vendors)
+    .set({ commissionRate: commissionRate === null ? null : commissionRate.toFixed(2) })
+    .where(eq(vendors.id, vendorId))
+    .returning({ id: vendors.id, commissionRate: vendors.commissionRate });
   return row ?? null;
 }
 

@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import type { VendorProfile } from "@/lib/types";
 import VendorLogoutButton from "./logout-button";
+import VendorSidebarNav from "./sidebar-nav";
+import VendorSidebarToggle from "./sidebar-toggle";
+import "./satici.css";
 
 async function getVendor(): Promise<VendorProfile | null> {
   try {
@@ -19,40 +21,74 @@ const STATUS_LABEL: Record<VendorProfile["status"], string> = {
   banned: "Yasaklı",
 };
 
+// gulumsalim.com'daki vendor/boot.php içindeki vendorSidebar()'ın birebir
+// karşılığı: sabit sol sidebar + üst topbar.
 export default async function VendorPanelLayout({ children }: { children: React.ReactNode }) {
   const vendor = await getVendor();
   if (!vendor) redirect("/satici/giris");
 
   return (
-    <main className="container" style={{ paddingBlock: "2.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: "0.5rem" }}>
-        <h1 style={{ fontSize: "1.3rem" }}>{vendor.storeName}</h1>
-        <div style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}>
-          <span className="badge">{STATUS_LABEL[vendor.status]}</span>
+    <>
+      <aside className="sidebar" id="vendorSidebar">
+        <div className="sidebar-logo">
+          <div className="logo-icon">
+            {vendor.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={vendor.logo} alt={vendor.storeName} />
+            ) : (
+              "🌸"
+            )}
+          </div>
+          <div className="logo-text">
+            <span>{vendor.storeName}</span>
+            <small>Satıcı Paneli</small>
+          </div>
+        </div>
+        <VendorSidebarNav />
+        <div className="sidebar-footer">
+          <div className="avatar">
+            {vendor.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={vendor.logo} alt={vendor.storeName} />
+            ) : (
+              vendor.storeName.charAt(0).toUpperCase()
+            )}
+          </div>
+          <div className="vendor-info">
+            <strong>{vendor.storeName}</strong>
+            <small>{vendor.email}</small>
+          </div>
           <VendorLogoutButton />
         </div>
-      </div>
+      </aside>
 
-      {vendor.status === "pending" && (
-        <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", opacity: 0.75 }}>
-          Mağazanız admin onayı bekliyor. Bu süre boyunca ürün ekleyebilirsiniz ama hiçbiri herkese açık sitede
-          görünmeyecek.
-        </p>
-      )}
-      {vendor.status === "suspended" && (
-        <p style={{ marginTop: "0.75rem", fontSize: "0.9rem", color: "#d92d20" }}>
-          Mağazanız şu anda askıya alınmış durumda, ürünleriniz sitede görünmüyor.
-        </p>
-      )}
-
-      <nav className="panel-nav" style={{ marginTop: "1.5rem" }}>
-        <Link href="/satici/panel">Genel Bakış</Link>
-        <Link href="/satici/panel/urunler">Ürünler</Link>
-        <Link href="/satici/panel/siparisler">Siparişler</Link>
-        <Link href="/satici/panel/finans">Finans</Link>
-      </nav>
-
-      {children}
-    </main>
+      <main className="main">
+        <div className="topbar">
+          <VendorSidebarToggle />
+          <div className="topbar-title">{vendor.storeName}</div>
+          <span className={`st st-${vendor.status === "active" ? "success" : vendor.status === "pending" ? "warn" : "danger"}`}>
+            {STATUS_LABEL[vendor.status]}
+          </span>
+          <a href={`/${vendor.storeSlug}`} target="_blank" className="topbar-icon" title="Mağazamı Gör">
+            <i className="fas fa-external-link-alt" />
+          </a>
+        </div>
+        <div className="content">
+          {vendor.status === "pending" && (
+            <div className="alert alert-wa">
+              <i className="fas fa-triangle-exclamation" /> Mağazanız admin onayı bekliyor. Bu süre boyunca ürün
+              ekleyebilirsiniz ama hiçbiri herkese açık sitede görünmeyecek.
+            </div>
+          )}
+          {vendor.status === "suspended" && (
+            <div className="alert alert-er">
+              <i className="fas fa-triangle-exclamation" /> Mağazanız şu anda askıya alınmış durumda, ürünleriniz
+              sitede görünmüyor.
+            </div>
+          )}
+          {children}
+        </div>
+      </main>
+    </>
   );
 }

@@ -2,6 +2,8 @@
 Description=Gulum Salim Web (Next.js)
 After=network.target gulumsalim-api.service
 Wants=gulumsalim-api.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -12,10 +14,32 @@ EnvironmentFile=/opt/gulumsalim/app/apps/web/.env.local
 ExecStart=/opt/gulumsalim/app/apps/web/node_modules/.bin/next start -p 3001
 Restart=on-failure
 RestartSec=3
+TimeoutStopSec=15
 MemoryMax=400M
-PrivateTmp=true
+
+# --- Sandbox hardening (CLAUDE-012) ---
 NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
 ProtectSystem=strict
+ProtectHome=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectKernelLogs=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Next.js ISR revalidation runtime'da .next/cache'e yazar. ProtectSystem=strict
+# altında bu yol yazılabilir olmalı — aksi halde ISR sessizce başarısız olur
+# (mevcut unit'te eksikti, potansiyel latent hata — CLAUDE-012 notu).
+ReadWritePaths=/opt/gulumsalim/app/apps/web/.next
 
 [Install]
 WantedBy=multi-user.target

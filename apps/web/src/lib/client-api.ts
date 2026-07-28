@@ -29,7 +29,14 @@ export async function mutateJson<T>(path: string, method: "POST" | "PATCH" | "DE
     method,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      // Content-Type sadece gerçekten bir gövde varsa gönderilir - Fastify'ın
+      // varsayılan JSON body parser'ı, content-type application/json ama
+      // gövde boşken "Body cannot be empty when content-type is set to
+      // 'application/json'" hatasıyla 400 döndürüyor. Bu, gövdesiz her
+      // POST/DELETE çağrısını (banner onayla, mağaza takip et, sayısız
+      // "sil" butonu) sessizce kırıyordu - handler hiç çalışmadan istek
+      // reddediliyordu.
+      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       "x-csrf-token": csrfToken,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -64,6 +71,19 @@ export async function uploadFile<T>(path: string, file: File): Promise<T> {
   }
 
   return res.json() as Promise<T>;
+}
+
+// admin/promo-banners.php'deki tıklama takibinin karşılığı - kimlik/CSRF
+// gerekmez (misafir de tıklayabilir), navigasyonu bloklamaması için sonucu
+// beklenmez.
+export function trackPromoBannerClick(bannerId: number) {
+  fetch(`/api/promo-banners/${bannerId}/click`, { method: "POST", keepalive: true }).catch(() => {});
+}
+
+// bkz. kullanıcı isteği: "kampanyalarına kaç kişi baktı" - bkz.
+// components/promo-banner-impression.tsx.
+export function trackPromoBannerView(bannerId: number) {
+  fetch(`/api/promo-banners/${bannerId}/view`, { method: "POST", keepalive: true }).catch(() => {});
 }
 
 export async function fetchJson<T>(path: string): Promise<T> {

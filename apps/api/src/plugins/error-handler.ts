@@ -8,20 +8,18 @@ import { ZodError } from "zod";
 const errorHandlerPlugin: FastifyPluginAsync = async (app) => {
   app.setErrorHandler((error: FastifyError | ZodError, request, reply) => {
     if (error instanceof ZodError) {
-      reply.status(400).send({
+      return reply.status(400).send({
         error: { message: "Geçersiz istek", details: error.flatten() },
       });
-      return;
     }
 
     const statusCode = error.statusCode ?? 500;
     if (statusCode >= 500) {
       request.log.error(error);
-      reply.status(statusCode).send({ error: { message: "Sunucu hatası" } });
-      return;
+      return reply.status(statusCode).send({ error: { message: "Sunucu hatası" } });
     }
 
-    reply.status(statusCode).send({ error: { message: error.message } });
+    return reply.status(statusCode).send({ error: { message: error.message } });
   });
 };
 

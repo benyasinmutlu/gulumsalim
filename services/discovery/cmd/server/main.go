@@ -47,9 +47,16 @@ func main() {
 	go ingest.RunDecayLoop(ctx, redisStore, time.Hour)
 
 	router := api.NewRouter(cfg, redisStore, pgStore)
+	// Timeout'lar Slowloris ve asılı bağlantılara karşı zorunlu: timeout'suz
+	// http.Server yavaş-header saldırısında goroutine/FD tüketir (CLAUDE-004).
 	server := &http.Server{
-		Addr:    "127.0.0.1:" + cfg.Port,
-		Handler: router,
+		Addr:              "127.0.0.1:" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {

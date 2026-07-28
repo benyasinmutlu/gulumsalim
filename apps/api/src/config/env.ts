@@ -21,10 +21,18 @@ const envSchema = z.object({
   IYZICO_BASE_URL: z.string().url(),
 
   // iyzico'nun ödeme sonucu POST-back yapacağı, dışarıdan erişilebilir tam
-  // origin (örn. https://www.ylina.life). Callback URL'i bunu kullanır.
+  // origin (örn. https://www.gulumsalim.com). Callback URL'i bunu kullanır.
   SITE_URL: z.string().url(),
 
   UPLOADS_DIR: z.string().default("./uploads"),
+
+  // Sifremi unuttum e-postalari icin (bkz. lib/mailer.ts) - info@gulumsalim.com
+  // kutusu uzerinden STARTTLS ile gonderiliyor.
+  SMTP_HOST: z.string().min(1),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().min(1),
+  SMTP_PASS: z.string().min(1),
+  SMTP_FROM: z.string().min(1),
 });
 
 // Parsed once at boot. Fails fast with a readable error if the environment

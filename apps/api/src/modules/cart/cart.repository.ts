@@ -12,6 +12,7 @@ export async function fetchProductsForCart(productIds: number[]) {
       basePrice: products.basePrice,
       status: products.status,
       vendorStatus: vendors.status,
+      freeShipping: products.freeShipping,
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))

@@ -4,18 +4,17 @@ import { createPageSchema, pageIdParamsSchema, updatePageSchema } from "./admin-
 
 const adminPagesRoutes: FastifyPluginAsync = async (app) => {
   app.get("/admin/pages", { preHandler: app.requireAdmin }, async (_request, reply) => {
-    reply.send(await listPages());
+    return reply.send(await listPages());
   });
 
   app.post("/admin/pages", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const input = createPageSchema.parse(request.body);
     const existing = await findPageBySlug(input.slug);
     if (existing) {
-      reply.status(409).send({ error: { message: "Bu sayfa adresi zaten kullanılıyor" } });
-      return;
+      return reply.status(409).send({ error: { message: "Bu sayfa adresi zaten kullanılıyor" } });
     }
     const page = await insertPage(input);
-    reply.status(201).send(page);
+    return reply.status(201).send(page);
   });
 
   app.patch("/admin/pages/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
@@ -25,27 +24,24 @@ const adminPagesRoutes: FastifyPluginAsync = async (app) => {
     if (input.slug) {
       const existing = await findPageBySlug(input.slug);
       if (existing && existing.id !== id) {
-        reply.status(409).send({ error: { message: "Bu sayfa adresi zaten kullanılıyor" } });
-        return;
+        return reply.status(409).send({ error: { message: "Bu sayfa adresi zaten kullanılıyor" } });
       }
     }
 
     const updated = await updatePage(id, input);
     if (!updated) {
-      reply.status(404).send({ error: { message: "Sayfa bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Sayfa bulunamadı" } });
     }
-    reply.send(updated);
+    return reply.send(updated);
   });
 
   app.delete("/admin/pages/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { id } = pageIdParamsSchema.parse(request.params);
     const deleted = await deletePage(id);
     if (!deleted) {
-      reply.status(404).send({ error: { message: "Sayfa bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Sayfa bulunamadı" } });
     }
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 };
 

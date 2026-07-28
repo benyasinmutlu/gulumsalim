@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { orderItems, vendorEarnings, vendors } from "../../db/schema/index";
+import { recomputeOrderStatus } from "../orders/order.repository";
 import { findVendorOrderItem, updateVendorOrderItemStatus } from "./vendor-orders.repository";
 
 export type OrderItemStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled";
@@ -23,7 +24,7 @@ export function isTransitionAllowed(current: OrderItemStatus, next: OrderItemSta
 
 // vendors.commissionRate ayarlanmamışsa (null) kullanılan platform
 // varsayılan komisyon oranı (%).
-const DEFAULT_COMMISSION_RATE = 10;
+const DEFAULT_COMMISSION_RATE = 5;
 
 export function calculateEarning(total: string, commissionRatePercent: number | null) {
   const rate = commissionRatePercent ?? DEFAULT_COMMISSION_RATE;
@@ -40,7 +41,14 @@ export function calculateEarning(total: string, commissionRatePercent: number | 
 export class OrderItemNotFoundError extends Error {}
 export class InvalidStatusTransitionError extends Error {}
 
-export async function transitionOrderItemStatus(vendorId: number, orderItemId: number, nextStatus: Status) {
+export class MissingTrackingInfoError extends Error {}
+
+export async function transitionOrderItemStatus(
+  vendorId: number,
+  orderItemId: number,
+  nextStatus: Status,
+  tracking?: { carrier: string; number: string },
+) {
   const item = await findVendorOrderItem(vendorId, orderItemId);
   if (!item) throw new OrderItemNotFoundError();
 
@@ -48,19 +56,29 @@ export async function transitionOrderItemStatus(vendorId: number, orderItemId: n
     throw new InvalidStatusTransitionError(`"${item.vendorStatus}" durumundan "${nextStatus}" durumuna geçilemez`);
   }
 
-  if (nextStatus === "delivered") {
-    return markDeliveredAndCreditEarning(vendorId, item.id, item.total);
+  // bkz. kullanıcı isteği: "satıcı takip kodunu sisteme girecek" - zod
+  // şeması (vendor-orders.schemas.ts) bunu HTTP gövdesi seviyesinde zaten
+  // zorunlu kılıyor, burdaki kontrol servis fonksiyonunun doğrudan
+  // çağrıldığı (ör. test) durumlar için ikinci bir güvenlik katmanı.
+  if (nextStatus === "shipped" && (!tracking?.carrier || !tracking?.number)) {
+    throw new MissingTrackingInfoError();
   }
 
-  return updateVendorOrderItemStatus(vendorId, orderItemId, nextStatus as Exclude<Status, "pending">);
+  if (nextStatus === "delivered") {
+    return markDeliveredAndCreditEarning(vendorId, item.id, item.orderId, item.total);
+  }
+
+  return updateVendorOrderItemStatus(vendorId, orderItemId, nextStatus as Exclude<Status, "pending">, tracking);
 }
 
 // Kazanç, teslimat onaylandığı anda cüzdana geçer (iade/anlaşmazlık riskini
-// azaltmak için ödeme anında değil) - kalem durumu, kazanç kaydı ve cüzdan
-// bakiyesi güncellemesi tek transaction'da, ya hep ya hiç yazılır.
-// vendor_earnings.order_item_id UNIQUE olduğu için aynı kalem yanlışlıkla
-// iki kez "delivered"a alınsa bile çifte kazanç kredisi imkansızdır.
-async function markDeliveredAndCreditEarning(vendorId: number, orderItemId: number, total: string) {
+// azaltmak için ödeme anında değil) - kalem durumu, kazanç kaydı, cüzdan
+// bakiyesi güncellemesi ve genel sipariş durumunun yeniden hesaplanması
+// (bkz. order.repository.ts recomputeOrderStatus) tek transaction'da,
+// ya hep ya hiç yazılır. vendor_earnings.order_item_id UNIQUE olduğu için
+// aynı kalem yanlışlıkla iki kez "delivered"a alınsa bile çifte kazanç
+// kredisi imkansızdır.
+async function markDeliveredAndCreditEarning(vendorId: number, orderItemId: number, orderId: number, total: string) {
   return db.transaction(async (tx) => {
     const [updatedItem] = await tx
       .update(orderItems)
@@ -83,6 +101,8 @@ async function markDeliveredAndCreditEarning(vendorId: number, orderItemId: numb
       .update(vendors)
       .set({ walletBalance: sql`${vendors.walletBalance} + ${earning.netAmount}` })
       .where(eq(vendors.id, vendorId));
+
+    await recomputeOrderStatus(tx, orderId);
 
     return updatedItem;
   });

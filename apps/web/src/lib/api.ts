@@ -36,3 +36,17 @@ export async function apiFetchJson<T>(path: string, init?: RequestInit): Promise
   }
   return res.json() as Promise<T>;
 }
+
+// apiFetch'in aksine cookies() OKUMAZ - kimlik doğrulaması gerektirmeyen,
+// tamamen herkese açık uçlar için (ör. site-settings). Root layout gibi
+// TÜM sayfaları saran yerlerde apiFetch kullanmak, cookies() çağrısı
+// yüzünden bütün siteyi statik render'dan dinamiğe düşürüyordu - bu,
+// çerezden bağımsız olduğu için o sorunu yaşamıyor.
+export async function publicFetchJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(res.status, body?.error?.message ?? "API isteği başarısız oldu");
+  }
+  return res.json() as Promise<T>;
+}

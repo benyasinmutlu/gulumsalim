@@ -1,0 +1,82 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { ClientApiError, mutateJson } from "@/lib/client-api";
+import type { VendorProfile } from "@/lib/types";
+import ConsentModal from "@/components/consent-modal";
+import ConsentDocumentCard from "@/components/consent-document-card";
+
+const VENDOR_CONSENT_SLUGS = ["satici-uyelik-sozlesmesi", "satici-komisyon-politikasi", "yasakli-urunler-politikasi", "kvkk"];
+
+// bkz. kullanıcı isteği: "bireysel olarak müşteri olarak kayıt olan
+// kişilerde satış yapabilsin 2. el ürün letgo dolap gibi" - admin onayı
+// beklemeden, ayrı bir satıcı girişi yapmadan bireysel satıcı hesabı açılır
+// ve doğrudan ürün ekleme sayfasına yönlendirilir. Mesafeli Satış
+// Sözleşmesi'nin satıcı bloğu için Vergi No/TCKN + adres ve satıcı
+// belgelerinin onayı zorunlu olduğundan (bkz. vendor-auth.schemas.ts
+// becomeIndividualSellerSchema) artık tek tık değil, küçük bir form var.
+export default function BecomeSellerButton() {
+  const router = useRouter();
+  const [expanded, setExpanded] = useState(false);
+  const [taxId, setTaxId] = useState("");
+  const [legalAddress, setLegalAddress] = useState("");
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!consentAccepted) {
+      setError("Devam etmek için satıcı belgelerini kabul etmelisiniz");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await mutateJson<VendorProfile>("/my/become-individual-seller", "POST", { taxId, legalAddress, consentAccepted });
+      router.push("/satici/panel/urunler/yeni");
+    } catch (err) {
+      setError(err instanceof ClientApiError ? err.message : "Bir şeyler ters gitti, tekrar deneyin");
+      setLoading(false);
+    }
+  }
+
+  if (!expanded) {
+    return (
+      <button type="button" className="btn btn-primary btn-lg" onClick={() => setExpanded(true)}>
+        Hemen Satışa Başla
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
+      <label style={{ fontSize: 13, fontWeight: 600 }}>
+        Vergi No / TCKN
+        <input className="form-control" required value={taxId} onChange={(e) => setTaxId(e.target.value)} style={{ marginTop: 6 }} />
+      </label>
+      <label style={{ fontSize: 13, fontWeight: 600 }}>
+        Adres
+        <input className="form-control" required value={legalAddress} onChange={(e) => setLegalAddress(e.target.value)} style={{ marginTop: 6 }} />
+      </label>
+      <ConsentDocumentCard
+        label="Satıcı Sözleşmesi, Komisyon Politikası, Yasaklı Ürünler Politikası ve KVKK"
+        accepted={consentAccepted}
+        onOpen={() => setConsentModalOpen(true)}
+      />
+      <ConsentModal
+        open={consentModalOpen}
+        onClose={() => setConsentModalOpen(false)}
+        onAccept={() => setConsentAccepted(true)}
+        title="Satıcı Belgeleri"
+        slugs={VENDOR_CONSENT_SLUGS}
+      />
+      {error && <p className="error-text" style={{ fontSize: 12 }}>{error}</p>}
+      <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+        {loading ? "Hazırlanıyor..." : "Onayla ve Başla"}
+      </button>
+    </form>
+  );
+}

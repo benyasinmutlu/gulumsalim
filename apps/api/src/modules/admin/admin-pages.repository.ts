@@ -11,13 +11,16 @@ export async function findPageBySlug(slug: string) {
   return row ?? null;
 }
 
-export async function insertPage(data: { slug: string; title: string; content: string }) {
+export async function insertPage(data: { slug: string; title: string; content: string; showInFooter?: boolean; sortOrder?: number }) {
   const [row] = await db.insert(pages).values(data).returning();
   if (!row) throw new Error("Sayfa oluşturulamadı");
   return row;
 }
 
-export async function updatePage(id: number, data: Partial<{ slug: string; title: string; content: string }>) {
+export async function updatePage(
+  id: number,
+  data: Partial<{ slug: string; title: string; content: string; showInFooter: boolean; sortOrder: number }>,
+) {
   const [row] = await db
     .update(pages)
     .set({ ...data, updatedAt: new Date() })

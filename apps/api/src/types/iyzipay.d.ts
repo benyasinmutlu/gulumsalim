@@ -10,5 +10,8 @@ declare module "iyzipay" {
     checkoutForm: {
       retrieve(request: Record<string, unknown>, callback: (err: Error | null, result: unknown) => void): void;
     };
+    refundV2: {
+      create(request: Record<string, unknown>, callback: (err: Error | null, result: unknown) => void): void;
+    };
   }
 }

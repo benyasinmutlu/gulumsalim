@@ -1,30 +1,47 @@
 import { FastifyPluginAsync } from "fastify";
+import { removeProductFromIndex, syncProductToIndex } from "../catalog/search-index.service";
 import { InvalidImageError, saveProductImage } from "./image-upload.service";
+import { getCartCounts } from "../../lib/cart-product-index";
 import {
   deleteProductImageById,
+  deleteProductVariant,
   deleteVendorProduct,
   findProductBySlugAnyVendor,
   findProductImageOwnedByVendor,
+  findVariantOwnedByVendor,
   findVendorProduct,
   insertProductImage,
+  insertProductVariant,
   insertVendorProduct,
   listProductImages,
+  listProductVariants,
   listVendorProducts,
+  setPrimaryProductImage,
+  updateProductVariant,
   updateVendorProduct,
 } from "./vendor-products.repository";
-import { createProductSchema, productIdParamsSchema, productImageParamsSchema, updateProductSchema } from "./vendor-products.schemas";
+import {
+  createProductSchema,
+  createVariantSchema,
+  productIdParamsSchema,
+  productImageParamsSchema,
+  productVariantParamsSchema,
+  updateProductSchema,
+  updateVariantSchema,
+} from "./vendor-products.schemas";
 
 const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vendor/products", { preHandler: app.requireVendor }, async (request, reply) => {
-    reply.send(await listVendorProducts(request.session.vendorId!));
+    const rows = await listVendorProducts(request.session.vendorId!);
+    const cartCounts = await getCartCounts(app.redis, rows.map((r) => r.id));
+    return reply.send(rows.map((r) => ({ ...r, cartCount: cartCounts.get(r.id) ?? 0 })));
   });
 
   app.post("/vendor/products", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
     const input = createProductSchema.parse(request.body);
     const existingSlug = await findProductBySlugAnyVendor(input.slug);
     if (existingSlug) {
-      reply.status(409).send({ error: { message: "Bu ürün adresi zaten kullanılıyor" } });
-      return;
+      return reply.status(409).send({ error: { message: "Bu ürün adresi zaten kullanılıyor" } });
     }
 
     const product = await insertVendorProduct(request.session.vendorId!, {
@@ -32,10 +49,13 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       name: input.name,
       slug: input.slug,
       description: input.description,
+      brand: input.brand,
       basePrice: input.basePrice.toFixed(2),
       compareAtPrice: input.compareAtPrice?.toFixed(2),
+      isSecondHand: input.isSecondHand,
     });
-    reply.status(201).send(product);
+    syncProductToIndex(product.id).catch(() => {});
+    return reply.status(201).send(product);
   });
 
   app.patch("/vendor/products/:id", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
@@ -45,8 +65,7 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
     if (input.slug) {
       const existingSlug = await findProductBySlugAnyVendor(input.slug);
       if (existingSlug && existingSlug.id !== id) {
-        reply.status(409).send({ error: { message: "Bu ürün adresi zaten kullanılıyor" } });
-        return;
+        return reply.status(409).send({ error: { message: "Bu ürün adresi zaten kullanılıyor" } });
       }
     }
 
@@ -56,44 +75,41 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       compareAtPrice: input.compareAtPrice?.toFixed(2),
     });
     if (!updated) {
-      reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     }
-    reply.send(updated);
+    syncProductToIndex(id).catch(() => {});
+    return reply.send(updated);
   });
 
   app.delete("/vendor/products/:id", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
     const { id } = productIdParamsSchema.parse(request.params);
     const deleted = await deleteVendorProduct(request.session.vendorId!, id);
     if (!deleted) {
-      reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     }
-    reply.send({ ok: true });
+    removeProductFromIndex(id).catch(() => {});
+    return reply.send({ ok: true });
   });
 
   app.get("/vendor/products/:id/images", { preHandler: app.requireVendor }, async (request, reply) => {
     const { id } = productIdParamsSchema.parse(request.params);
     const product = await findVendorProduct(request.session.vendorId!, id);
     if (!product) {
-      reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     }
-    reply.send(await listProductImages(id));
+    return reply.send(await listProductImages(id));
   });
 
   app.post("/vendor/products/:id/images", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
     const { id } = productIdParamsSchema.parse(request.params);
     const product = await findVendorProduct(request.session.vendorId!, id);
     if (!product) {
-      reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     }
 
     const file = await request.file();
     if (!file) {
-      reply.status(400).send({ error: { message: "Dosya bulunamadı" } });
-      return;
+      return reply.status(400).send({ error: { message: "Dosya bulunamadı" } });
     }
     const buffer = await file.toBuffer();
 
@@ -101,11 +117,10 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       const url = await saveProductImage(request.session.vendorId!, buffer, file.mimetype);
       const existingImages = await listProductImages(id);
       const image = await insertProductImage(id, url, existingImages.length === 0, existingImages.length);
-      reply.status(201).send(image);
+      return reply.status(201).send(image);
     } catch (err) {
       if (err instanceof InvalidImageError) {
-        reply.status(400).send({ error: { message: err.message } });
-        return;
+        return reply.status(400).send({ error: { message: err.message } });
       }
       throw err;
     }
@@ -118,11 +133,85 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       const { imageId } = productImageParamsSchema.parse(request.params);
       const image = await findProductImageOwnedByVendor(request.session.vendorId!, imageId);
       if (!image) {
-        reply.status(404).send({ error: { message: "Görsel bulunamadı" } });
-        return;
+        return reply.status(404).send({ error: { message: "Görsel bulunamadı" } });
       }
       await deleteProductImageById(image.id);
-      reply.send({ ok: true });
+      return reply.send({ ok: true });
+    },
+  );
+
+  app.post(
+    "/vendor/products/:id/images/:imageId/primary",
+    { preHandler: [app.requireVendor, app.csrfProtection] },
+    async (request, reply) => {
+      const { id, imageId } = productImageParamsSchema.parse(request.params);
+      const image = await findProductImageOwnedByVendor(request.session.vendorId!, imageId);
+      if (!image) {
+        return reply.status(404).send({ error: { message: "Görsel bulunamadı" } });
+      }
+      await setPrimaryProductImage(id, imageId);
+      return reply.send({ ok: true });
+    },
+  );
+
+  app.get("/vendor/products/:id/variants", { preHandler: app.requireVendor }, async (request, reply) => {
+    const { id } = productIdParamsSchema.parse(request.params);
+    const product = await findVendorProduct(request.session.vendorId!, id);
+    if (!product) {
+      return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+    }
+    return reply.send(await listProductVariants(id));
+  });
+
+  app.post("/vendor/products/:id/variants", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
+    const { id } = productIdParamsSchema.parse(request.params);
+    const product = await findVendorProduct(request.session.vendorId!, id);
+    if (!product) {
+      return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+    }
+    const input = createVariantSchema.parse(request.body);
+    const variant = await insertProductVariant(id, {
+      sku: input.sku,
+      size: input.size,
+      color: input.color,
+      priceOverride: input.priceOverride?.toFixed(2),
+      stock: input.stock,
+    });
+    syncProductToIndex(id).catch(() => {});
+    return reply.status(201).send(variant);
+  });
+
+  app.patch(
+    "/vendor/products/:id/variants/:variantId",
+    { preHandler: [app.requireVendor, app.csrfProtection] },
+    async (request, reply) => {
+      const { id, variantId } = productVariantParamsSchema.parse(request.params);
+      const owned = await findVariantOwnedByVendor(request.session.vendorId!, variantId);
+      if (!owned) {
+        return reply.status(404).send({ error: { message: "Varyant bulunamadı" } });
+      }
+      const input = updateVariantSchema.parse(request.body);
+      const updated = await updateProductVariant(variantId, {
+        ...input,
+        priceOverride: input.priceOverride?.toFixed(2),
+      });
+      syncProductToIndex(id).catch(() => {});
+      return reply.send(updated);
+    },
+  );
+
+  app.delete(
+    "/vendor/products/:id/variants/:variantId",
+    { preHandler: [app.requireVendor, app.csrfProtection] },
+    async (request, reply) => {
+      const { id, variantId } = productVariantParamsSchema.parse(request.params);
+      const owned = await findVariantOwnedByVendor(request.session.vendorId!, variantId);
+      if (!owned) {
+        return reply.status(404).send({ error: { message: "Varyant bulunamadı" } });
+      }
+      await deleteProductVariant(variantId);
+      syncProductToIndex(id).catch(() => {});
+      return reply.send({ ok: true });
     },
   );
 };

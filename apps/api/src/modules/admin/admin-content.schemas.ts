@@ -6,22 +6,46 @@ import { z } from "zod";
 // tercih edildi.
 export const createSliderQuerySchema = z.object({
   linkUrl: z.string().optional(),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  buttonText: z.string().optional(),
+  textColor: z.string().optional(),
+  textPosition: z.enum(["left", "center", "right"]).optional(),
 });
 
 export const updateSliderSchema = z.object({
   linkUrl: z.string().optional(),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  buttonText: z.string().optional(),
+  textColor: z.string().optional(),
+  textPosition: z.enum(["left", "center", "right"]).optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.coerce.boolean().optional(),
 });
 
+const bannerAnimStyleSchema = z.enum(["none", "fade-up", "zoom-in", "slide-left", "fade"]);
+
 export const createPromoBannerQuerySchema = z.object({
   title: z.string().min(1),
   linkUrl: z.string().optional(),
+  linkType: z.enum(["url", "category", "vendor", "all_vendors", "collection"]).optional(),
+  animStyle: bannerAnimStyleSchema.optional(),
+  subtitle: z.string().optional(),
+  buttonText: z.string().optional(),
+  textColor: z.string().optional(),
+  rotateSeconds: z.coerce.number().int().positive().optional(),
 });
 
 export const updatePromoBannerSchema = z.object({
   title: z.string().min(1).optional(),
   linkUrl: z.string().optional(),
+  linkType: z.enum(["url", "category", "vendor", "all_vendors", "collection"]).optional(),
+  animStyle: bannerAnimStyleSchema.optional(),
+  subtitle: z.string().optional(),
+  buttonText: z.string().optional(),
+  textColor: z.string().optional(),
+  rotateSeconds: z.coerce.number().int().positive().optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.coerce.boolean().optional(),
 });

@@ -2,9 +2,9 @@ import fp from "fastify-plugin";
 import { FastifyPluginAsync } from "fastify";
 import cookie from "@fastify/cookie";
 import fastifySession from "@fastify/session";
-import RedisStore from "connect-redis";
 import { env } from "../config/env";
 import type { CartLine } from "../modules/cart/cart.types";
+import { RedisSessionStore } from "./redis-session-store";
 
 declare module "fastify" {
   interface Session {
@@ -25,10 +25,12 @@ declare module "fastify" {
 // silinirse erişimi anında kesilebilir (session store'dan tek satır
 // silmek yeterli) — stateless JWT bunu bir gölge kara liste olmadan
 // yapamazdı.
+const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
+
 const sessionPlugin: FastifyPluginAsync = async (app) => {
   await app.register(cookie);
 
-  const store = new RedisStore({ client: app.redis, prefix: "sess:" });
+  const store = new RedisSessionStore(app.redis, "sess:", SESSION_MAX_AGE_MS / 1000);
 
   await app.register(fastifySession, {
     store,
@@ -38,7 +40,7 @@ const sessionPlugin: FastifyPluginAsync = async (app) => {
       httpOnly: true,
       secure: env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24 * 30,
+      maxAge: SESSION_MAX_AGE_MS,
     },
   });
 };

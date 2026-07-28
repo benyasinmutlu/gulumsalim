@@ -1,0 +1,116 @@
+# =============================================================================
+# PRODUCTION TLS TEMPLATE (CLAUDE-001) — gulumsalim.prod-tls.conf.template
+# =============================================================================
+# Bu bir ŞABLONdur; local/dev'i bozmamak için mevcut `gulumsalim.conf`
+# (yalnız :80) ile YER DEĞİŞTİRMEZ. Production'a geçerken:
+#   1) certbot ile sertifika al (aşağıdaki ACME bloğu :80'de açık kalmalı).
+#   2) __SERVER_NAME__ / __CERT_DIR__ değerlerini doldur.
+#   3) `nginx -t` sonrası reload.
+# Gerçek IP/domain buraya HARD-CODE EDİLMEZ — deploy anında doldurulur.
+#
+# Değiştir: __SERVER_NAME__=gulumsalim.com www.gulumsalim.com ylina.life www.ylina.life
+#           __CERT_DIR__=/etc/letsencrypt/live/gulumsalim.com
+
+# --- HTTP :80 — yalnız ACME + kalıcı HTTPS yönlendirmesi ---------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __SERVER_NAME__;
+
+    # Let's Encrypt HTTP-01 challenge :80'de erişilebilir kalmalı.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        access_log off;
+    }
+
+    # Diğer her şey HTTPS'e kalıcı yönlendirilir.
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# --- Bilinmeyen Host reddi (default server) — Host injection engeli ----------
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    # default_server için de bir sertifika gerekir; aynı cert kullanılabilir.
+    ssl_certificate     __CERT_DIR__/fullchain.pem;
+    ssl_certificate_key __CERT_DIR__/privkey.pem;
+    return 444;
+}
+
+# --- HTTPS :443 — asıl uygulama ---------------------------------------------
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name __SERVER_NAME__;
+
+    ssl_certificate     __CERT_DIR__/fullchain.pem;
+    ssl_certificate_key __CERT_DIR__/privkey.pem;
+
+    # Modern TLS (Mozilla "intermediate" profiline yakın).
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:MozSSL:10m;
+    ssl_session_tickets off;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    client_max_body_size 20m;
+
+    # HSTS — YALNIZCA 443 doğrulandıktan sonra (CLAUDE-001). Bir kez
+    # gönderildiğinde tarayıcı domaini HTTPS'e kilitler; TLS çalışmadan ASLA.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    # CSP: uygulama davranışına bağlı — web ekibiyle netleştirilip açılmalı.
+    # add_header Content-Security-Policy "default-src 'self'; ..." always;
+
+    # --- Gerçek istemci IP'si (CLAUDE-013 ile uyumlu) -----------------------
+    # nginx EDGE ise: istemci doğrudan nginx'e bağlanır, $remote_addr gerçek
+    # IP'dir; ek ayar gerekmez. Fastify trustProxy:'loopback' bunu doğru okur.
+    # Önde bir CDN/LB VARSA (Cloudflare vb.), yalnızca ONLARIN IP aralığına
+    # güven; aksi halde istemci X-Forwarded-For spoof edebilir:
+    # set_real_ip_from 173.245.48.0/20;   # örnek: güvenilen LB/CDN aralığı
+    # real_ip_header X-Forwarded-For;
+    # real_ip_recursive on;
+
+    location /uploads/ {
+        alias /opt/gulumsalim/uploads/;
+        access_log off;
+        expires 30d;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;   # https → secure cookie
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+}

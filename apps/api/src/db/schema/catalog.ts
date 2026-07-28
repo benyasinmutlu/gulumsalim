@@ -19,9 +19,13 @@ export const categories = pgTable("categories", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   icon: text("icon"),
+  iconColor: text("icon_color"),
   image: text("image"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
+  seoKeywords: text("seo_keywords"),
 });
 
 export const products = pgTable("products", {
@@ -31,9 +35,30 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
+  brand: text("brand"),
   basePrice: numeric("base_price", { precision: 10, scale: 2 }).notNull(),
   compareAtPrice: numeric("compare_at_price", { precision: 10, scale: 2 }),
+  // bkz. kullanıcı isteği: "admin paneli ve satıcı paneli üzerinden her
+  // ürüne ... kargo ... düzenleyeceğimiz alanlar olsun". Site genelinde tek
+  // bir kargo ücreti/ücretsiz kargo eşiği zaten settings'te var (bkz.
+  // checkout.service.ts getShippingConfig) - burada bilinçli olarak serbest
+  // metin bir "özel ücret" DEĞİL, basit bir geçersiz kılma eklendi: bu
+  // ürün sepette varsa (VE sepetteki diğer tüm kalemler de aynı bayrağı
+  // taşıyorsa) kargo ücreti sıfırlanır. Karışık sepetlerde kalem başına
+  // kargo ücreti toplama gibi çok daha riskli bir yeniden hesaplamaya
+  // girmeden, ödeme akışını bozmadan güvenli bir kapsam.
+  freeShipping: boolean("free_shipping").notNull().default(false),
+  // bkz. kullanıcı isteği: "bireysel olarak müşteri olarak kayıt olan
+  // kişilerde satış yapabilsin 2. el ürün letgo dolap gibi" - ürün
+  // listelemede/kartlarda "2. El" rozeti ve ayrı filtre için.
+  isSecondHand: boolean("is_second_hand").notNull().default(false),
   status: productStatusEnum("status").notNull().default("draft"),
+  // gulumsalim.com'daki products.views'in karşılığı - admin dashboard'daki
+  // "Müşterilerin En Çok Baktığı Ürünler" için basit bir sayaç. Detaylı
+  // davranışsal analiz zaten Redis Stream + Go keşfet servisinde yapılıyor
+  // (bkz. events.client.ts) - bu, ondan bağımsız, doğrudan sorgulanabilir
+  // bir toplam sayaç.
+  viewCount: integer("view_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
@@ -76,9 +101,15 @@ export const productReviews = pgTable("product_reviews", {
   rating: integer("rating").notNull(),
   comment: text("comment"),
   status: reviewStatusEnum("status").notNull().default("pending"),
+  // vendor/reviews.php'deki satıcı yanıt formunun karşılığı.
+  vendorReply: text("vendor_reply"),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   productStatusIdx: index("idx_reviews_product_status").on(table.productId, table.status),
+  // Aynı sipariş kalemine iki kez yorum yapılamaz - findReviewableOrderItem()
+  // bunu okuma anında da kontrol ediyor ama bu, çift tıklama gibi yarış
+  // durumlarına karşı veritabanı seviyesinde son güvence.
+  orderItemUnique: uniqueIndex("uniq_reviews_order_item").on(table.orderItemId),
 }));
 
 export const productQuestions = pgTable("product_questions", {
@@ -97,4 +128,32 @@ export const productFavorites = pgTable("product_favorites", {
 }, (table) => ({
   pk: uniqueIndex("pk_favorites").on(table.customerId, table.productId),
   productIdx: index("idx_favorites_product").on(table.productId),
+}));
+
+// Satıcının kendi mağaza vitrininde ürünlerini gruplamak için kullandığı
+// koleksiyonlar (ör. "Yaz Kreasyonu") - eski sitedeki collections/
+// collection_products tablolarının karşılığı.
+export const collections = pgTable("collections", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  vendorId: bigint("vendor_id", { mode: "number" }).notNull().references(() => vendors.id),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  description: text("description"),
+  coverImage: text("cover_image"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  vendorSlugIdx: uniqueIndex("uniq_collections_vendor_slug").on(table.vendorId, table.slug),
+}));
+
+export const collectionProducts = pgTable("collection_products", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  collectionId: bigint("collection_id", { mode: "number" }).notNull().references(() => collections.id),
+  productId: bigint("product_id", { mode: "number" }).notNull().references(() => products.id),
+  sortOrder: integer("sort_order").notNull().default(0),
+}, (table) => ({
+  uniquePair: uniqueIndex("uniq_collection_product").on(table.collectionId, table.productId),
 }));

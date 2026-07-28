@@ -1,3 +1,4 @@
+import { reindexVendorProducts } from "../catalog/search-index.service";
 import { deleteVendorIfNoProducts, updateVendorStatus } from "./admin-vendors.repository";
 
 const ACTION_STATUS = {
@@ -10,13 +11,15 @@ const ACTION_STATUS = {
 export class VendorNotFoundError extends Error {}
 export class VendorHasProductsError extends Error {}
 
-// Satıcı durumu değiştiğinde ürünlerinin sitede görünürlüğünü ayrıca
-// senkronize eden bir işe gerek yok - katalog sorguları (bkz.
-// catalog.repository.ts) her zaman canlı olarak vendors.status='active'
-// şartını arıyor, bu yüzden burada sadece durumu güncellemek yeterli.
+// Postgres tarafında satıcı durumu değiştiğinde ürünlerinin sitede
+// görünürlüğünü ayrıca senkronize etmeye gerek yok - katalog sorguları
+// (bkz. catalog.repository.ts) her zaman canlı olarak vendors.status='active'
+// şartını arıyor. Ama Meilisearch denormalize bir kopya olduğundan
+// (arama indeksindeki `visible` alanı) bunu elle güncellemek gerekiyor.
 export async function applyVendorAction(vendorId: number, action: keyof typeof ACTION_STATUS) {
   const updated = await updateVendorStatus(vendorId, ACTION_STATUS[action]);
   if (!updated) throw new VendorNotFoundError();
+  reindexVendorProducts(vendorId).catch(() => {});
   return updated;
 }
 

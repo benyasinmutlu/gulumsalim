@@ -5,27 +5,36 @@ import { contentIdParamsSchema, createSliderQuerySchema, updateSliderSchema } fr
 
 const adminSlidersRoutes: FastifyPluginAsync = async (app) => {
   app.get("/admin/sliders", { preHandler: app.requireAdmin }, async (_request, reply) => {
-    reply.send(await listAllSliders());
+    return reply.send(await listAllSliders());
   });
 
   app.post("/admin/sliders", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
-    const { linkUrl } = createSliderQuerySchema.parse(request.query);
+    const { linkUrl, title, subtitle, buttonText, textColor, textPosition } = createSliderQuerySchema.parse(
+      request.query,
+    );
     const file = await request.file();
     if (!file) {
-      reply.status(400).send({ error: { message: "Görsel dosyası gerekli" } });
-      return;
+      return reply.status(400).send({ error: { message: "Görsel dosyası gerekli" } });
     }
     const buffer = await file.toBuffer();
 
     try {
       const image = await saveImage("site/sliders", buffer, file.mimetype);
       const existing = await listAllSliders();
-      const slider = await insertSlider({ image, linkUrl, sortOrder: existing.length });
-      reply.status(201).send(slider);
+      const slider = await insertSlider({
+        image,
+        linkUrl,
+        title,
+        subtitle,
+        buttonText,
+        textColor,
+        textPosition,
+        sortOrder: existing.length,
+      });
+      return reply.status(201).send(slider);
     } catch (err) {
       if (err instanceof InvalidImageError) {
-        reply.status(400).send({ error: { message: err.message } });
-        return;
+        return reply.status(400).send({ error: { message: err.message } });
       }
       throw err;
     }
@@ -36,20 +45,18 @@ const adminSlidersRoutes: FastifyPluginAsync = async (app) => {
     const input = updateSliderSchema.parse(request.body);
     const updated = await updateSlider(id, input);
     if (!updated) {
-      reply.status(404).send({ error: { message: "Slider bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Slider bulunamadı" } });
     }
-    reply.send(updated);
+    return reply.send(updated);
   });
 
   app.delete("/admin/sliders/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { id } = contentIdParamsSchema.parse(request.params);
     const deleted = await deleteSlider(id);
     if (!deleted) {
-      reply.status(404).send({ error: { message: "Slider bulunamadı" } });
-      return;
+      return reply.status(404).send({ error: { message: "Slider bulunamadı" } });
     }
-    reply.send({ ok: true });
+    return reply.send({ ok: true });
   });
 };
 

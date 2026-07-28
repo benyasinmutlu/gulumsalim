@@ -1,0 +1,1 @@
+ALTER TABLE "promo_banners" ADD COLUMN "anim_style" text;

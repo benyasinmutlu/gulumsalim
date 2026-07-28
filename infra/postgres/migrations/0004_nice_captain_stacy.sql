@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "uniq_reviews_order_item" ON "product_reviews" USING btree ("order_item_id");

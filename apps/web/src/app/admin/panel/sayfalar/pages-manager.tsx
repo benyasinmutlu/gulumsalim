@@ -24,6 +24,7 @@ export default function PagesManager() {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [content, setContent] = useState("");
+  const [showInFooter, setShowInFooter] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +42,7 @@ export default function PagesManager() {
     setSlug("");
     setSlugTouched(false);
     setContent("");
+    setShowInFooter(true);
     setError(null);
   }
 
@@ -50,6 +52,7 @@ export default function PagesManager() {
     setSlug(page.slug);
     setSlugTouched(true);
     setContent(page.content);
+    setShowInFooter(page.showInFooter);
     setError(null);
   }
 
@@ -64,9 +67,9 @@ export default function PagesManager() {
     setError(null);
     try {
       if (editing) {
-        await mutateJson(`/admin/pages/${editing.id}`, "PATCH", { title, slug, content });
+        await mutateJson(`/admin/pages/${editing.id}`, "PATCH", { title, slug, content, showInFooter });
       } else {
-        await mutateJson("/admin/pages", "POST", { title, slug, content });
+        await mutateJson("/admin/pages", "POST", { title, slug, content, showInFooter });
       }
       startNew();
       await load();
@@ -84,53 +87,64 @@ export default function PagesManager() {
     await load();
   }
 
-  if (pages === null) return <p style={{ marginTop: "1rem" }}>Yükleniyor...</p>;
-
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "2rem", marginTop: "1.5rem" }}>
-      <div>
-        {pages.length === 0 ? (
-          <p className="empty-state">Henüz sayfa yok.</p>
+    <div className="admin-form-row">
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <h2>Sayfalar</h2>
+        </div>
+        {pages === null ? (
+          <div className="admin-card-body">Yükleniyor...</div>
+        ) : pages.length === 0 ? (
+          <div className="admin-empty">
+            <i className="fas fa-file-alt" />
+            <h3>Henüz sayfa yok</h3>
+          </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Başlık</th>
-                <th>Adres</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pages.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <a href="#" onClick={(e) => { e.preventDefault(); startEdit(p); }}>
-                      {p.title}
-                    </a>
-                  </td>
-                  <td style={{ fontSize: "0.8rem", opacity: 0.7 }}>/{p.slug}</td>
-                  <td style={{ textAlign: "right" }}>
-                    <button className="btn btn-secondary" style={{ fontSize: "0.75rem" }} onClick={() => handleDelete(p.id)}>
-                      Sil
-                    </button>
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Başlık</th>
+                  <th>Adres</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pages.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <a href="#" onClick={(e) => { e.preventDefault(); startEdit(p); }}>
+                        {p.title}
+                      </a>
+                    </td>
+                    <td style={{ fontSize: "0.8rem", color: "var(--admin-text-muted)" }}>/{p.slug}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <button className="admin-btn admin-btn-danger admin-btn-sm" onClick={() => handleDelete(p.id)}>
+                        Sil
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      <div>
-        <h3 style={{ fontSize: "0.95rem", marginBottom: "0.75rem" }}>{editing ? `"${editing.title}" düzenleniyor` : "Yeni Sayfa"}</h3>
-        <form className="form" onSubmit={handleSubmit}>
-          <label>
-            Başlık
-            <input required value={title} onChange={(e) => handleTitleChange(e.target.value)} />
-          </label>
-          <label>
-            Adres (/{slug || "sayfa-adresi"})
+      <div className="admin-card">
+        <div className="admin-card-header">
+          <h2>{editing ? `"${editing.title}" düzenleniyor` : "Yeni Sayfa"}</h2>
+        </div>
+        <form className="admin-card-body" onSubmit={handleSubmit}>
+          <div className="admin-form-group">
+            <label>Başlık</label>
+            <input className="admin-form-control" required value={title} onChange={(e) => handleTitleChange(e.target.value)} />
+          </div>
+          <div className="admin-form-group">
+            <label>Adres (/{slug || "sayfa-adresi"})</label>
             <input
+              className="admin-form-control"
               required
               value={slug}
               onChange={(e) => {
@@ -138,24 +152,28 @@ export default function PagesManager() {
                 setSlug(slugify(e.target.value));
               }}
             />
-          </label>
-          <label>
-            İçerik
+          </div>
+          <div className="admin-form-group">
+            <label>İçerik</label>
             <textarea
+              className="admin-form-control"
               required
               rows={8}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              style={{ padding: "0.55rem 0.7rem", borderRadius: 6, border: "1px solid rgba(128,128,128,0.4)", background: "transparent", color: "inherit", fontFamily: "inherit" }}
             />
-          </label>
-          {error && <p className="error-text">{error}</p>}
+          </div>
+          <div className="admin-form-group" style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+            <input type="checkbox" checked={showInFooter} onChange={(e) => setShowInFooter(e.target.checked)} style={{ width: "auto" }} />
+            <label style={{ marginBottom: 0 }}>Footer&apos;da göster</label>
+          </div>
+          {error && <p className="error-text" style={{ color: "var(--admin-error)" }}>{error}</p>}
           <div style={{ display: "flex", gap: "0.6rem" }}>
-            <button className="btn" type="submit" disabled={loading}>
+            <button className="admin-btn admin-btn-primary" type="submit" disabled={loading}>
               {loading ? "Kaydediliyor..." : editing ? "Güncelle" : "Oluştur"}
             </button>
             {editing && (
-              <button type="button" className="btn btn-secondary" onClick={startNew}>
+              <button type="button" className="admin-btn admin-btn-secondary" onClick={startNew}>
                 Vazgeç
               </button>
             )}

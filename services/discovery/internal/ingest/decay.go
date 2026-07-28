@@ -23,9 +23,20 @@ func RunDecayLoop(ctx context.Context, rs *store.RedisStore, interval time.Durat
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := rs.DecayAllAffinities(ctx, decayFactor); err != nil {
-				log.Printf("decay hatası: %v", err)
-			}
+			runDecayOnce(ctx, rs)
 		}
+	}
+}
+
+// runDecayOnce tek bir decay turunu çalıştırır ve panic'i kurtarır ki
+// beklenmedik bir hata prosesin geri kalanını çökertmesin (CLAUDE-015).
+func runDecayOnce(ctx context.Context, rs *store.RedisStore) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			log.Printf("decay panic kurtarıldı: %v", rec)
+		}
+	}()
+	if err := rs.DecayAllAffinities(ctx, decayFactor); err != nil {
+		log.Printf("decay hatası: %v", err)
 	}
 }

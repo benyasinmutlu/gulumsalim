@@ -1,20 +1,8 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { mutateJson } from "@/lib/client-api";
-
+// bkz. hesabim/logout-button.tsx - düz link, JS'e bağımlı değil.
 export default function AdminLogoutButton() {
-  const router = useRouter();
-
-  async function handleLogout() {
-    await mutateJson("/admin/auth/logout", "POST");
-    router.push("/admin/giris");
-    router.refresh();
-  }
-
   return (
-    <button className="btn btn-secondary" style={{ fontSize: "0.85rem" }} onClick={handleLogout}>
-      Çıkış Yap
-    </button>
+    <a href="/api/admin/auth/logout" className="sidebar-logout" title="Çıkış Yap">
+      <i className="fas fa-sign-out-alt" />
+    </a>
   );
 }

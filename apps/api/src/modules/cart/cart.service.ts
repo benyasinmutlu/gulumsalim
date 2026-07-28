@@ -1,4 +1,5 @@
 import { fetchPrimaryImages, fetchProductsForCart, fetchVariantsForCart } from "./cart.repository";
+import { getShippingConfig } from "../../lib/shipping";
 import type { CartLine } from "./cart.types";
 
 function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
@@ -33,8 +34,26 @@ export function removeCartItem(cart: CartLine[], line: Pick<CartLine, "productId
   return cart.filter((c) => lineKey(c) !== key);
 }
 
+// bkz. kullanıcı isteği: "Sepetinizdeki bazı ürünler artık uygun değil"
+// uyarısı neden çıkıyor - kök neden: bu fonksiyon geçersiz (silinmiş/pasif
+// ürün, silinmiş varyant) satırları sessizce ATLIYORDU ama session.cart'tan
+// hiç SİLMİYORDU. Müşteri /sepet'i her ziyaret ettiğinde temiz bir liste
+// görüyordu (hayalet satır hiç gösterilmiyordu, o yüzden düzeltecek bir şey
+// yoktu), ama checkout.service.ts startCheckout içindeki
+// `hydrated.items.length !== cart.length` kontrolü ham session.cart'ı
+// kullandığı için HER denemede aynı hataya çarpıyordu - müşteri için
+// çözümsüz görünen bir döngü. Artık geçerli satırlar da (`validCart`) ayrı
+// döndürülüyor, çağıran taraf (cart.routes.ts) bunu session'a geri yazarak
+// hayalet satırı gerçekten temizliyor.
+// bkz. kullanıcı isteği: "kargo ücreti ne ise o yazsın" - sepet/ödeme
+// sayfaları artık checkout ile TAMAMEN AYNI hesaplamayı (bkz. lib/shipping.ts)
+// kullanarak gerçek kargo ücretini görüyor, önceden sadece checkout bunu
+// biliyordu ve müşteriye hiç gösterilmiyordu.
 export async function hydrateCart(cart: CartLine[]) {
-  if (cart.length === 0) return { items: [], subtotal: "0.00" };
+  if (cart.length === 0) {
+    const { shippingFee, freeShippingThreshold } = await getShippingConfig();
+    return { items: [], subtotal: "0.00", validCart: [] as CartLine[], shippingFee: "0.00", freeShippingThreshold };
+  }
 
   const productIds = [...new Set(cart.map((c) => c.productId))];
   const variantIds = [...new Set(cart.map((c) => c.variantId).filter((id): id is number => id !== undefined))];
@@ -61,6 +80,7 @@ export async function hydrateCart(cart: CartLine[]) {
     quantity: number;
     lineTotal: string;
   }> = [];
+  const validCart: CartLine[] = [];
 
   for (const line of cart) {
     const product = productMap.get(line.productId);
@@ -86,7 +106,12 @@ export async function hydrateCart(cart: CartLine[]) {
       quantity: line.quantity,
       lineTotal: lineTotal.toFixed(2),
     });
+    validCart.push(line);
   }
 
-  return { items, subtotal: subtotal.toFixed(2) };
+  const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
+  const allItemsFreeShipping = items.length > 0 && items.every((item) => productMap.get(item.productId)?.freeShipping === true);
+  const shippingFee = items.length === 0 || allItemsFreeShipping || subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
+
+  return { items, subtotal: subtotal.toFixed(2), validCart, shippingFee: shippingFee.toFixed(2), freeShippingThreshold };
 }

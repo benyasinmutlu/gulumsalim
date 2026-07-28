@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { apiFetch } from "../lib/api";
-import type { CustomerProfile } from "../lib/types";
+import type { Category, CartResponse, CustomerProfile, SiteSettings } from "../lib/types";
+import TopBar from "./top-bar";
+import HeaderShell from "./header-shell";
 
 async function getCurrentCustomer(): Promise<CustomerProfile | null> {
   const res = await apiFetch("/auth/me");
@@ -8,28 +9,43 @@ async function getCurrentCustomer(): Promise<CustomerProfile | null> {
   return res.json();
 }
 
+async function getCategories(): Promise<Category[]> {
+  const res = await apiFetch("/categories");
+  if (!res.ok) return [];
+  return res.json();
+}
+
+async function getCartCount(): Promise<number> {
+  const res = await apiFetch("/cart");
+  if (!res.ok) return 0;
+  const cart: CartResponse = await res.json();
+  return cart.items.reduce((sum, item) => sum + item.quantity, 0);
+}
+
+async function getSiteBranding(): Promise<SiteSettings> {
+  const res = await apiFetch("/site-settings");
+  if (!res.ok) return {};
+  return res.json();
+}
+
 export default async function SiteNav() {
-  const customer = await getCurrentCustomer();
+  const [customer, categories, cartCount, branding] = await Promise.all([
+    getCurrentCustomer(),
+    getCategories(),
+    getCartCount(),
+    getSiteBranding(),
+  ]);
 
   return (
-    <header className="site-nav">
-      <div className="container">
-        <Link href="/" className="logo">
-          Gülüm Şalım
-        </Link>
-        <nav>
-          <Link href="/urunler">Ürünler</Link>
-          <Link href="/sepet">Sepet</Link>
-          {customer ? (
-            <span>Merhaba, {customer.fullName.split(" ")[0]}</span>
-          ) : (
-            <>
-              <Link href="/giris">Giriş</Link>
-              <Link href="/kayit">Kayıt Ol</Link>
-            </>
-          )}
-        </nav>
-      </div>
-    </header>
+    <>
+      <TopBar customer={customer} />
+      <HeaderShell
+        categories={categories}
+        customer={customer}
+        cartCount={cartCount}
+        siteName={branding.site_name}
+        siteLogo={branding.site_logo}
+      />
+    </>
   );
 }
