@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import type { Category, ProductListResponse, PublicVendorListItem } from "@/lib/types";
-import ProductCard from "@/components/product-card";
+import ProductListingGrid from "@/components/product-listing-grid";
 import ProductToolbar from "@/app/(site)/urunler/product-toolbar";
 import { CategoryNavSync } from "@/components/category-nav-context";
 import TitleBackgroundIcons from "@/components/title-background-icons";
@@ -87,12 +86,6 @@ export default async function ProductListing({
   // ikonu, indirim filtresindeyse etiket ikonu, aksi halde genel bir ikon.
   const headingIcon = matchedCategory ? categoryIcon(matchedCategory) : params.saleOnly ? "fa-tag" : "fa-bag-shopping";
 
-  const nextPageParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value && key !== "cursor") nextPageParams.set(key, value);
-  }
-  if (nextCursor) nextPageParams.set("cursor", nextCursor);
-
   // bkz. kullanıcı isteği: "Tümünü Gör dediğimde headerın kategorileri
   // gözükmeyecek sadece listelenen ürünlerden hangi kategoriler
   // listeniyorsa onlar olacak" - header menüsü bu sonuç kümesindeki
@@ -117,23 +110,7 @@ export default async function ProductListing({
           lockedCategorySlug={lockedCategorySlug}
         />
 
-        <div className="products-count">{items.length} adet ürün bulundu.</div>
-
-        {items.length === 0 ? (
-          <p className="empty-state">Bu filtrede ürün bulunamadı.</p>
-        ) : (
-          <div className="product-grid" id="productGrid">
-            {items.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        )}
-
-        {nextCursor && (
-          <Link href={`${basePath}?${nextPageParams.toString()}`} className="btn btn-secondary">
-            Sonraki sayfa
-          </Link>
-        )}
+        <ProductListingGrid initialItems={items} initialCursor={nextCursor} params={params} />
       </div>
     </main>
   );

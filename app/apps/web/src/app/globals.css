@@ -2936,6 +2936,35 @@ body.no-main-nav .filter-sidebar {
 .products-count {
     font-size: 14px;
     color: var(--color-text-light);
+    margin-bottom: 16px;
+}
+
+/* Sonsuz kaydırma / "Daha Fazla Ürün" (bkz. product-listing-grid.tsx) */
+.load-more-row {
+    display: flex;
+    justify-content: center;
+    margin: 40px 0 8px;
+}
+.load-more-btn {
+    min-width: 220px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.load-more-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: loadMoreSpin 0.7s linear infinite;
+}
+@keyframes loadMoreSpin {
+    to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .load-more-spinner { animation: none; }
 }
 
 .sort-select {
