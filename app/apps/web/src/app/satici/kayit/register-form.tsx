@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
 import type { VendorProfile } from "@/lib/types";
+import { AuthAlert, AuthField, AuthSectionTitle, AuthSubmit, FieldRow } from "@/components/auth/auth-controls";
 
 function slugify(value: string) {
   return value
@@ -60,101 +61,61 @@ export default function VendorRegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      {error && (
-        <div className="ga-alert">
-          <i className="fas fa-exclamation-circle" /> {error}
-        </div>
-      )}
+    <form onSubmit={handleSubmit} noValidate>
+      {error && <AuthAlert>{error}</AuthAlert>}
 
-      <div className="ga-fg">
-        <label>
-          Mağaza Adı <span className="req">*</span>
-        </label>
-        <div className="ga-input-wrap">
-          <input className="ga-input" required value={storeName} onChange={(e) => handleStoreNameChange(e.target.value)} />
-        </div>
-      </div>
-      <div className="ga-fg">
-        <label>
-          Mağaza Adresi (/{storeSlug || "magaza-adiniz"}) <span className="req">*</span>
-        </label>
-        <div className="ga-input-wrap">
-          <input
-            className="ga-input"
-            required
-            value={storeSlug}
-            onChange={(e) => {
-              setSlugTouched(true);
-              setStoreSlug(slugify(e.target.value));
-            }}
-          />
-        </div>
-      </div>
+      <AuthField label="Mağaza Adı" icon="fas fa-store" required value={storeName} onValueChange={handleStoreNameChange} />
 
-      <div className="ga-section-title">Kişisel Bilgiler</div>
-      <div className="ga-row2">
-        <div className="ga-fg">
-          <label>
-            Ad Soyad <span className="req">*</span>
-          </label>
-          <div className="ga-input-wrap">
-            <input className="ga-input" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          </div>
-        </div>
-        <div className="ga-fg">
-          <label>Telefon</label>
-          <div className="ga-input-wrap">
-            <input className="ga-input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-        </div>
-      </div>
+      <AuthField
+        label={`Mağaza Adresi (/${storeSlug || "magaza-adiniz"})`}
+        icon="fas fa-link"
+        required
+        value={storeSlug}
+        onValueChange={(value) => {
+          setSlugTouched(true);
+          setStoreSlug(slugify(value));
+        }}
+      />
 
-      <div className="ga-section-title">Hesap Güvenliği</div>
-      <div className="ga-fg">
-        <label>
-          E-posta Adresi <span className="req">*</span>
-        </label>
-        <div className="ga-input-wrap">
-          <i className="fas fa-envelope ga-ic" />
-          <input className="ga-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        </div>
-      </div>
-      <div className="ga-row2">
-        <div className="ga-fg">
-          <label>
-            Şifre <span className="req">*</span>
-          </label>
-          <div className="ga-input-wrap">
-            <input
-              className="ga-input"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="ga-fg">
-          <label>
-            Şifre Tekrar <span className="req">*</span>
-          </label>
-          <div className="ga-input-wrap">
-            <input
-              className="ga-input"
-              type="password"
-              required
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+      <AuthSectionTitle>Kişisel Bilgiler</AuthSectionTitle>
+      <FieldRow>
+        <AuthField label="Ad Soyad" required value={fullName} onValueChange={setFullName} autoComplete="name" />
+        <AuthField label="Telefon" type="tel" value={phone} onValueChange={setPhone} autoComplete="tel" inputMode="tel" />
+      </FieldRow>
 
-      <button className="ga-submit" type="submit" disabled={loading}>
-        {loading ? "Gönderiliyor..." : "Başvuruyu Gönder"}
-      </button>
+      <AuthSectionTitle>Hesap Güvenliği</AuthSectionTitle>
+      <AuthField
+        label="E-posta Adresi"
+        icon="fas fa-envelope"
+        type="email"
+        required
+        value={email}
+        onValueChange={setEmail}
+        autoComplete="email"
+      />
+      <FieldRow>
+        <AuthField
+          label="Şifre"
+          type="password"
+          required
+          minLength={8}
+          value={password}
+          onValueChange={setPassword}
+          autoComplete="new-password"
+        />
+        <AuthField
+          label="Şifre Tekrar"
+          type="password"
+          required
+          value={passwordConfirm}
+          onValueChange={setPasswordConfirm}
+          autoComplete="new-password"
+        />
+      </FieldRow>
+
+      <AuthSubmit loading={loading} loadingLabel="Gönderiliyor...">
+        Başvuruyu Gönder
+      </AuthSubmit>
     </form>
   );
 }
