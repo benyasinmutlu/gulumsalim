@@ -278,6 +278,15 @@ export interface VendorProduct {
   updatedAt: string;
 }
 
+export interface VendorProductStats {
+  total: number;
+  active: number;
+  lowStock: number;
+  outOfStock: number;
+  totalViews: number;
+  totalFavorites: number;
+}
+
 export interface VendorProductImage {
   id: number;
   productId: number;

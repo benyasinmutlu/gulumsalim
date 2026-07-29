@@ -25,16 +25,26 @@ import {
   createVariantSchema,
   productIdParamsSchema,
   productImageParamsSchema,
+  productListQuerySchema,
   productVariantParamsSchema,
   updateProductSchema,
   updateVariantSchema,
 } from "./vendor-products.schemas";
+import { computeProductStats } from "./vendor-products.stats";
 
 const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vendor/products", { preHandler: app.requireVendor }, async (request, reply) => {
-    const rows = await listVendorProducts(request.session.vendorId!);
+    const filter = productListQuerySchema.parse(request.query);
+    const rows = await listVendorProducts(request.session.vendorId!, filter);
     const cartCounts = await getCartCounts(app.redis, rows.map((r) => r.id));
     return reply.send(rows.map((r) => ({ ...r, cartCount: cartCounts.get(r.id) ?? 0 })));
+  });
+
+  // bkz. kullanıcı isteği: "analiz" - özet her zaman filtrelenmemiş tüm
+  // ürünler üzerinden. Statik yol, ":id" param rotasından önce eşleşir.
+  app.get("/vendor/products/stats", { preHandler: app.requireVendor }, async (request, reply) => {
+    const rows = await listVendorProducts(request.session.vendorId!);
+    return reply.send(computeProductStats(rows));
   });
 
   app.post("/vendor/products", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {

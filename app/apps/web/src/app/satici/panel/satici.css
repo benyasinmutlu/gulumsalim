@@ -106,7 +106,21 @@
     .tab-content{display:none}
     .tab-content.active{display:block;animation:fadeIn .3s}
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    /* Analiz özet çipleri (bkz. kullanıcı isteği: "analiz") */
+    .stat-chips{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+    .chip{flex:1;min-width:130px;background:var(--s1);border:1px solid var(--br);border-radius:var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:3px}
+    .chip-val{font-size:22px;font-weight:800;line-height:1.05}
+    .chip-lbl{font-size:11px;color:var(--tx3);font-weight:600;display:flex;align-items:center;gap:5px}
+    .chip-wa .chip-val{color:var(--wa)}
+    .chip-er .chip-val{color:var(--er)}
+    /* Filtre/arama/sıralama çubuğu (bkz. kullanıcı isteği: "filtreleme") */
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;padding:14px 20px;border-bottom:1px solid var(--br);align-items:center}
+    .toolbar-search{position:relative;flex:1;min-width:200px}
+    .toolbar-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:13px;pointer-events:none}
+    .toolbar-search .fi{padding-left:34px}
+    .toolbar select.fi{width:auto;min-width:150px}
     @media(max-width:768px){
       .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.hamburger{display:flex}.overlay.open{display:block}
       .row2{grid-template-columns:1fr}.row4{grid-template-columns:1fr 1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}
+      .toolbar-search{min-width:100%}.toolbar select.fi{flex:1;min-width:0}
     }

@@ -32,6 +32,25 @@ export const updateProductSchema = z.object({
   isSecondHand: z.coerce.boolean().optional(),
 });
 
+// Satıcı ürün listesi filtre/sıralama parametreleri (bkz. kullanıcı isteği:
+// "filtreleme ve analiz"). Hepsi opsiyonel; boş string'ler undefined'a
+// indirgenir, sort her zaman geçerli bir değere düşer.
+const emptyToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
+
+export const productListQuerySchema = z.object({
+  search: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
+  status: z.preprocess(emptyToUndefined, z.enum(["draft", "active", "inactive", "rejected"]).optional()),
+  stock: z.preprocess(emptyToUndefined, z.enum(["in", "low", "out"]).optional()),
+  sort: z.preprocess(
+    emptyToUndefined,
+    z
+      .enum(["newest", "oldest", "price_asc", "price_desc", "stock_asc", "stock_desc", "most_viewed", "most_favorited"])
+      .default("newest"),
+  ),
+});
+
+export type ProductListQuery = z.infer<typeof productListQuerySchema>;
+
 export const productIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 });

@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
 import { db } from "../../db/client";
 import { productFavorites, productImages, products, productVariants } from "../../db/schema/index";
 import { outer } from "../../lib/sql-helpers";
+import type { ProductListQuery } from "./vendor-products.schemas";
 
 // bkz. kullanıcı isteği: "satıcı panelinde ... ürünlerine kaç kişi baktı
 // ... favorideyse de göster" - viewCount zaten products tablosunda vardı
@@ -10,7 +11,47 @@ import { outer } from "../../lib/sql-helpers";
 // ama satıcı panelinde hiç gösterilmiyordu; favoriteCount burada eklendi.
 // Sepet sayısı (cartCount) Redis'te tutulduğu için burada değil, route
 // katmanında ayrıca eklenir (bkz. vendor-products.routes.ts).
-export async function listVendorProducts(vendorId: number) {
+// Alt sorgu ifadeleri hem SELECT'te hem WHERE/ORDER BY'da kullanılabilsin
+// diye tek yerde tanımlanır (favori sayısı + toplam stok, ürüne göre
+// ilişkili korelasyonlu alt sorgular).
+const favoriteCountExpr = sql`(SELECT COUNT(*) FROM ${productFavorites} WHERE ${productFavorites.productId} = ${outer(products.id)})`;
+const totalStockExpr = sql`(SELECT COALESCE(SUM(${productVariants.stock}), 0) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)})`;
+
+export type VendorProductListRow = Awaited<ReturnType<typeof listVendorProducts>>[number];
+
+// bkz. kullanıcı isteği: "filtreleme ve analiz" - liste artık sunucu
+// tarafında arama (ad), durum, stok seviyesi ile filtrelenip çok sayıda
+// ölçüte göre sıralanabilir. Filtre verilmezse eski davranış (en yeni).
+export async function listVendorProducts(vendorId: number, filter: ProductListQuery = { sort: "newest" }) {
+  const conditions: SQL[] = [eq(products.vendorId, vendorId)];
+  if (filter.search) conditions.push(ilike(products.name, `%${filter.search}%`));
+  if (filter.status) conditions.push(eq(products.status, filter.status));
+  if (filter.stock === "out") conditions.push(sql`${totalStockExpr} = 0`);
+  else if (filter.stock === "low") conditions.push(sql`${totalStockExpr} > 0 AND ${totalStockExpr} <= 5`);
+  else if (filter.stock === "in") conditions.push(sql`${totalStockExpr} > 5`);
+
+  const orderBy: SQL = ((): SQL => {
+    switch (filter.sort) {
+      case "oldest":
+        return asc(products.createdAt);
+      case "price_asc":
+        return asc(products.basePrice);
+      case "price_desc":
+        return desc(products.basePrice);
+      case "stock_asc":
+        return sql`${totalStockExpr} ASC`;
+      case "stock_desc":
+        return sql`${totalStockExpr} DESC`;
+      case "most_viewed":
+        return desc(products.viewCount);
+      case "most_favorited":
+        return sql`${favoriteCountExpr} DESC`;
+      case "newest":
+      default:
+        return desc(products.createdAt);
+    }
+  })();
+
   return db
     .select({
       id: products.id,
@@ -28,20 +69,16 @@ export async function listVendorProducts(vendorId: number) {
       viewCount: products.viewCount,
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
-      favoriteCount: sql<number>`(SELECT COUNT(*) FROM ${productFavorites} WHERE ${productFavorites.productId} = ${outer(products.id)})`.mapWith(
-        Number,
-      ),
+      favoriteCount: sql<number>`${favoriteCountExpr}`.mapWith(Number),
       // bkz. kullanıcı isteği: "ürünleri düzenleyebilmeli stok durumunu
       // görsel başlık vs vs" - liste ekranında hiç stok/görsel yoktu, her
       // ürünü tek tek açmadan durumu görmek imkansızdı.
-      totalStock: sql<number>`(SELECT COALESCE(SUM(${productVariants.stock}), 0) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)})`.mapWith(
-        Number,
-      ),
+      totalStock: sql<number>`${totalStockExpr}`.mapWith(Number),
       primaryImageUrl: sql<string | null>`(SELECT ${productImages.url} FROM ${productImages} WHERE ${productImages.productId} = ${outer(products.id)} ORDER BY ${productImages.isPrimary} DESC, ${productImages.sortOrder} ASC LIMIT 1)`,
     })
     .from(products)
-    .where(eq(products.vendorId, vendorId))
-    .orderBy(desc(products.createdAt));
+    .where(and(...conditions))
+    .orderBy(orderBy);
 }
 
 export async function findVendorProduct(vendorId: number, productId: number) {
