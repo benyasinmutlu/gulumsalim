@@ -80,6 +80,31 @@ zarif kare gösterilir. (Video dosyası yerine canvas/CSS önerilir: bağımlıl
 5. **F3.4** F1 motion yükseltmesi.
 6. Her faz: görsel doğrulama (Playwright screenshot) + CWV/a11y + responsive; branch → PR.
 
+## 6b. Ölçeklenebilirlik & filtreleme denetimi — 100.000+ ürün (2026-07-29)
+
+**Soru:** yapı 100k ürünü düzgün gösterir/filtreler mi, yoksa backend + gösterim mi değişmeli?
+**Cevap: YAPI DOĞRU — backend/veri modeli DEĞİŞMEYECEK.** Kanıt (`catalog.service.getProducts`,
+`catalog.repository.listActiveProducts`, `db/schema/catalog.ts`, `catalog.search.ts`):
+
+- **Keyset (cursor) pagination**: `ORDER BY (createdAt DESC, id DESC)` + cursor `(createdAt<X OR
+  (createdAt=X AND id<Y))`. OFFSET **yok** → derinlikten bağımsız sabit süre.
+- **Tam eşleşen index** `idx_products_keyset (status, createdAt, id)` (+ `idx_products_active_listing
+  (categoryId, basePrice)`, `idx_products_vendor (vendorId, status)`).
+- **İki yollu**: sade gözatma → Postgres keyset; metin arama/facet → **Meilisearch** (`needsSearchIndex`).
+- **limit+1** (COUNT'suz hasMore), **batch enrichment** (N+1 yok), limit ≤ 50. Meili index create/update'te
+  senkron (`search-index.service` `syncProductToIndex`).
+
+**Sonuç:** ölçek için yapısal değişiklik gerekmiyor. F3 yalnız **gösterim katmanını** iyileştirir (additive,
+mevcut API üstünde):
+1. **Sonsuz kaydırma / "Daha fazla yükle"** (client append, `nextCursor` ile) — "Sonraki sayfa" linki yerine.
+2. **Dinamik facet'ler**: Meilisearch facet dağılımından gerçek renk/beden/marka + puan filtresi, aktif-filtre
+   çipleri + "temizle". (Şu an renk serbest-metin, beden sabit XS-XXL, marka/puan UI'da yok.)
+3. **Doğru sonuç sayısı** (Meili toplam hit; şu an sadece sayfadaki 12'yi gösteriyor).
+4. **Premium grid + sayfa atmosferi/hiyerarşi** (ProductCard zaten yeterli; asıl zayıflık sayfa seviyesinde).
+
+Ürün sergileme subpage'leri (`/urunler`, `/kategori/[slug]`, `/magaza/[slug]`, `/arama`) hepsi aynı
+`ProductListing` + `ProductToolbar` + keyset API'yi paylaşır → tek yerde iyileştirme hepsini kapsar.
+
 ## 7. Guardrail'ler
 Mimari/veri-güdümlü bölümler korunur; davranış değişmez, yalnız sunum. `globals.css` ve `ga-*`
 dokunulmaz. Domain hardcode yok. Sunucuya deploy yok. Perf bütçesi (web/performance.md) korunur.
