@@ -1208,6 +1208,7 @@ button {
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-lg);
     padding: 20px;
+    box-shadow: 0 20px 52px -36px rgba(139, 58, 98, 0.38);
 }
 
 /* Bölüm başlığı kutunun sol üstünde, "Tümünü Gör" sağ üstünde */
