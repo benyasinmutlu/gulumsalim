@@ -81,6 +81,28 @@ export async function findVendorOrderItem(vendorId: number, orderItemId: number)
   return row ?? null;
 }
 
+// Kargo takip e-postası (bkz. lib/emails/shipping-notification.ts) için
+// gereken minimum veri. Kalem "shipped"a geçtikten SONRA route katmanında
+// best-effort çağrılır. orders.customerId NOT NULL (misafir siparişi de bir
+// müşteri kaydı oluşturur) - bu yüzden customers.email tüm siparişleri kapsar.
+export async function getShippedItemNotificationData(orderItemId: number) {
+  const [row] = await db
+    .select({
+      customerEmail: customers.email,
+      orderNumber: orders.orderNumber,
+      productNameSnapshot: orderItems.productNameSnapshot,
+      quantity: orderItems.quantity,
+      trackingCarrier: orderItems.trackingCarrier,
+      trackingNumber: orderItems.trackingNumber,
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .innerJoin(customers, eq(orders.customerId, customers.id))
+    .where(eq(orderItems.id, orderItemId))
+    .limit(1);
+  return row ?? null;
+}
+
 export class RefundNotFoundError extends Error {}
 export class InvalidRefundStateError extends Error {}
 
