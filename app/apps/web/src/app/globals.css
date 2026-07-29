@@ -566,7 +566,13 @@ button {
     position: relative;
     overflow: hidden;
     height: var(--hero-height-desktop, 520px);
-    background: linear-gradient(135deg, var(--color-bg-alt), #F9E8ED);
+    /* Yumuşak rose/gold atmosfer - admin slider görseli varsa onun altında
+       kalır (hero-slide inset:0 kaplar), görsel yoksa (fallback) atmosferik
+       zemin görünür. */
+    background:
+        radial-gradient(72% 62% at 14% 10%, rgba(192,108,132,0.22), transparent 60%),
+        radial-gradient(66% 72% at 90% 92%, rgba(212,165,116,0.20), transparent 60%),
+        linear-gradient(135deg, var(--color-bg-alt), #F9E8ED);
 }
 
 .hero-slide {
@@ -963,7 +969,7 @@ button {
 }
 
 .hcat-card {
-    flex: 0 0 160px;
+    flex: 0 0 210px;
     scroll-snap-align: start;
     text-decoration: none;
     display: block;
@@ -972,14 +978,14 @@ button {
 .hcat-img-wrap {
     position: relative;
     width: 100%;
-    height: 200px;
+    height: 270px;
     border-radius: var(--radius-lg);
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 6px 18px rgba(0,0,0,.08);
-    transition: transform .3s ease, box-shadow .3s ease;
+    box-shadow: 0 14px 34px -18px rgba(139,58,98,.45);
+    transition: transform .35s cubic-bezier(.16,1,.3,1), box-shadow .35s ease;
 }
 
 .hcat-card:hover .hcat-img-wrap {
@@ -1009,22 +1015,23 @@ button {
 
 .hcat-name {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 16px;
+    right: 16px;
     bottom: 14px;
     z-index: 2;
-    text-align: center;
-    padding: 0 10px;
+    text-align: left;
     color: #fff;
+    font-family: var(--font-display);
     font-weight: 700;
-    font-size: 15px;
-    text-shadow: 0 2px 8px rgba(0,0,0,.35);
+    font-size: 19px;
+    letter-spacing: -.01em;
+    text-shadow: 0 2px 12px rgba(0,0,0,.5);
 }
 
 @media (max-width: 768px) {
-    .hcat-card { flex: 0 0 128px; }
-    .hcat-img-wrap { height: 164px; }
-    .hcat-name { font-size: 13px; bottom: 10px; }
+    .hcat-card { flex: 0 0 162px; }
+    .hcat-img-wrap { height: 214px; }
+    .hcat-name { font-size: 16px; bottom: 12px; }
 }
 
 /* ---- Kategori Kartları ---- */
