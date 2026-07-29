@@ -7,7 +7,14 @@ import {
   markRefundReceivedByVendor,
   RefundNotFoundError,
 } from "./vendor-orders.repository";
-import { orderItemIdParamsSchema, refundIdParamsSchema, updateOrderItemStatusSchema, vendorRefundDecisionSchema } from "./vendor-orders.schemas";
+import {
+  orderItemIdParamsSchema,
+  orderListQuerySchema,
+  refundIdParamsSchema,
+  updateOrderItemStatusSchema,
+  vendorRefundDecisionSchema,
+} from "./vendor-orders.schemas";
+import { computeOrderStats } from "./vendor-orders.stats";
 import {
   InvalidStatusTransitionError,
   MissingTrackingInfoError,
@@ -18,7 +25,15 @@ import { sendShippingNotification } from "./shipping-notification.service";
 
 const vendorOrdersRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vendor/orders", { preHandler: app.requireVendor }, async (request, reply) => {
-    return reply.send(await listVendorOrderItems(request.session.vendorId!));
+    const filter = orderListQuerySchema.parse(request.query);
+    return reply.send(await listVendorOrderItems(request.session.vendorId!, filter));
+  });
+
+  // bkz. kullanıcı isteği: "analiz" - özet her zaman filtrelenmemiş tüm paid
+  // kalemler üzerinden. Statik yol, dinamik rotalardan önce eşleşir.
+  app.get("/vendor/orders/stats", { preHandler: app.requireVendor }, async (request, reply) => {
+    const rows = await listVendorOrderItems(request.session.vendorId!);
+    return reply.send(computeOrderStats(rows));
   });
 
   app.get("/vendor/refunds", { preHandler: app.requireVendor }, async (request, reply) => {

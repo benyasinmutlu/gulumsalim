@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { fetchJson, mutateJson } from "@/lib/client-api";
-import type { VendorOrderItem, VendorRefund } from "@/lib/types";
+import type { VendorOrderItem, VendorOrderStats, VendorRefund } from "@/lib/types";
 
 const CARRIER_OPTIONS = ["Yurtiçi Kargo", "Aras Kargo", "MNG Kargo", "PTT Kargo", "Sürat Kargo", "UPS", "DHL", "FedEx", "Diğer"];
 
@@ -54,19 +54,49 @@ export default function OrdersTable() {
   const [customCarrier, setCustomCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [refundNoteDraft, setRefundNoteDraft] = useState("");
+  const [stats, setStats] = useState<VendorOrderStats | null>(null);
 
-  async function load() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sort, setSort] = useState("newest");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const load = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+    if (statusFilter) params.set("status", statusFilter);
+    if (sort) params.set("sort", sort);
+    const qs = params.toString();
     const [orderItems, refundRows] = await Promise.all([
-      fetchJson<VendorOrderItem[]>("/vendor/orders"),
+      fetchJson<VendorOrderItem[]>(`/vendor/orders${qs ? `?${qs}` : ""}`),
       fetchJson<VendorRefund[]>("/vendor/refunds"),
     ]);
     setItems(orderItems);
     setRefunds(refundRows);
-  }
+  }, [debouncedSearch, statusFilter, sort]);
+
+  const loadStats = useCallback(async () => {
+    try {
+      setStats(await fetchJson<VendorOrderStats>("/vendor/orders/stats"));
+    } catch {
+      // Özet analiz opsiyonel - liste yine de gösterilir.
+    }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  const hasFilters = Boolean(debouncedSearch.trim() || statusFilter);
 
   async function advance(item: VendorOrderItem) {
     const action = NEXT_ACTION[item.vendorStatus];
@@ -84,7 +114,7 @@ export default function OrdersTable() {
     setBusyId(item.id);
     try {
       await mutateJson(`/vendor/orders/${item.id}`, "PATCH", { status: action.next });
-      await load();
+      await Promise.all([load(), loadStats()]);
     } finally {
       setBusyId(null);
     }
@@ -101,7 +131,7 @@ export default function OrdersTable() {
         trackingNumber: trackingNumber.trim(),
       });
       setShippingDraftId(null);
-      await load();
+      await Promise.all([load(), loadStats()]);
     } finally {
       setBusyId(null);
     }
@@ -112,7 +142,7 @@ export default function OrdersTable() {
     try {
       await mutateJson(`/vendor/refunds/${refundId}`, "PATCH", { action, vendorNote: refundNoteDraft.trim() || undefined });
       setRefundNoteDraft("");
-      await load();
+      await Promise.all([load(), loadStats()]);
     } finally {
       setBusyId(null);
     }
@@ -122,25 +152,81 @@ export default function OrdersTable() {
     setBusyId(refundId);
     try {
       await mutateJson(`/vendor/refunds/${refundId}/received`, "POST");
-      await load();
+      await Promise.all([load(), loadStats()]);
     } finally {
       setBusyId(null);
     }
   }
 
   return (
-    <div className="card">
-      <div className="ch">
-        <h3>Siparişlerim</h3>
-      </div>
-      {items === null ? (
-        <div className="card-body">Yükleniyor...</div>
-      ) : items.length === 0 ? (
-        <div className="empty">
-          <i className="fas fa-shopping-bag" />
-          <p>Henüz ödemesi tamamlanmış bir sipariş yok.</p>
+    <div>
+      {stats && (
+        <div className="stat-chips">
+          <div className="chip">
+            <span className="chip-val">{stats.total}</span>
+            <span className="chip-lbl">Toplam Sipariş</span>
+          </div>
+          <div className="chip chip-wa">
+            <span className="chip-val">{stats.pending}</span>
+            <span className="chip-lbl">Beklemede</span>
+          </div>
+          <div className="chip">
+            <span className="chip-val">{stats.processing}</span>
+            <span className="chip-lbl">Hazırlanıyor</span>
+          </div>
+          <div className="chip">
+            <span className="chip-val">{stats.shipped}</span>
+            <span className="chip-lbl">Kargoda</span>
+          </div>
+          <div className="chip">
+            <span className="chip-val">{stats.delivered}</span>
+            <span className="chip-lbl">Teslim Edildi</span>
+          </div>
+          <div className="chip">
+            <span className="chip-val">{stats.revenue.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+            <span className="chip-lbl">Ciro (teslim edilen)</span>
+          </div>
         </div>
-      ) : (
+      )}
+
+      <div className="card">
+        <div className="ch">
+          <h3>Siparişlerim</h3>
+        </div>
+
+        <div className="toolbar">
+          <div className="toolbar-search">
+            <i className="fas fa-search" />
+            <input
+              className="fi"
+              type="search"
+              placeholder="Sipariş no, ürün veya müşteri ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select className="fi" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Durum filtresi">
+            <option value="">Tüm Durumlar</option>
+            <option value="pending">Beklemede</option>
+            <option value="processing">Hazırlanıyor</option>
+            <option value="shipped">Kargoda</option>
+            <option value="delivered">Teslim Edildi</option>
+            <option value="cancelled">İptal</option>
+          </select>
+          <select className="fi" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sıralama">
+            <option value="newest">En Yeni</option>
+            <option value="oldest">En Eski</option>
+          </select>
+        </div>
+
+        {items === null ? (
+          <div className="card-body">Yükleniyor...</div>
+        ) : items.length === 0 ? (
+          <div className="empty">
+            <i className="fas fa-shopping-bag" />
+            <p>{hasFilters ? "Bu filtrelere uygun sipariş bulunamadı." : "Henüz ödemesi tamamlanmış bir sipariş yok."}</p>
+          </div>
+        ) : (
         <div className="table-wrap">
           <table>
             <thead>
@@ -336,6 +422,7 @@ export default function OrdersTable() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

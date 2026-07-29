@@ -287,6 +287,16 @@ export interface VendorProductStats {
   totalFavorites: number;
 }
 
+export interface VendorOrderStats {
+  total: number;
+  pending: number;
+  processing: number;
+  shipped: number;
+  delivered: number;
+  cancelled: number;
+  revenue: number;
+}
+
 export interface VendorProductImage {
   id: number;
   productId: number;

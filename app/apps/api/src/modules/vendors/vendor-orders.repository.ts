@@ -1,7 +1,8 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import { db } from "../../db/client";
 import { customers, orderItems, orderRefunds, orders } from "../../db/schema/index";
 import { recomputeOrderStatus, restoreOrderItemStockSingle } from "../orders/order.repository";
+import type { OrderListQuery } from "./vendor-orders.schemas";
 
 // Sidebar'daki "Siparişler" rozeti için - eski sitede bu sayaç vardı,
 // yeni panelde hiç kullanılmıyordu (bkz. re-audit bulgusu). Aşağıdaki
@@ -23,7 +24,24 @@ export async function countPendingVendorOrders(vendorId: number) {
 // vendor/order-detail.php'nin karşılığı - ayrı bir sayfa yerine, satıcı
 // paneli listesindeki her satırın açılıp kapanan detay bölümünde
 // gösterilecek teslimat adresi/müşteri iletişim/sipariş notu bilgileri.
-export async function listVendorOrderItems(vendorId: number) {
+export type VendorOrderItemRow = Awaited<ReturnType<typeof listVendorOrderItems>>[number];
+
+// bkz. kullanıcı isteği: "filtreleme ve analiz" - liste artık durum + arama
+// (sipariş no / ürün / müşteri e-postası) ile filtrelenip tarihe göre
+// sıralanabilir. Filtre verilmezse eski davranış (en yeni, tüm paid kalemler).
+export async function listVendorOrderItems(vendorId: number, filter: OrderListQuery = { sort: "newest" }) {
+  const conditions: SQL[] = [eq(orderItems.vendorId, vendorId), eq(orders.paymentStatus, "paid")];
+  if (filter.status) conditions.push(eq(orderItems.vendorStatus, filter.status));
+  if (filter.search) {
+    const q = `%${filter.search}%`;
+    const searchMatch = or(
+      ilike(orders.orderNumber, q),
+      ilike(orderItems.productNameSnapshot, q),
+      ilike(customers.email, q),
+    );
+    if (searchMatch) conditions.push(searchMatch);
+  }
+
   return db
     .select({
       id: orderItems.id,
@@ -46,8 +64,8 @@ export async function listVendorOrderItems(vendorId: number) {
     .from(orderItems)
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .innerJoin(customers, eq(orders.customerId, customers.id))
-    .where(and(eq(orderItems.vendorId, vendorId), eq(orders.paymentStatus, "paid")))
-    .orderBy(desc(orders.createdAt));
+    .where(and(...conditions))
+    .orderBy(filter.sort === "oldest" ? asc(orders.createdAt) : desc(orders.createdAt));
 }
 
 // listVendorOrderItems ile AYNI paymentStatus='paid' şartı - önceki
