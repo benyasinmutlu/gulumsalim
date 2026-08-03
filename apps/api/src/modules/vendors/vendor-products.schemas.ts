@@ -11,14 +11,24 @@ export const createProductSchema = z.object({
   basePrice: z.coerce.number().positive(),
   compareAtPrice: z.coerce.number().positive().optional(),
   // bkz. kullanıcı isteği: "bireysel olarak ... 2. el ürün letgo dolap
-  // gibi" - hem kurumsal hem bireysel satıcılar bir ürünü 2. el olarak
-  // işaretleyebilir.
+  // gibi" ve sonrasında "normal kurumsal satıcılar için 2.el seçeneği
+  // olmasın" - şema seviyesinde her iki tip de gönderebilir, ama route
+  // katmanı (vendor-products.routes.ts) kurumsal satıcı için bunu her
+  // zaman false'a zorlar.
   isSecondHand: z.coerce.boolean().optional(),
+  // bkz. kullanıcı isteği: "kurumsal satıcıların stokları zorunlu olarak
+  // girilmeli" - sadece varyantsız (renk/beden eklenmemiş) ürünlerde
+  // kullanılır, route katmanında zorunlu kılınır (bireysel satıcıda
+  // yoksayılıp hep 1'e zorlanır, bkz. vendor-products.routes.ts).
+  stock: z.coerce.number().int().min(0).optional(),
 });
 
 // "rejected" durumu kasıtlı olarak dışarıda bırakıldı - bir ürünü
 // reddetmek admin'in yetkisinde (Faz 3), satıcı kendi ürününü sadece
-// taslak/aktif/pasif arasında değiştirebilir.
+// taslak/aktif/pasif arasında değiştirebilir. "pending" bireysel satıcının
+// onaya gönder eylemi için (bkz. olay: 2026-08-02, vendor-auth.service.ts
+// aynı isimli yorum) - route katmanında vendorType'a göre ayrıca
+// kısıtlanır (bkz. vendor-products.routes.ts).
 export const updateProductSchema = z.object({
   categoryId: z.number().int().positive().optional(),
   name: z.string().min(2).optional(),
@@ -27,9 +37,10 @@ export const updateProductSchema = z.object({
   brand: z.string().min(1).optional(),
   basePrice: z.coerce.number().positive().optional(),
   compareAtPrice: z.coerce.number().positive().optional(),
-  status: z.enum(["draft", "active", "inactive"]).optional(),
+  status: z.enum(["draft", "pending", "active", "inactive"]).optional(),
   freeShipping: z.coerce.boolean().optional(),
   isSecondHand: z.coerce.boolean().optional(),
+  stock: z.coerce.number().int().min(0).optional(),
 });
 
 export const productIdParamsSchema = z.object({

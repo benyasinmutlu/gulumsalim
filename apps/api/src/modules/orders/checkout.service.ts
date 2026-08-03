@@ -3,10 +3,13 @@ import bcrypt from "bcryptjs";
 import type { FastifyInstance } from "fastify";
 import { env } from "../../config/env";
 import { emitBehavioralEvent } from "../analytics/events.client";
+import { recordContentEvent } from "../analytics/content-analytics.repository";
 import { createGuestCustomer, findCustomerByEmail, findCustomerById, updateGuestCustomerContact } from "../auth/auth.repository";
+import { createAddress, listAddressesByCustomer } from "../customers/customer-addresses.repository";
 import { hydrateCart } from "../cart/cart.service";
 import { createNotification } from "../notifications/notifications.repository";
 import { getShippingConfig } from "../../lib/shipping";
+import { emailButton, emailDivider, emailHeading, emailProductRow, renderEmailLayout, sendMail } from "../../lib/mailer";
 import type { CartLine } from "../cart/cart.types";
 import type { ShippingAddress } from "./checkout.schemas";
 import { renderDistanceSalesContract, type ContractVendorBlock } from "./contract-template";
@@ -16,6 +19,7 @@ import {
   fetchProductsForCheckout,
   fetchVendorsForCheckout,
   findOrderByPaymentRef,
+  findOrderItemsForDetail,
   findOrderItemsWithProductInfo,
   InsufficientStockError,
   markOrderPaid,
@@ -23,6 +27,8 @@ import {
   setOrderPaymentRef,
 } from "./order.repository";
 import { isVerifiedSuccessfulPayment } from "./order-security";
+import { recordCouponRedemption } from "./coupon.repository";
+import { validateAndComputeDiscount } from "./coupon.service";
 
 export { InsufficientStockError };
 
@@ -95,6 +101,7 @@ export async function previewContract(
   cart: CartLine[],
   shippingAddress: ShippingAddress,
   email?: string,
+  couponCode?: string,
 ) {
   if (cart.length === 0) throw new EmptyCartError();
 
@@ -118,7 +125,15 @@ export async function previewContract(
   const subtotal = Number(hydrated.subtotal);
   const allItemsFreeShipping = cart.every((c) => productMap.get(c.productId)?.freeShipping === true);
   const shippingFee = allItemsFreeShipping || subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
-  const total = subtotal + shippingFee;
+
+  let discountAmount = 0;
+  let appliedCouponCode: string | null = null;
+  if (couponCode) {
+    const result = await validateAndComputeDiscount(couponCode, sessionCustomerId, subtotal);
+    discountAmount = result.discountAmount;
+    appliedCouponCode = result.coupon.code;
+  }
+  const total = subtotal - discountAmount + shippingFee;
 
   const items = hydrated.items.map((item) => {
     const product = productMap.get(item.productId);
@@ -146,6 +161,8 @@ export async function previewContract(
     vendorBlocks,
     subtotal: subtotal.toFixed(2),
     shippingFee: shippingFee.toFixed(2),
+    couponCode: appliedCouponCode,
+    discountAmount: discountAmount.toFixed(2),
     total: total.toFixed(2),
     date: new Date(),
   });
@@ -158,6 +175,7 @@ export async function startCheckout(
   email?: string,
   orderNote?: string,
   contractAccepted?: boolean,
+  couponCode?: string,
 ) {
   if (cart.length === 0) throw new EmptyCartError();
   const customerId = await resolveCustomerId(sessionCustomerId, email, shippingAddress);
@@ -181,7 +199,15 @@ export async function startCheckout(
   // ücreti sıfırlanır, aksi halde her zamanki eşik kuralı işler.
   const allItemsFreeShipping = cart.every((c) => productMap.get(c.productId)?.freeShipping === true);
   const shippingFee = allItemsFreeShipping || subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
-  const total = subtotal + shippingFee;
+
+  let discountAmount = 0;
+  let couponId: number | null = null;
+  if (couponCode) {
+    const result = await validateAndComputeDiscount(couponCode, customerId, subtotal);
+    discountAmount = result.discountAmount;
+    couponId = result.coupon.id;
+  }
+  const total = subtotal - discountAmount + shippingFee;
   const orderNumber = `GS${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
   const items = hydrated.items.map((item) => {
@@ -214,6 +240,8 @@ export async function startCheckout(
     vendorBlocks,
     subtotal: subtotal.toFixed(2),
     shippingFee: shippingFee.toFixed(2),
+    couponCode: couponId ? couponCode : null,
+    discountAmount: discountAmount.toFixed(2),
     total: total.toFixed(2),
     orderNumber,
     date: new Date(),
@@ -224,6 +252,8 @@ export async function startCheckout(
     orderNumber,
     subtotal: subtotal.toFixed(2),
     shippingFee: shippingFee.toFixed(2),
+    couponId: couponId ?? undefined,
+    discountAmount: discountAmount.toFixed(2),
     total: total.toFixed(2),
     shippingAddress,
     orderNote,
@@ -231,6 +261,21 @@ export async function startCheckout(
     contractSnapshot,
     contractAcceptedAt: contractAccepted ? new Date() : undefined,
   });
+
+  // bkz. kullanıcı isteği: "adres bilgisi yoksa oraya yazdığı adresi
+  // kaydettirelim" - sadece GERÇEKTEN giriş yapmış hesaplar için (misafir
+  // sipariş sırasında oluşturulan customerId'ler DEĞİL, bkz. resolveCustomerId),
+  // ve sadece hiç kayıtlı adresi yoksa (varsa zaten ödeme sayfasında
+  // ön-doluyor, tekrar yazıp adres çoğaltmamak için dokunulmuyor).
+  if (sessionCustomerId) {
+    listAddressesByCustomer(sessionCustomerId)
+      .then((existing) => {
+        if (existing.length === 0) {
+          return createAddress(sessionCustomerId, { ...shippingAddress, isDefault: true });
+        }
+      })
+      .catch(() => {});
+  }
 
   const [firstName, ...rest] = shippingAddress.fullName.split(" ");
 
@@ -313,8 +358,20 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
   // yeniden POST'layabilir de). Sipariş zaten "paid" ise satış event'lerini
   // ve satıcı bildirimlerini tekrar üretmeden doğrudan başarı dönülür -
   // markOrderPaymentFailed'daki aynı garantinin ödenmiş sipariş karşılığı.
+  // bkz. kullanıcı isteği: "ödeme bekleniyor veya ödeme başarısız olunca
+  // siparişlerde listeleme sepette kalmaya devam etsin ürünler" - sepetten
+  // çıkarma artık burada (ödeme GERÇEKTEN başarılı olunca), checkout.routes.ts
+  // POST /checkout'ta DEĞİL - önceden sipariş oluşturulur oluşturulmaz
+  // (iyzico'ya daha gitmeden) sepet boşaltılıyordu, ödeme başarısız olsa
+  // bile geri gelmiyordu. Satın alınan satırları tanımlamak için sipariş
+  // kalemleri kullanılır (bkz. cart.service.ts lineKey ile aynı anahtar).
+  async function getPurchasedLines(orderId: number) {
+    const orderItemsList = await findOrderItemsWithProductInfo(orderId);
+    return orderItemsList.map((i) => ({ productId: i.productId, variantId: i.variantId ?? undefined }));
+  }
+
   if (order.paymentStatus === "paid") {
-    return { orderNumber: order.orderNumber, success: true };
+    return { orderNumber: order.orderNumber, success: true, purchasedLines: await getPurchasedLines(order.id) };
   }
 
   if (result.paymentStatus === "SUCCESS") {
@@ -331,7 +388,16 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
     // satın alma event'leri ve satıcı bildirimleri tekrar üretilmez.
     const transitioned = await markOrderPaid(order.id, result.paymentId);
     if (!transitioned) {
-      return { orderNumber: order.orderNumber, success: true };
+      return { orderNumber: order.orderNumber, success: true, purchasedLines: await getPurchasedLines(order.id) };
+    }
+
+    // Kupon kullanımı SADECE ödeme gerçekten başarılı olunca sayılır (vendor
+    // earnings/behavioral event'lerle aynı prensip) - ödeme başarısız/askıda
+    // kalan bir siparişte müşterinin tek kullanımlık kuponu boşa yanmaz.
+    if (order.couponId) {
+      await recordCouponRedemption(order.couponId, order.customerId, order.id).catch((err) =>
+        app.log.warn({ err, orderId: order.id }, "Kupon kullanım kaydı oluşturulamadı"),
+      );
     }
 
     // Satın alma, en güçlü davranışsal sinyal (bkz. discovery servisi
@@ -346,6 +412,41 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
         vendorId: item.vendorId,
         categoryId: item.categoryId,
       });
+      recordContentEvent("product", item.productId, "purchase", item.quantity).catch(() => {});
+    }
+
+    // bkz. kullanıcı isteği: "kargo sipariş şifre ... gibi mailler
+    // gönderelim" - ödeme gerçekten başarılı olunca müşteriye sipariş
+    // onayı e-postası gider. E-posta gönderimi başarısız olursa (ör. geçici
+    // Resend hatası) ödeme akışını bozmasın diye hata yutulur, sadece
+    // loglanır - sipariş zaten "paid" olarak işaretlendi.
+    const orderCustomer = await findCustomerById(order.customerId);
+    if (orderCustomer) {
+      const orderItemsDetail = await findOrderItemsForDetail(order.id);
+      const itemsHtml = orderItemsDetail
+        .map((i) =>
+          emailProductRow({
+            image: i.productImage,
+            name: i.productNameSnapshot,
+            meta: `${i.vendorStoreName} · ${i.quantity} adet`,
+            priceHtml: `<strong>${Number(i.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</strong>`,
+            href: `/urun/${i.productSlug}`,
+          }),
+        )
+        .join("");
+      const trackHref = `${env.SITE_URL}/hesabim/siparisler/${order.orderNumber}`;
+      const body =
+        emailHeading("Siparişiniz Alındı! 🎉") +
+        `<p>Merhaba ${orderCustomer.fullName},</p>` +
+        `<p><strong>#${order.orderNumber}</strong> numaralı siparişiniz alındı ve ödemeniz onaylandı. Ürünleriniz en kısa sürede hazırlanıp kargoya verilecek.</p>` +
+        emailDivider() +
+        itemsHtml +
+        emailDivider() +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-size:16px;font-weight:700;text-align:right;">Toplam: ${Number(order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</td></tr></table>` +
+        emailButton(trackHref, "Siparişimi Takip Et");
+      await sendMail(orderCustomer.email, `Siparişiniz Alındı - #${order.orderNumber}`, renderEmailLayout(`Siparişiniz onaylandı - #${order.orderNumber}`, body)).catch(
+        (err) => app.log.warn({ err, orderId: order.id }, "Sipariş onayı e-postası gönderilemedi"),
+      );
     }
 
     // Her satıcıya (bir sipariş birden fazla satıcıya yayılabildiği için
@@ -357,7 +458,7 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
       ),
     );
 
-    return { orderNumber: order.orderNumber, success: true };
+    return { orderNumber: order.orderNumber, success: true, purchasedLines: items.map((i) => ({ productId: i.productId, variantId: i.variantId ?? undefined })) };
   }
   await markOrderPaymentFailed(order.id);
   return { orderNumber: order.orderNumber, success: false };

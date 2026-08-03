@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { findProductsByIds } from "../catalog/catalog.repository";
+import { removeProductFromIndex, syncProductToIndex } from "../catalog/search-index.service";
 import { countProductsByStatus, deleteProduct, listAllProducts, updateProductStatus } from "./admin-products.repository";
 import { productIdParamsSchema, productListQuerySchema, updateProductStatusSchema } from "./admin-products.schemas";
 
@@ -26,6 +27,7 @@ const adminProductsRoutes: FastifyPluginAsync = async (app) => {
     const { status } = updateProductStatusSchema.parse(request.body);
     const row = await updateProductStatus(id, status);
     if (!row) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+    syncProductToIndex(id).catch(() => {});
     return reply.send(row);
   });
 
@@ -33,6 +35,7 @@ const adminProductsRoutes: FastifyPluginAsync = async (app) => {
     const { id } = productIdParamsSchema.parse(request.params);
     const deleted = await deleteProduct(id);
     if (!deleted) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+    removeProductFromIndex(id).catch(() => {});
     return reply.send({ ok: true });
   });
 };

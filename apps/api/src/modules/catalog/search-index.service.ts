@@ -25,6 +25,8 @@ async function buildProductDocument(productId: number) {
       vendorName: vendors.storeName,
       vendorSlug: vendors.storeSlug,
       createdAt: products.createdAt,
+      isSecondHand: products.isSecondHand,
+      vendorType: vendors.vendorType,
       productStatus: products.status,
       vendorStatus: vendors.status,
     })
@@ -68,6 +70,8 @@ async function buildProductDocument(productId: number) {
     avgRating: ratingRow[0]?.average ? Number(ratingRow[0].average) : 0,
     reviewCount: ratingRow[0]?.total ?? 0,
     onSale: row.compareAtPrice !== null,
+    isSecondHand: row.isSecondHand,
+    vendorIsIndividual: row.vendorType === "individual",
     visible: row.productStatus === "active" && row.vendorStatus === "active",
   };
 }
@@ -96,9 +100,19 @@ export async function reindexVendorProducts(vendorId: number) {
 // ürünleri tek seferde indeksler (bkz. infra/postgres/seed script'i).
 export async function reindexAllProducts() {
   const rows = await db.select({ id: products.id }).from(products);
+  const liveIds = new Set(rows.map((r) => r.id));
   const docs = (await Promise.all(rows.map((r) => buildProductDocument(r.id)))).filter((d) => d !== null);
+  const index = meiliClient.index(PRODUCTS_INDEX);
   if (docs.length > 0) {
-    await meiliClient.index(PRODUCTS_INDEX).addDocuments(docs);
+    await index.addDocuments(docs);
+  }
+  // Postgres'te artık olmayan (ör. doğrudan SQL ile silinmiş) belgeleri
+  // index'ten temizle - aksi halde "hayalet" ürünler filtreli aramalarda
+  // sonsuza dek görünmeye devam eder.
+  const existing = await index.getDocuments({ limit: 10000, fields: ["id"] });
+  const staleIds = existing.results.map((d) => d.id as number).filter((id) => !liveIds.has(id));
+  if (staleIds.length > 0) {
+    await index.deleteDocuments(staleIds);
   }
   return docs.length;
 }

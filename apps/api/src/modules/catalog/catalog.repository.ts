@@ -100,6 +100,26 @@ export async function findCategoryBySlug(slug: string) {
   return row ?? null;
 }
 
+// bkz. kullanıcı isteği (2026-08-02): admin panelinden kurulan "Kategori
+// Vitrini" anasayfa bölümü - "Tümünü Gör" linkinin doğru kategori adresine
+// gidebilmesi için resolveOneSection'ın categoryId'den slug'a ihtiyacı var.
+export async function findCategoryById(id: number) {
+  const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+  return row ?? null;
+}
+
+// bkz. kullanıcı isteği: "kategorilerde belli bir sistem olmalı" - kategori
+// şeması 2 seviyeli tasarlandığı (üst kategori + alt kategoriler, bkz.
+// categories.parentId) için tek sorgu yeterli, daha derin nesting şu an
+// yok/gerekmiyor. Bir üst kategori (ör. "Giyim") ziyaret edildiğinde
+// SADECE kendi id'siyle filtrelemek 0 ürün gösterirdi (ürünler alt
+// kategorilere atanıyor) - bu fonksiyon kendi id'si + doğrudan
+// çocuklarının id'lerini döner, çağıran taraf bunu categoryIds olarak kullanır.
+export async function getCategoryIdWithDescendants(categoryId: number): Promise<number[]> {
+  const children = await db.select({ id: categories.id }).from(categories).where(eq(categories.parentId, categoryId));
+  return [categoryId, ...children.map((c) => c.id)];
+}
+
 export async function findActiveProductIdBySlug(slug: string) {
   const [row] = await db
     .select({ id: products.id })
@@ -111,12 +131,14 @@ export async function findActiveProductIdBySlug(slug: string) {
 }
 
 interface ListProductsParams {
-  categoryId?: number;
+  categoryIds?: number[];
   vendorId?: number;
   minPrice?: number;
   maxPrice?: number;
   search?: string;
   saleOnly?: boolean;
+  minDiscountPercent?: number;
+  secondHand?: boolean;
   cursor?: Cursor | null;
   limit: number;
 }
@@ -161,7 +183,7 @@ export async function findTopViewedCategories(limit: number) {
 
 export async function listActiveProducts(params: ListProductsParams) {
   const conditions: SQL[] = [eq(products.status, "active"), eq(vendors.status, "active")];
-  if (params.categoryId !== undefined) conditions.push(eq(products.categoryId, params.categoryId));
+  if (params.categoryIds?.length) conditions.push(inArray(products.categoryId, params.categoryIds));
   if (params.vendorId !== undefined) conditions.push(eq(products.vendorId, params.vendorId));
   if (params.minPrice !== undefined) conditions.push(gte(products.basePrice, String(params.minPrice)));
   if (params.maxPrice !== undefined) conditions.push(lte(products.basePrice, String(params.maxPrice)));
@@ -170,6 +192,16 @@ export async function listActiveProducts(params: ListProductsParams) {
   // (bkz. needsSearchIndex/catalog.search.ts), bu fonksiyona hiç uğramaz.
   if (params.search) conditions.push(ilike(products.name, `%${params.search}%`));
   if (params.saleOnly) conditions.push(isNotNull(products.compareAtPrice));
+  // bkz. kullanıcı isteği (2026-08-02): "İndirim Oranlarına Göre Keşfet" -
+  // gerçek indirim yüzdesi doğrudan basePrice/compareAtPrice'tan hesaplanır
+  // (sahte/şişirilmiş bir "indirim yüzdesi" alanı DB'de tutulmuyor - tek
+  // doğruluk kaynağı gerçek fiyat farkı).
+  if (params.minDiscountPercent !== undefined) {
+    conditions.push(
+      sql`${products.compareAtPrice} IS NOT NULL AND (${products.compareAtPrice} - ${products.basePrice}) / ${products.compareAtPrice} >= ${params.minDiscountPercent / 100}`,
+    );
+  }
+  if (params.secondHand) conditions.push(eq(products.isSecondHand, true));
   if (params.cursor) {
     const cursorDate = new Date(params.cursor.createdAt);
     const cursorCondition = or(
@@ -196,6 +228,10 @@ export async function listActiveProducts(params: ListProductsParams) {
       favoriteCount: favoriteCountExpr,
       purchaseCount: purchaseCountExpr,
       isSecondHand: products.isSecondHand,
+      // bkz. kullanıcı isteği (2026-08-02): "bireysel satıcıların ürünleri
+      // ... listelerken belli olsun" - ürün kartında "Bireysel Satıcı"
+      // rozeti göstermek için (bkz. product-card.tsx).
+      vendorIsIndividual: eq(vendors.vendorType, "individual"),
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))
@@ -270,6 +306,7 @@ export async function findProductsByIds(ids: number[]) {
       favoriteCount: favoriteCountExpr,
       purchaseCount: purchaseCountExpr,
       isSecondHand: products.isSecondHand,
+      vendorIsIndividual: eq(vendors.vendorType, "individual"),
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))
@@ -316,6 +353,8 @@ export async function findProductBySlug(slug: string) {
       vendorId: products.vendorId,
       vendorStoreName: vendors.storeName,
       vendorSlug: vendors.storeSlug,
+      videoUrl: products.videoUrl,
+      stock: products.stock,
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))
@@ -349,4 +388,18 @@ export async function findProductBySlug(slug: string) {
 // dashboard'daki "En Çok Görüntülenen Ürünler" için.
 export async function incrementProductViewCount(productId: number) {
   await db.update(products).set({ viewCount: sql`${products.viewCount} + 1` }).where(eq(products.id, productId));
+}
+
+// bkz. kullanıcı isteği: "websitesindeki ürünleri mağazaları gösterceksin
+// orada" (sonra: "mağazaları ve kategorileri gösterme" - sadece ürün adları
+// kalsın) - arama kutusundaki yazılıp-silinen efekt (bkz.
+// components/search-box.tsx) için sitedeki gerçek, popüler ürün adları.
+export async function getSearchHighlights() {
+  const productRows = await db
+    .select({ name: products.name })
+    .from(products)
+    .where(eq(products.status, "active"))
+    .orderBy(desc(products.viewCount))
+    .limit(8);
+  return { products: productRows.map((r) => r.name) };
 }

@@ -183,3 +183,32 @@ export async function getPromoBannerStats(bannerId: number) {
     scope,
   };
 }
+
+// bkz. kullanıcı isteği: "kategoriler sayfalar koleksiyonlar mağazalar
+// kampanyalar ... çok önemli" - İçerik Analitiği sayfasının "Kampanya
+// Bannerları" sekmesi için, TÜM bannerların seçili gün/hafta/ay aralığındaki
+// view+click toplamı. getPromoBannerStats'tan farkı: tekil banner değil,
+// tüm bannerları sıralayıp döner.
+export async function getTopPromoBanners(from: Date, to: Date, limit = 10) {
+  const rows = await db
+    .select({
+      id: promoBanners.id,
+      title: promoBanners.title,
+      image: promoBanners.image,
+      eventType: promoBannerClicks.eventType,
+      count: count(),
+    })
+    .from(promoBannerClicks)
+    .innerJoin(promoBanners, eq(promoBannerClicks.bannerId, promoBanners.id))
+    .where(and(gte(promoBannerClicks.createdAt, from), sql`${promoBannerClicks.createdAt} <= ${to}`))
+    .groupBy(promoBanners.id, promoBanners.title, promoBanners.image, promoBannerClicks.eventType);
+
+  const byBanner = new Map<number, { id: number; title: string; image: string; views: number; clicks: number }>();
+  for (const row of rows) {
+    const entry = byBanner.get(row.id) ?? { id: row.id, title: row.title, image: row.image, views: 0, clicks: 0 };
+    if (row.eventType === "view") entry.views = row.count;
+    else if (row.eventType === "click") entry.clicks = row.count;
+    byBanner.set(row.id, entry);
+  }
+  return [...byBanner.values()].sort((a, b) => b.views - a.views).slice(0, limit);
+}

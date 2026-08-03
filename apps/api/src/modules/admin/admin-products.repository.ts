@@ -4,7 +4,7 @@ import { categories, productFavorites, productImages, productVariants, products,
 import { outer } from "../../lib/sql-helpers";
 
 interface ListParams {
-  status?: "draft" | "active" | "inactive" | "rejected";
+  status?: "draft" | "pending" | "active" | "inactive" | "rejected";
   search?: string;
   vendorId?: number;
   categoryId?: number;
@@ -12,16 +12,24 @@ interface ListParams {
 }
 
 // products.php'deki stok/kategori filtrelerinin ve resim/favori/görüntülenme
-// sütunlarının karşılığı - stok artık ürün başına değil varyant başına
-// tutulduğu için (bkz. product_variants) SUM(stock) ile toplanır.
+// sütunlarının karşılığı - varyantı olan üründe stok product_variants'ta
+// (SUM(stock)), varyantsız üründe products.stock'ta tutulur (bkz. aşağıdaki
+// effectiveStock).
 export async function listAllProducts({ status, search, vendorId, categoryId, stock }: ListParams) {
   const conditions = [];
   if (status) conditions.push(eq(products.status, status));
   if (vendorId) conditions.push(eq(products.vendorId, vendorId));
   if (categoryId) conditions.push(eq(products.categoryId, categoryId));
   if (search) conditions.push(ilike(products.name, `%${search}%`));
-  if (stock === "out") conditions.push(sql`COALESCE((SELECT SUM(${productVariants.stock}) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)}), 0) = 0`);
-  if (stock === "low") conditions.push(sql`COALESCE((SELECT SUM(${productVariants.stock}) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)}), 0) < 5`);
+  // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
+  // zorunlu olarak girilmeli bireysel satıcıların ise stoğu 1 olacak" -
+  // varyantı olan üründe stok variant toplamı, varyantsız üründe artık
+  // products.stock (eskiden varyantsız ürünlerde stok kavramı hiç yoktu ve
+  // filtrelere hiç dahil edilmiyorlardı, bkz. eski yorum aşağıda).
+  const hasAnyVariant = sql<boolean>`EXISTS (SELECT 1 FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)})`;
+  const effectiveStock = sql<number>`(CASE WHEN ${hasAnyVariant} THEN COALESCE((SELECT SUM(${productVariants.stock}) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)}), 0) ELSE ${outer(products.stock)} END)`;
+  if (stock === "out") conditions.push(sql`${effectiveStock} = 0`);
+  if (stock === "low") conditions.push(sql`${effectiveStock} < 5`);
 
   return db
     .select({
@@ -38,7 +46,8 @@ export async function listAllProducts({ status, search, vendorId, categoryId, st
       vendorSlug: vendors.storeSlug,
       categoryName: categories.name,
       image: sql<string | null>`(SELECT url FROM ${productImages} WHERE ${productImages.productId} = ${outer(products.id)} ORDER BY ${productImages.isPrimary} DESC, ${productImages.sortOrder} ASC LIMIT 1)`,
-      totalStock: sql<number>`COALESCE((SELECT SUM(${productVariants.stock}) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)}), 0)`,
+      totalStock: effectiveStock,
+      hasVariants: hasAnyVariant,
       favoriteCount: sql<number>`(SELECT COUNT(*) FROM ${productFavorites} WHERE ${productFavorites.productId} = ${outer(products.id)})`,
     })
     .from(products)
@@ -49,7 +58,7 @@ export async function listAllProducts({ status, search, vendorId, categoryId, st
     .limit(200);
 }
 
-export async function updateProductStatus(id: number, status: "draft" | "active" | "inactive" | "rejected") {
+export async function updateProductStatus(id: number, status: "draft" | "pending" | "active" | "inactive" | "rejected") {
   const [row] = await db.update(products).set({ status, updatedAt: new Date() }).where(eq(products.id, id)).returning({ id: products.id });
   return row ?? null;
 }

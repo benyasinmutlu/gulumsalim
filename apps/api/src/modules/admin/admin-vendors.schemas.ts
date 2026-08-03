@@ -1,7 +1,10 @@
 import { z } from "zod";
 
+// bkz. kullanıcı isteği (2026-08-02): "bireysel satıcıları admin panelinden
+// ayrı yönetelim" - mevcut durum filtresinin yanına tür filtresi eklendi.
 export const vendorStatusFilterSchema = z.object({
   status: z.enum(["pending", "active", "suspended", "banned"]).optional(),
+  vendorType: z.enum(["business", "individual"]).optional(),
 });
 
 export const updateVendorStatusSchema = z.object({

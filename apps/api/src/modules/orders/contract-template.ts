@@ -48,6 +48,9 @@ export interface ContractInput {
   subtotal: string;
   shippingFee: string;
   total: string;
+  // bkz. coupon.service.ts - kupon uygulandıysa sözleşmede şeffaf gösterilir.
+  couponCode?: string | null;
+  discountAmount?: string;
   orderNumber?: string;
   date: Date;
 }
@@ -80,8 +83,12 @@ function renderVendorBlock(block: ContractVendorBlock, index: number): string {
 }
 
 export function renderDistanceSalesContract(input: ContractInput): string {
-  const { buyer, vendorBlocks, subtotal, shippingFee, total, orderNumber, date } = input;
+  const { buyer, vendorBlocks, subtotal, shippingFee, total, couponCode, discountAmount, orderNumber, date } = input;
   const vendorHtml = vendorBlocks.map(renderVendorBlock).join("");
+  const discountLine =
+    couponCode && discountAmount && Number(discountAmount) > 0
+      ? `Kupon (${esc(couponCode)}) İndirimi: -${discountAmount} TL<br/>`
+      : "";
 
   return `<div style="font-size:0.95rem;line-height:1.7;">
 <h3>GÜLÜM ŞALIM MESAFELİ SATIŞ SÖZLEŞMESİ ve ÖN BİLGİLENDİRME FORMU</h3>
@@ -104,7 +111,7 @@ ${vendorHtml}
 
 <h4>4. Sipariş Özeti</h4>
 <p>Ara Toplam: ${subtotal} TL<br/>
-Kargo: ${Number(shippingFee) === 0 ? "Ücretsiz" : `${shippingFee} TL`}<br/>
+${discountLine}Kargo: ${Number(shippingFee) === 0 ? "Ücretsiz" : `${shippingFee} TL`}<br/>
 <strong>Genel Toplam: ${total} TL</strong></p>
 
 <h4>5. Cayma Hakkı</h4>

@@ -69,6 +69,8 @@ export const updateVendorProfileSchema = z.object({
   bankName: z.string().max(120).optional(),
   bankIban: z.string().max(40).optional(),
   bankAccountHolder: z.string().max(120).optional(),
+  taxId: z.string().max(20).optional(),
+  legalAddress: z.string().max(500).optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(8, "Şifre en az 8 karakter olmalı").optional(),
 });

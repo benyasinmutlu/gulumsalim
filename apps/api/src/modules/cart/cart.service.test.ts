@@ -1,6 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { addToCart, removeCartItem, updateCartItem } from "./cart.service";
 import type { CartLine } from "./cart.types";
+
+// bkz. kullanıcı isteği: "stok durumu sürekli kontrol ettirilmeli hem
+// sepette hemde ödeme yapılırken 14 tane şort etek var 30 tane alabiliyorum
+// bu olmamalı" - hydrateCart'ın gerçek stoğa göre miktarı kırptığının
+// regresyon testi (bkz. checkout.service.test.ts aynı mock deseni).
+vi.mock("./cart.repository", () => ({
+  fetchProductsForCart: vi.fn(),
+  fetchVariantsForCart: vi.fn(),
+  fetchPrimaryImages: vi.fn(),
+}));
+vi.mock("../../lib/shipping", () => ({
+  getShippingConfig: vi.fn().mockResolvedValue({ shippingFee: 49.9, freeShippingThreshold: 500 }),
+}));
 
 describe("addToCart", () => {
   it("boş sepete yeni bir satır ekler", () => {
@@ -58,5 +71,61 @@ describe("removeCartItem", () => {
       { productId: 1, variantId: 6, quantity: 1 },
       { productId: 2, quantity: 1 },
     ]);
+  });
+});
+
+describe("hydrateCart", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { fetchProductsForCart, fetchVariantsForCart, fetchPrimaryImages } = await import("./cart.repository");
+    vi.mocked(fetchProductsForCart).mockResolvedValue([
+      { id: 1, name: "Şort Etek", slug: "sort-etek", basePrice: "1500.00", status: "active", vendorStatus: "active", freeShipping: false, stock: 0 },
+    ]);
+    vi.mocked(fetchPrimaryImages).mockResolvedValue([]);
+    vi.mocked(fetchVariantsForCart).mockResolvedValue([
+      { id: 10, productId: 1, priceOverride: null, stock: 14, size: "M", color: null },
+    ]);
+  });
+
+  it("istenen miktar stoktan fazlaysa gerçek stoğa göre kırpar ve uyarı döner", async () => {
+    const { hydrateCart } = await import("./cart.service");
+    const result = await hydrateCart([{ productId: 1, variantId: 10, quantity: 30 }]);
+    expect(result.items[0]?.quantity).toBe(14);
+    expect(result.validCart[0]?.quantity).toBe(14);
+    expect(result.stockNotices).toEqual([{ productName: "Şort Etek", variantLabel: "M", availableStock: 14 }]);
+  });
+
+  it("stok yeterliyse miktarı olduğu gibi bırakır, uyarı üretmez", async () => {
+    const { hydrateCart } = await import("./cart.service");
+    const result = await hydrateCart([{ productId: 1, variantId: 10, quantity: 5 }]);
+    expect(result.items[0]?.quantity).toBe(5);
+    expect(result.stockNotices).toEqual([]);
+  });
+
+  it("stok sıfırsa satırı sepetten tamamen düşürür", async () => {
+    const { fetchVariantsForCart } = await import("./cart.repository");
+    vi.mocked(fetchVariantsForCart).mockResolvedValue([
+      { id: 10, productId: 1, priceOverride: null, stock: 0, size: "M", color: null },
+    ]);
+    const { hydrateCart } = await import("./cart.service");
+    const result = await hydrateCart([{ productId: 1, variantId: 10, quantity: 3 }]);
+    expect(result.items).toEqual([]);
+    expect(result.validCart).toEqual([]);
+  });
+
+  // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
+  // zorunlu olarak girilmeli bireysel satıcıların ise stoğu 1 olacak" -
+  // varyantsız ürünlerde de artık gerçek stok var (products.stock), aynı
+  // kırpma kuralı onlara da uygulanmalı.
+  it("varyantsız üründe miktarı products.stock'a göre kırpar", async () => {
+    const { fetchProductsForCart, fetchVariantsForCart } = await import("./cart.repository");
+    vi.mocked(fetchProductsForCart).mockResolvedValue([
+      { id: 2, name: "El Yapımı Şal", slug: "el-yapimi-sal", basePrice: "300.00", status: "active", vendorStatus: "active", freeShipping: false, stock: 1 },
+    ]);
+    vi.mocked(fetchVariantsForCart).mockResolvedValue([]);
+    const { hydrateCart } = await import("./cart.service");
+    const result = await hydrateCart([{ productId: 2, quantity: 5 }]);
+    expect(result.items[0]?.quantity).toBe(1);
+    expect(result.stockNotices).toEqual([{ productName: "El Yapımı Şal", variantLabel: undefined, availableStock: 1 }]);
   });
 });

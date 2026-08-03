@@ -34,8 +34,8 @@ interface Row {
   brand: string | null;
   price: string;
   viewCount: number;
-  status: "draft" | "active" | "inactive" | "rejected";
-  vendorStatus: "pending" | "active" | "suspended" | "banned";
+  status: "draft" | "pending" | "active" | "inactive" | "rejected";
+  vendorStatus: "pending" | "active" | "suspended" | "banned" | "closed";
   createdAt: Date;
 }
 

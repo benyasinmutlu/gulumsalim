@@ -2,7 +2,7 @@ import { fetchPrimaryImages, fetchProductsForCart, fetchVariantsForCart } from "
 import { getShippingConfig } from "../../lib/shipping";
 import type { CartLine } from "./cart.types";
 
-function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
+export function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
   return `${line.productId}:${line.variantId ?? 0}`;
 }
 
@@ -52,7 +52,7 @@ export function removeCartItem(cart: CartLine[], line: Pick<CartLine, "productId
 export async function hydrateCart(cart: CartLine[]) {
   if (cart.length === 0) {
     const { shippingFee, freeShippingThreshold } = await getShippingConfig();
-    return { items: [], subtotal: "0.00", validCart: [] as CartLine[], shippingFee: "0.00", freeShippingThreshold };
+    return { items: [], subtotal: "0.00", validCart: [] as CartLine[], shippingFee: "0.00", freeShippingThreshold, stockNotices: [] };
   }
 
   const productIds = [...new Set(cart.map((c) => c.productId))];
@@ -79,8 +79,23 @@ export async function hydrateCart(cart: CartLine[]) {
     unitPrice: string;
     quantity: number;
     lineTotal: string;
+    availableStock?: number;
   }> = [];
   const validCart: CartLine[] = [];
+  // bkz. kullanıcı isteği: "stok durumu sürekli kontrol ettirilmeli hem
+  // sepette hemde ödeme yapılırken 14 tane şort etek var 30 tane
+  // alabiliyorum bu olmamalı" - kök neden: sepete ekleme/güncelleme
+  // miktarı hiçbir yerde variant.stock'a göre sınırlanmıyordu (sadece
+  // sabit 20 üst sınırı vardı). GET/POST/PATCH /cart HER ZAMAN bu
+  // fonksiyondan geçtiği için buradaki kırpma tüm giriş noktalarını tek
+  // seferde kapsıyor - hem miktar gerçek stoğa indirilir hem de session'a
+  // (validCart) düzeltilmiş haliyle geri yazılır.
+  // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
+  // zorunlu olarak girilmeli bireysel satıcıların ise stoğu 1 olacak" -
+  // varyantsız ürünlerde de artık gerçek bir stok var (products.stock,
+  // bkz. order.repository.ts decrementOrderItemStock aynı kural), o yüzden
+  // onlar da aynı şekilde sınırlanır.
+  const stockNotices: { productName: string; variantLabel?: string; availableStock: number }[] = [];
 
   for (const line of cart) {
     const product = productMap.get(line.productId);
@@ -91,8 +106,17 @@ export async function hydrateCart(cart: CartLine[]) {
     const variant = line.variantId ? variantMap.get(line.variantId) : undefined;
     if (line.variantId && !variant) continue;
 
+    const variantLabel = variant ? [variant.size, variant.color].filter(Boolean).join(" / ") : undefined;
+    const availableStock = variant ? variant.stock : product.stock;
+    let quantity = line.quantity;
+    if (quantity > availableStock) {
+      stockNotices.push({ productName: product.name, variantLabel, availableStock });
+      quantity = availableStock;
+    }
+    if (quantity <= 0) continue; // stok tükenmiş - satır sessizce düşer
+
     const unitPrice = variant?.priceOverride ?? product.basePrice;
-    const lineTotal = Number(unitPrice) * line.quantity;
+    const lineTotal = Number(unitPrice) * quantity;
     subtotal += lineTotal;
 
     items.push({
@@ -100,18 +124,19 @@ export async function hydrateCart(cart: CartLine[]) {
       productName: product.name,
       productSlug: product.slug,
       variantId: variant?.id,
-      variantLabel: variant ? [variant.size, variant.color].filter(Boolean).join(" / ") : undefined,
+      variantLabel,
       image: imageMap.get(product.id) ?? null,
       unitPrice,
-      quantity: line.quantity,
+      quantity,
       lineTotal: lineTotal.toFixed(2),
+      availableStock,
     });
-    validCart.push(line);
+    validCart.push({ ...line, quantity });
   }
 
   const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
   const allItemsFreeShipping = items.length > 0 && items.every((item) => productMap.get(item.productId)?.freeShipping === true);
   const shippingFee = items.length === 0 || allItemsFreeShipping || subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
 
-  return { items, subtotal: subtotal.toFixed(2), validCart, shippingFee: shippingFee.toFixed(2), freeShippingThreshold };
+  return { items, subtotal: subtotal.toFixed(2), validCart, shippingFee: shippingFee.toFixed(2), freeShippingThreshold, stockNotices };
 }

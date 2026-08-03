@@ -9,6 +9,15 @@ export const shippingAddressSchema = z.object({
   zipCode: z.string().optional(),
 });
 
+// bkz. kullanıcı isteği (mockup): sepette checkbox ile seçilen ürünler
+// "Tümünü Seç" ile birlikte - verilirse sadece bu kalemler ödenir, sepette
+// kalan diğer kalemler dokunulmadan durur (bkz. checkout.routes.ts
+// filterCartBySelection). Verilmezse (eski davranış) sepetin tamamı işlenir.
+export const selectedLineSchema = z.object({
+  productId: z.number().int().positive(),
+  variantId: z.number().int().positive().optional(),
+});
+
 export const checkoutSchema = z.object({
   shippingAddress: shippingAddressSchema,
   // Üye olmayan (misafir) checkout için gerekli - oturum açmış müşteride
@@ -22,6 +31,7 @@ export const checkoutSchema = z.object({
   contractAccepted: z.literal(true, {
     errorMap: () => ({ message: "Mesafeli Satış Sözleşmesi'ni onaylamalısınız" }),
   }),
+  selectedLines: z.array(selectedLineSchema).min(1).optional(),
 });
 
 // Sipariş oluşturmadan, sepet + adres bilgisiyle sözleşmeyi önizlemek için -
@@ -29,6 +39,8 @@ export const checkoutSchema = z.object({
 export const contractPreviewSchema = z.object({
   shippingAddress: shippingAddressSchema,
   email: z.string().email().optional(),
+  selectedLines: z.array(selectedLineSchema).min(1).optional(),
 });
 
 export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
+export type SelectedLine = z.infer<typeof selectedLineSchema>;

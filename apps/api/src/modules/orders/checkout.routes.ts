@@ -1,7 +1,16 @@
-import { FastifyPluginAsync } from "fastify";
-import { checkoutSchema, contractPreviewSchema } from "./checkout.schemas";
-import { hydrateCart } from "../cart/cart.service";
+import { FastifyPluginAsync, FastifyReply } from "fastify";
+import { checkoutSchema, contractPreviewSchema, type SelectedLine } from "./checkout.schemas";
+import { hydrateCart, lineKey } from "../cart/cart.service";
+import type { CartLine } from "../cart/cart.types";
 import { syncCartProductIndex } from "../../lib/cart-product-index";
+
+// bkz. checkout.schemas.ts selectedLines yorumu - verilmezse sepetin tamamı
+// (eski davranış), verilirse sadece eşleşen kalemler işleme alınır.
+function filterCartBySelection(cart: CartLine[], selectedLines?: SelectedLine[]): CartLine[] {
+  if (!selectedLines || selectedLines.length === 0) return cart;
+  const keys = new Set(selectedLines.map((l) => lineKey(l)));
+  return cart.filter((c) => keys.has(lineKey(c)));
+}
 import {
   EmailBelongsToAccountError,
   EmptyCartError,
@@ -13,7 +22,28 @@ import {
   startCheckout,
   UnavailableItemsError,
 } from "./checkout.service";
+import { CouponExpiredError, CouponMinOrderError, CouponNotFoundError, CouponUsageLimitError } from "./coupon.service";
 import { findOrderByNumber, findOrderByNumberPublic, findOrdersByCustomer } from "./order.repository";
+
+function couponErrorReply(reply: FastifyReply, err: unknown): boolean {
+  if (err instanceof CouponNotFoundError) {
+    reply.status(400).send({ error: { message: "Geçersiz kupon kodu" } });
+    return true;
+  }
+  if (err instanceof CouponExpiredError) {
+    reply.status(400).send({ error: { message: "Bu kuponun süresi dolmuş" } });
+    return true;
+  }
+  if (err instanceof CouponMinOrderError) {
+    reply.status(400).send({ error: { message: `Bu kupon için minimum ${err.minOrderAmount.toFixed(2)} TL sepet tutarı gerekli` } });
+    return true;
+  }
+  if (err instanceof CouponUsageLimitError) {
+    reply.status(400).send({ error: { message: "Bu kuponun kullanım limitine ulaşıldı" } });
+    return true;
+  }
+  return false;
+}
 
 const checkoutRoutes: FastifyPluginAsync = async (app) => {
   // Misafir checkout desteklenir - preHandler'da requireCustomer yok,
@@ -26,9 +56,10 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
   // previewContract yorumu), aksi halde her önizleme açılışı boş misafir
   // hesabı biriktirirdi.
   app.post("/checkout/contract-preview", async (request, reply) => {
-    const { shippingAddress, email } = contractPreviewSchema.parse(request.body);
+    const { shippingAddress, email, selectedLines } = contractPreviewSchema.parse(request.body);
     try {
-      const html = await previewContract(request.session.customerId, request.session.cart ?? [], shippingAddress, email);
+      const cart = filterCartBySelection(request.session.cart ?? [], selectedLines);
+      const html = await previewContract(request.session.customerId, cart, shippingAddress, email, request.session.couponCode);
       return reply.send({ html });
     } catch (err) {
       if (err instanceof EmptyCartError) {
@@ -40,17 +71,31 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
       if (err instanceof GuestEmailRequiredError) {
         return reply.status(400).send({ error: { message: "Üye değilseniz e-posta adresinizi girmelisiniz" } });
       }
+      if (couponErrorReply(reply, err)) return;
       throw err;
     }
   });
 
   app.post("/checkout", { preHandler: app.csrfProtection }, async (request, reply) => {
-    const { shippingAddress, email, orderNote, contractAccepted } = checkoutSchema.parse(request.body);
+    const { shippingAddress, email, orderNote, contractAccepted, selectedLines } = checkoutSchema.parse(request.body);
     try {
-      const result = await startCheckout(request.session.customerId, request.session.cart ?? [], shippingAddress, email, orderNote, contractAccepted);
-      // Sipariş kalemlerine dönüştürüldü - sepet artık boşaltılır.
-      request.session.cart = [];
-      syncCartProductIndex(app.redis, request.session.sessionId, []).catch(() => {});
+      const cart = filterCartBySelection(request.session.cart ?? [], selectedLines);
+      const result = await startCheckout(
+        request.session.customerId,
+        cart,
+        shippingAddress,
+        email,
+        orderNote,
+        contractAccepted,
+        request.session.couponCode,
+      );
+      // bkz. kullanıcı isteği: "ödeme bekleniyor veya ödeme başarısız olunca
+      // siparişlerde listeleme sepette kalmaya devam etsin ürünler" - sepet
+      // BURADA artık boşaltılmıyor (sipariş henüz "pending", ödeme daha
+      // iyzico'ya gitmedi bile) - sadece ödeme GERÇEKTEN başarılı olunca
+      // /payment-callback'te temizlenir (bkz. checkout.service.ts
+      // handlePaymentCallback). Böylece ödeme başarısız olursa müşteri
+      // sepetini kaybetmeden tekrar deneyebilir.
       return reply.send(result);
     } catch (err) {
       if (err instanceof EmptyCartError) {
@@ -77,6 +122,7 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
       if (err instanceof PaymentInitError) {
         return reply.status(502).send({ error: { message: err.message } });
       }
+      if (couponErrorReply(reply, err)) return;
       throw err;
     }
   });
@@ -92,6 +138,16 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const result = await handlePaymentCallback(app, body.token);
+    // bkz. kullanıcı isteği: "ödeme bekleniyor veya ödeme başarısız olunca
+    // ... sepette kalmaya devam etsin" - sepet SADECE ödeme gerçekten
+    // başarılı olunca, satın alınan satırlar bilinerek burada temizlenir
+    // (bkz. checkout.service.ts handlePaymentCallback purchasedLines).
+    if (result?.success && result.purchasedLines) {
+      const purchasedKeys = new Set(result.purchasedLines.map((l) => lineKey(l)));
+      request.session.cart = (request.session.cart ?? []).filter((c) => !purchasedKeys.has(lineKey(c)));
+      request.session.couponCode = undefined;
+      syncCartProductIndex(app.redis, request.session.sessionId, request.session.cart.map((c) => c.productId)).catch(() => {});
+    }
     const query = result
       ? `order=${encodeURIComponent(result.orderNumber)}&success=${result.success}`
       : "success=false";
