@@ -55,6 +55,14 @@ export const vendors = pgTable("vendors", {
   // "Şifremi Unuttum" akışı - bkz. customers.ts aynı alan çifti için yorum.
   passwordResetTokenHash: text("password_reset_token_hash"),
   passwordResetExpiresAt: timestamp("password_reset_expires_at", { withTimezone: true, precision: 3 }),
+  // bkz. kullanıcı isteği: "email doğrulamayı hem müşteri hem de satıcı için
+  // zorunlu olmalı" - customers.ts ile aynı desen.
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true, precision: 3 }),
+  emailVerificationTokenHash: text("email_verification_token_hash"),
+  emailVerificationExpiresAt: timestamp("email_verification_expires_at", { withTimezone: true, precision: 3 }),
+  // bkz. kullanıcı isteği (mockup): mağaza ziyaretçi sayacı - products.viewCount
+  // ile birebir aynı desen, GET /vendors/:slug her çağrıldığında artırılır.
+  storeViewCount: integer("store_view_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   statusIdx: index("idx_vendors_status").on(table.status),

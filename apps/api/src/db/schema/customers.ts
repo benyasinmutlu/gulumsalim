@@ -7,13 +7,28 @@ import { vendors } from "./vendors";
 export const customers = pgTable("customers", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  // Google ile kayıt olan hesaplarda şifre hiç oluşturulmaz - passwordHash bu
+  // yüzden nullable (bkz. auth.service.ts registerWithGoogle). googleId,
+  // Google'ın "sub" (subject) alanı - e-postadan farklı olarak asla değişmez,
+  // eşleştirme bunun üzerinden yapılır (bkz. loginWithGoogle).
+  passwordHash: text("password_hash"),
+  googleId: text("google_id").unique(),
+  // Google ile ilk kayıtta hesabın profil fotoğrafından doldurulur (bkz.
+  // auth.service.ts loginWithGoogle), sonra müşteri kendi fotoğrafını
+  // yükleyerek değiştirebilir (bkz. auth.routes.ts POST /auth/me/avatar) -
+  // o noktadan sonra Google girişleri bunun üzerine yazmaz.
+  avatarUrl: text("avatar_url"),
   fullName: text("full_name").notNull(),
   phone: text("phone"),
   age: integer("age"),
   heightCm: integer("height_cm"),
   weightKg: integer("weight_kg"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true, precision: 3 }),
+  // bkz. kullanıcı isteği: "email doğrulamayı hem müşteri hem de satıcı için
+  // zorunlu olmalı" - passwordResetTokenHash ile aynı desen (ham token
+  // yerine hash saklanır). Misafir kayıtlarda hiç üretilmez.
+  emailVerificationTokenHash: text("email_verification_token_hash"),
+  emailVerificationExpiresAt: timestamp("email_verification_expires_at", { withTimezone: true, precision: 3 }),
   // Kayıt formundaki zorunlu "Üyelik Sözleşmesi + KVKK" onayı ile
   // opsiyonel iki ayrı rıza (bkz. avukat belgeleri: Ticari Elektronik İleti
   // Onayı, Açık Rıza Metni). Dolu = onay verilmiş; misafir kayıtlarda
@@ -34,7 +49,31 @@ export const customers = pgTable("customers", {
   passwordResetTokenHash: text("password_reset_token_hash"),
   passwordResetExpiresAt: timestamp("password_reset_expires_at", { withTimezone: true, precision: 3 }),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  // bkz. kullanıcı isteği (2026-08-02): "müşteri üyelik iptali olacak" -
+  // sipariş/değerlendirme geçmişi olan hesaplar kalıcı silinmez (referans
+  // bütünlüğü + platform geçmişi), bunun yerine kişisel alanlar
+  // anonimleştirilip bu alan doldurulur. Hiç izi olmayan (sipariş/
+  // değerlendirme/soru) hesaplar doğrudan silinir (bkz. auth.service.ts
+  // deleteCustomerAccount) - o durumda bu alana hiç gerek kalmaz.
+  deletedAt: timestamp("deleted_at", { withTimezone: true, precision: 3 }),
 });
+
+// Müşteri hesabı bildirim kutusu (sipariş kargoya verildi/teslim edildi,
+// iade karar bilgisi vb.) - vendor_notifications ile birebir aynı şema,
+// sadece vendorId yerine customerId (bkz. notifications.repository.ts'teki
+// satıcı karşılığı).
+export const customerNotifications = pgTable("customer_notifications", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  customerId: bigint("customer_id", { mode: "number" }).notNull().references(() => customers.id),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message"),
+  link: text("link"),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  customerIdx: index("idx_customer_notifications_customer").on(table.customerId, table.isRead, table.createdAt),
+}));
 
 // gulumsalim.com'daki hesabım/adres defterinin karşılığı - checkout'taki
 // tek seferlik shippingAddress'ten farklı olarak, müşterinin tekrar
@@ -115,5 +154,13 @@ export const siteFeedback = pgTable("site_feedback", {
   message: text("message").notNull(),
   pageUrl: text("page_url"),
   isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+});
+
+// Footer bülten (newsletter) kayıt bandı - contact_messages ile aynı
+// gerekçeyle misafir-dostu (giriş şartı yok), tek alan: e-posta.
+export const newsletterSubscribers = pgTable("newsletter_subscribers", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  email: text("email").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 });

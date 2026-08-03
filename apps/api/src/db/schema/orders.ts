@@ -1,8 +1,32 @@
-import { bigint, index, integer, jsonb, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { orderRefundStatusEnum, orderStatusEnum, paymentStatusEnum } from "./enums";
+import { bigint, boolean, index, integer, jsonb, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { couponTypeEnum, orderRefundStatusEnum, orderStatusEnum, paymentStatusEnum } from "./enums";
 import { customers } from "./customers";
 import { products, productVariants } from "./catalog";
 import { vendors } from "./vendors";
+
+// bkz. kullanıcı isteği: "kupon kodu... admin panelde kontrol edebilelim" -
+// admin oluşturur/düzenler (bkz. admin-coupons.routes.ts), müşteri sepette/
+// ödemede kodu girer (bkz. coupon.service.ts). Sahte/uydurma bir indirim
+// yerine gerçek doğrulama (aktif mi, süresi mi, kullanım limiti mi) yapılır.
+export const coupons = pgTable("coupons", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  code: text("code").notNull().unique(),
+  type: couponTypeEnum("type").notNull(),
+  // type='percent' ise 0-100 arası yüzde, type='fixed' ise TL tutarı.
+  value: numeric("value", { precision: 10, scale: 2 }).notNull(),
+  minOrderAmount: numeric("min_order_amount", { precision: 10, scale: 2 }),
+  maxUsesTotal: integer("max_uses_total"),
+  maxUsesPerCustomer: integer("max_uses_per_customer").notNull().default(1),
+  usedCount: integer("used_count").notNull().default(0),
+  startsAt: timestamp("starts_at", { withTimezone: true, precision: 3 }),
+  endsAt: timestamp("ends_at", { withTimezone: true, precision: 3 }),
+  isActive: boolean("is_active").notNull().default(true),
+  // Anasayfadaki "İlk Alışverişine Özel İndirim" kartının hangi kuponu
+  // göstereceğini admin seçer - birden fazla aktif kupon olabilir, kartta
+  // hepsini listelemek yerine admin'in öne çıkardığı TEK kupon gösterilir.
+  isFeatured: boolean("is_featured").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+});
 
 export const orders = pgTable("orders", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
@@ -19,6 +43,13 @@ export const orders = pgTable("orders", {
   paymentTransactionId: text("payment_transaction_id"),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   shippingFee: numeric("shipping_fee", { precision: 10, scale: 2 }).notNull(),
+  // Bu siparişte kullanılan kupon (varsa) - satıcı/admin denetimi için
+  // sipariş üzerinde kalıcı bir kayıt. discountAmount, kuponun o anki
+  // subtotal'a göre HESAPLANMIŞ TL karşılığı (kupon sonradan silinse/
+  // değişse bile bu sipariş için sabit kalır - product_name_snapshot ile
+  // aynı "donmuş kopya" mantığı).
+  couponId: bigint("coupon_id", { mode: "number" }).references(() => coupons.id),
+  discountAmount: numeric("discount_amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   shippingAddress: jsonb("shipping_address").notNull(),
   orderNote: text("order_note"),
@@ -32,6 +63,18 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   customerIdx: index("idx_orders_customer").on(table.customerId, table.createdAt),
+}));
+
+// Bir müşterinin bir kuponu kaç kez kullandığını (maxUsesPerCustomer
+// kontrolü için) ve hangi siparişte kullanıldığını izler.
+export const couponRedemptions = pgTable("coupon_redemptions", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  couponId: bigint("coupon_id", { mode: "number" }).notNull().references(() => coupons.id),
+  customerId: bigint("customer_id", { mode: "number" }).notNull().references(() => customers.id),
+  orderId: bigint("order_id", { mode: "number" }).references(() => orders.id),
+  redeemedAt: timestamp("redeemed_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  couponCustomerIdx: index("idx_coupon_redemptions_coupon_customer").on(table.couponId, table.customerId),
 }));
 
 // Bir sipariş birden fazla satıcıya yayılabilir; her satır tek bir

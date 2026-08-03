@@ -38,6 +38,9 @@ export const products = pgTable("products", {
   brand: text("brand"),
   basePrice: numeric("base_price", { precision: 10, scale: 2 }).notNull(),
   compareAtPrice: numeric("compare_at_price", { precision: 10, scale: 2 }),
+  // Ürün tanıtım videosu (opsiyonel) - satıcı panelinden yüklenir, S3'e gider,
+  // ürün detay sayfasında oynatılır. Nullable: çoğu üründe olmayacak.
+  videoUrl: text("video_url"),
   // bkz. kullanıcı isteği: "admin paneli ve satıcı paneli üzerinden her
   // ürüne ... kargo ... düzenleyeceğimiz alanlar olsun". Site genelinde tek
   // bir kargo ücreti/ücretsiz kargo eşiği zaten settings'te var (bkz.
@@ -52,6 +55,17 @@ export const products = pgTable("products", {
   // kişilerde satış yapabilsin 2. el ürün letgo dolap gibi" - ürün
   // listelemede/kartlarda "2. El" rozeti ve ayrı filtre için.
   isSecondHand: boolean("is_second_hand").notNull().default(false),
+  // bkz. kullanıcı isteği: "kurumsal satıcıların stokları zorunlu olarak
+  // girilmeli bireysel satıcıların ise sattığı ürünün stoğu 1 olacak sadece
+  // satılınca kaldırılacak websitesinden" - önceden varyantsız ürünlerde hiç
+  // stok kavramı yoktu (sadece product_variants.stock vardı). Bu alan SADECE
+  // varyantsız ürünlerde anlamlıdır (bkz. vendor-products.repository.ts
+  // listVendorProducts totalStock hesaplaması) - varyantı olan bir üründe
+  // stok gerçek kaynağı hâlâ product_variants'tır, bu sütun kullanılmaz.
+  // Bireysel satıcıda oluşturulurken sunucu tarafında hep 1'e zorlanır (bkz.
+  // vendor-products.routes.ts POST); satılınca order.repository.ts
+  // decrementOrderItemStock 0'a indirir ve ürünü otomatik "inactive" yapar.
+  stock: integer("stock").notNull().default(0),
   status: productStatusEnum("status").notNull().default("draft"),
   // gulumsalim.com'daki products.views'in karşılığı - admin dashboard'daki
   // "Müşterilerin En Çok Baktığı Ürünler" için basit bir sayaç. Detaylı

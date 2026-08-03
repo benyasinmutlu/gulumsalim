@@ -5,6 +5,10 @@ export const vendorStatusEnum = pgEnum("vendor_status", [
   "active",
   "suspended",
   "banned",
+  // bkz. kullanıcı isteği (2026-08-02): "satıcı üyelik iptali olacak" -
+  // "banned"tan farklı: kendi isteğiyle kapatılmış, cezai değil (bkz.
+  // vendor-auth.service.ts closeVendorAccount).
+  "closed",
 ]);
 
 // bkz. kullanıcı isteği: "bireysel olarak müşteri olarak kayıt olan
@@ -16,8 +20,14 @@ export const vendorTypeEnum = pgEnum("vendor_type", [
   "individual",
 ]);
 
+// bkz. olay: 2026-08-02 "bireysel satıcıların ürünleri yayınlanması için
+// onaylanması gerekiyor adminden" - "pending", bireysel satıcının
+// sihirbazda Yayınla'ya bastığı (ya da reddedilen/pasif bir ürünü tekrar
+// gönderdiği) andan admin onaylayana kadarki ara durum. Kurumsal
+// satıcılarda bu durum hiç kullanılmaz - onlar hâlâ doğrudan aktif edebilir.
 export const productStatusEnum = pgEnum("product_status", [
   "draft",
+  "pending",
   "active",
   "inactive",
   "rejected",
@@ -103,4 +113,15 @@ export const sectionAlgoEnum = pgEnum("section_algo", [
   "featured",
   "best_sellers",
   "weekly_best",
+  // bkz. kullanıcı isteği: gerçek bitiş zamanına sayan geri sayımlı
+  // "Flaş İndirimler" bölümü (bkz. homepage-sections.service.ts
+  // SectionConfig.endsAt).
+  "flash_sale",
+  // bkz. kullanıcı isteği (2026-08-02): admin panelinden kategori bazlı
+  // vitrin bölümü oluşturulabilsin (bkz. SectionConfig.categoryId/saleOnly).
+  "category",
 ]);
+
+// bkz. kullanıcı isteği: "kupon kodu... admin panelde kontrol edebilelim" -
+// yüzde (ör. %10) ya da sabit tutar (ör. 100 TL) indirim.
+export const couponTypeEnum = pgEnum("coupon_type", ["percent", "fixed"]);
