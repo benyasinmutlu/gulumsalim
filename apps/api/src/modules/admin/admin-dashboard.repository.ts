@@ -1,6 +1,7 @@
-import { and, count, desc, eq, isNull, ne, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, ne, sql, sum } from "drizzle-orm";
 import { db } from "../../db/client";
 import {
+  categories,
   contactMessages,
   customers,
   orders,
@@ -18,6 +19,9 @@ import {
 import { attachPrimaryImages } from "../catalog/catalog.repository";
 
 const LOW_STOCK_THRESHOLD = 5;
+// bkz. kullanıcı isteği (mockup): admin panelinde site geneli satış grafiği -
+// vendor-dashboard.repository.ts'teki SALES_CHART_DAYS ile aynı pencere.
+const SALES_CHART_DAYS = 30;
 
 // gulumsalim.com'daki admin/index.php gösterge panelinin karşılığı - tek
 // bir ekranda mağazanın günlük özeti. Eski site tek stok kolonu
@@ -128,6 +132,81 @@ export async function getAdminUnreadCounts() {
   };
 }
 
+// bkz. kullanıcı isteği (mockup): admin panelinde satış grafiği (çizgi) -
+// vendor-dashboard.repository.ts getVendorSalesTimeSeries ile aynı desen,
+// tek fark satıcı filtresi olmadan site geneli (orders.total, orders.status).
+export async function getAdminSalesTimeSeries() {
+  const since = new Date();
+  since.setDate(since.getDate() - (SALES_CHART_DAYS - 1));
+  since.setHours(0, 0, 0, 0);
+
+  const rows = await db
+    .select({
+      day: sql<string>`to_char(${orders.createdAt}, 'YYYY-MM-DD')`,
+      total: sql<string>`COALESCE(SUM(${orders.total}), 0)`,
+    })
+    .from(orders)
+    .where(and(ne(orders.status, "cancelled"), gte(orders.createdAt, since)))
+    .groupBy(sql`to_char(${orders.createdAt}, 'YYYY-MM-DD')`);
+
+  const map = new Map(rows.map((r) => [r.day, r.total]));
+  const series: { date: string; total: string }[] = [];
+  for (let i = SALES_CHART_DAYS - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    series.push({ date: key, total: map.get(key) ?? "0" });
+  }
+  return series;
+}
+
+// bkz. kullanıcı isteği (mockup): "sipariş durumu dağılımı (pasta grafik)" -
+// site geneli, orders.status'a göre kırılım (satıcı bazlı vendorStatus
+// DEĞİL - bkz. vendor-dashboard.repository.ts getVendorOrderStatusBreakdown
+// yorumu, ikisi kasıtlı olarak ayrı kavramlar).
+export async function getAdminOrderStatusBreakdown() {
+  return db.select({ status: orders.status, count: count() }).from(orders).groupBy(orders.status);
+}
+
+// bkz. kullanıcı isteği (mockup): istatistik kartlarında "+12,6%" gibi bir
+// önceki döneme göre değişim yüzdesi - vendor-dashboard.repository.ts
+// getVendorPeriodComparison ile aynı desen (adil kıyas için takvim ayı
+// yerine kayan "son 30 gün / önceki 30 gün" penceresi), site geneli.
+function computeChangePercent(current: number, previous: number): number | null {
+  if (previous <= 0) return null;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+export async function getAdminPeriodComparison() {
+  const now = new Date();
+  const periodStart = new Date(now);
+  periodStart.setDate(periodStart.getDate() - 30);
+  const previousPeriodStart = new Date(now);
+  previousPeriodStart.setDate(previousPeriodStart.getDate() - 60);
+
+  const [[current], [previous]] = await Promise.all([
+    db
+      .select({ revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`, orders: count() })
+      .from(orders)
+      .where(and(ne(orders.status, "cancelled"), gte(orders.createdAt, periodStart))),
+    db
+      .select({ revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)`, orders: count() })
+      .from(orders)
+      .where(
+        and(
+          ne(orders.status, "cancelled"),
+          gte(orders.createdAt, previousPeriodStart),
+          sql`${orders.createdAt} < ${periodStart}`,
+        ),
+      ),
+  ]);
+
+  return {
+    revenueChangePercent: computeChangePercent(Number(current?.revenue ?? 0), Number(previous?.revenue ?? 0)),
+    orderCountChangePercent: computeChangePercent(current?.orders ?? 0, previous?.orders ?? 0),
+  };
+}
+
 export async function listMostViewedProducts(limit = 8) {
   const rows = await db
     .select({
@@ -143,4 +222,71 @@ export async function listMostViewedProducts(limit = 8) {
     .orderBy(desc(products.viewCount))
     .limit(limit);
   return attachPrimaryImages(rows);
+}
+
+// bkz. kullanıcı isteği (2026-08-02): "admin panelden anlık sitede kaç kişi
+// var görebilmeliyim ve bunun gibi bir çok detayı analizi ... bugünkü özet"
+// - gösterge panelindeki 30 günlük istatistiklerin yanına, sadece bugüne
+// özel anlık kartlar. getAdminSalesTimeSeries ile aynı "gün başlangıcı" desenini
+// kullanır.
+export async function getTodaySummary() {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [[orderRow], [customerRow]] = await Promise.all([
+    db
+      .select({ orders: count(), revenue: sql<string>`COALESCE(SUM(${orders.total}), 0)` })
+      .from(orders)
+      .where(and(ne(orders.status, "cancelled"), gte(orders.createdAt, todayStart))),
+    db.select({ count: count() }).from(customers).where(gte(customers.createdAt, todayStart)),
+  ]);
+
+  return {
+    orders: orderRow?.orders ?? 0,
+    revenue: orderRow?.revenue ?? "0",
+    newCustomers: customerRow?.count ?? 0,
+  };
+}
+
+// Redis'ten gelen {productId, ...} sıralı listelerini (bkz. analytics/presence.ts
+// getTopViewedToday/getTopPurchasedToday/getAvgDwellToday) ürün adı/görsel/
+// kategoriyle zenginleştirir - tek bir yardımcı, üç ayrı "bugün en çok..."
+// tablosu tarafından da, kategori kırılımı hesabı tarafından da kullanılır.
+export async function hydrateProductStatRows<T extends { productId: number }>(
+  rows: T[],
+): Promise<(T & { productName: string; primaryImageUrl: string | null; categoryName: string; categorySlug: string })[]> {
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => r.productId);
+  const productRows = await db
+    .select({ id: products.id, name: products.name, categoryName: categories.name, categorySlug: categories.slug })
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(inArray(products.id, ids));
+  const withImages = await attachPrimaryImages(productRows);
+  const byId = new Map(withImages.map((p) => [p.id, p]));
+  return rows.flatMap((row) => {
+    const product = byId.get(row.productId);
+    if (!product) return [];
+    return [{ ...row, productName: product.name, primaryImageUrl: product.primaryImageUrl, categoryName: product.categoryName, categorySlug: product.categorySlug }];
+  });
+}
+
+// bkz. kullanıcı isteği: "en çok görüntülenen/satın alınan ... kategoriler"
+// - bugün en çok görüntülenen ürünlerin kategorilerine göre görüntülenme
+// toplamı (Redis'te ayrı bir kategori sayacı tutulmuyor, ürün bazlı
+// sayaçlardan burada toplanıyor - kategori sayısı azdır, maliyeti düşük).
+export function aggregateTopCategories(
+  hydratedViews: { categoryName: string; categorySlug: string; count: number }[],
+  limit = 6,
+): { categoryName: string; categorySlug: string; totalViews: number }[] {
+  const byCategory = new Map<string, { categoryName: string; categorySlug: string; totalViews: number }>();
+  for (const row of hydratedViews) {
+    const existing = byCategory.get(row.categorySlug);
+    if (existing) {
+      existing.totalViews += row.count;
+    } else {
+      byCategory.set(row.categorySlug, { categoryName: row.categoryName, categorySlug: row.categorySlug, totalViews: row.count });
+    }
+  }
+  return [...byCategory.values()].sort((a, b) => b.totalViews - a.totalViews).slice(0, limit);
 }
