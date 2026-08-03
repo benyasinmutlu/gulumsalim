@@ -31,6 +31,7 @@ async function buildCartResponse(
     items: hydrated.items,
     subtotal: hydrated.subtotal,
     shippingFee: hydrated.shippingFee,
+    shippingBreakdown: hydrated.shippingBreakdown,
     freeShippingThreshold: hydrated.freeShippingThreshold,
     couponCode,
     discountAmount: discountAmount.toFixed(2),

@@ -5,7 +5,7 @@ import { ClientApiError, mutateJson, uploadFile } from "@/lib/client-api";
 import type { BulkImportRowResult } from "@/lib/types";
 
 const TEMPLATE_CSV =
-  "name,basePrice,categorySlug,description,brand,compareAtPrice\nÖrnek Elbise,299.90,elbise,Açıklama metni,Marka Adı,349.90\n";
+  'name,basePrice,categorySlug,description,brand,compareAtPrice,stock,sizes\nÖrnek Elbise,299.90,elbise,Açıklama metni,Marka Adı,349.90,25,"S,M,L"\n';
 
 // [alan, etiket, zorunlu mu]
 const FIELDS: [string, string, boolean][] = [
@@ -15,6 +15,8 @@ const FIELDS: [string, string, boolean][] = [
   ["description", "Açıklama", false],
   ["brand", "Marka", false],
   ["compareAtPrice", "İndirimli Fiyat", false],
+  ["stock", "Stok Adedi", false],
+  ["sizes", "Bedenler (S,M,L)", false],
 ];
 
 type Mapping = Record<string, string>;
@@ -190,8 +192,10 @@ export default function BulkImportForm() {
         </div>
         <div className="card-body">
           <p style={{ fontSize: "0.85rem", color: "var(--tx3)", marginBottom: 12 }}>
-            <strong>CSV, Excel (.xlsx), JSON, JSONL</strong> kabul edilir. Dosyanı seç → sütunlar otomatik eşlenir (gerekiyorsa
-            elle değiştir) → <strong>Önizle</strong> → <strong>Onayla ve Yükle</strong>. Sütun adların ne olursa olsun eşleyebilirsin.
+            <strong>CSV, Excel (.xlsx), JSON, JSONL</strong> kabul edilir (eski <strong>.xls</strong> desteklenmez, .xlsx olarak kaydedin).
+            Dosyanı seç → sütunlar otomatik eşlenir (gerekiyorsa elle değiştir) → <strong>Önizle</strong> → <strong>Onayla ve Yükle</strong>.
+            Sütun adların ne olursa olsun eşleyebilirsin. <strong>Stok</strong> girersen ürün hemen satılabilir; <strong>Bedenler</strong>{" "}
+            (ör. <code>S,M,L</code>) girersen her beden için varyant oluşturulur.
           </p>
 
           <div className="tab-nav" style={{ marginBottom: 16 }}>

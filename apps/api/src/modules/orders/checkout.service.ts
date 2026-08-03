@@ -8,7 +8,7 @@ import { createGuestCustomer, findCustomerByEmail, findCustomerById, updateGuest
 import { createAddress, listAddressesByCustomer } from "../customers/customer-addresses.repository";
 import { hydrateCart } from "../cart/cart.service";
 import { createNotification } from "../notifications/notifications.repository";
-import { getShippingConfig } from "../../lib/shipping";
+import { getShippingConfig, computeMultiVendorShipping } from "../../lib/shipping";
 import { emailButton, emailDivider, emailHeading, emailProductRow, renderEmailLayout, sendMail } from "../../lib/mailer";
 import type { CartLine } from "../cart/cart.types";
 import type { ShippingAddress } from "./checkout.schemas";
@@ -123,8 +123,15 @@ export async function previewContract(
 
   const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
   const subtotal = Number(hydrated.subtotal);
-  const allItemsFreeShipping = cart.every((c) => productMap.get(c.productId)?.freeShipping === true);
-  const shippingFee = allItemsFreeShipping || subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
+  // Satıcı-bazlı kargo (bkz. lib/shipping.ts) - sepet/checkout birebir aynı.
+  const shippingFee = computeMultiVendorShipping(
+    hydrated.items.map((it) => {
+      const p = productMap.get(it.productId);
+      return { vendorId: p?.vendorId ?? 0, lineTotal: Number(it.lineTotal), freeShipping: p?.freeShipping === true };
+    }),
+    baseShippingFee,
+    freeShippingThreshold,
+  );
 
   let discountAmount = 0;
   let appliedCouponCode: string | null = null;
@@ -194,11 +201,18 @@ export async function startCheckout(
 
   const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
   const subtotal = Number(hydrated.subtotal);
-  // bkz. catalog.ts products.freeShipping - sepetteki TÜM kalemler bu
-  // bayrağı taşıyorsa (tek bir normal ürün bile varsa geçerli değil) kargo
-  // ücreti sıfırlanır, aksi halde her zamanki eşik kuralı işler.
-  const allItemsFreeShipping = cart.every((c) => productMap.get(c.productId)?.freeShipping === true);
-  const shippingFee = allItemsFreeShipping || subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
+  // Satıcı-bazlı kargo (bkz. lib/shipping.ts computeMultiVendorShipping):
+  // her satıcı için ayrı ücret, o satıcının toplamı eşiği geçince veya tüm
+  // ürünleri freeShipping ise o satıcının kargosu sıfırlanır. previewContract
+  // ile BİREBİR aynı hesap.
+  const shippingFee = computeMultiVendorShipping(
+    hydrated.items.map((it) => {
+      const p = productMap.get(it.productId);
+      return { vendorId: p?.vendorId ?? 0, lineTotal: Number(it.lineTotal), freeShipping: p?.freeShipping === true };
+    }),
+    baseShippingFee,
+    freeShippingThreshold,
+  );
 
   let discountAmount = 0;
   let couponId: number | null = null;

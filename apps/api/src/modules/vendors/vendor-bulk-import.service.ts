@@ -1,45 +1,85 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { categories } from "../../db/schema/index";
-import { findProductBySlugAnyVendor, insertVendorProduct } from "./vendor-products.repository";
+import { findProductBySlugAnyVendor, insertVendorProduct, insertProductVariant } from "./vendor-products.repository";
 import { slugify } from "../../lib/slugify";
 
-// Bağımlılık eklemeden RFC4180'e yakın basit bir CSV/TSV satır ayrıştırıcı.
-function parseDelimitedLine(line: string, delimiter: string): string[] {
-  const result: string[] = [];
-  let current = "";
+// Tek seferde işlenecek azami satır (timeout/aşırı yük koruması).
+const MAX_IMPORT_ROWS = 5000;
+
+// UTF-8 BOM'u (ör. Excel'in kaydettiği CSV) at - aksi halde ilk başlık
+// "﻿name" gibi görünüp eşleme kaçar, Türkçe karakterler bozulur.
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+// Bağımlılık eklemeden RFC4180 CSV/TSV ayrıştırıcı - TÜM metni tarar, böylece
+// tırnak içi satır sonları (çok satırlı açıklama alanları) ve "" kaçışı doğru
+// işlenir. Önceki hali önce \n'e bölüp satır satır parse ettiği için çok
+// satırlı alanlar kaydı bozuyordu.
+function parseDelimitedRecords(text: string, delimiter: string): string[][] {
+  const records: string[][] = [];
+  let field = "";
+  let record: string[] = [];
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
     if (inQuotes) {
       if (char === '"') {
-        if (line[i + 1] === '"') {
-          current += '"';
+        if (text[i + 1] === '"') {
+          field += '"';
           i++;
         } else {
           inQuotes = false;
         }
       } else {
-        current += char;
+        field += char;
       }
     } else if (char === '"') {
       inQuotes = true;
     } else if (char === delimiter) {
-      result.push(current);
-      current = "";
+      record.push(field);
+      field = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && text[i + 1] === "\n") i++;
+      record.push(field);
+      records.push(record);
+      field = "";
+      record = [];
     } else {
-      current += char;
+      field += char;
     }
   }
-  result.push(current);
-  return result.map((v) => v.trim());
+  // Dosya newline ile bitmiyorsa kalan alan/kaydı ekle.
+  if (field.length > 0 || record.length > 0) {
+    record.push(field);
+    records.push(record);
+  }
+  return records;
 }
 
-export type CanonicalField = "name" | "basePrice" | "categorySlug" | "description" | "brand" | "compareAtPrice";
+export type CanonicalField =
+  | "name"
+  | "basePrice"
+  | "categorySlug"
+  | "description"
+  | "brand"
+  | "compareAtPrice"
+  | "stock"
+  | "sizes";
 // Kullanıcı eşlemesi: kanonik alan -> dosyadaki HAM başlık adı.
 export type ColumnMapping = Partial<Record<CanonicalField, string>>;
 
-export const CANON_FIELDS: CanonicalField[] = ["name", "basePrice", "categorySlug", "description", "brand", "compareAtPrice"];
+export const CANON_FIELDS: CanonicalField[] = [
+  "name",
+  "basePrice",
+  "categorySlug",
+  "description",
+  "brand",
+  "compareAtPrice",
+  "stock",
+  "sizes",
+];
 
 export interface BulkImportRowResult {
   row: number;
@@ -56,6 +96,8 @@ const COLUMN_ALIASES: Record<CanonicalField, string[]> = {
   description: ["description", "aciklama", "açıklama", "desc", "detay", "detail"],
   brand: ["brand", "marka", "manufacturer"],
   compareAtPrice: ["compareatprice", "compare_at_price", "compareprice", "indirimli fiyat", "indirimlifiyat", "eski fiyat", "list price", "oldprice", "old price"],
+  stock: ["stock", "stok", "adet", "quantity", "qty", "miktar", "adet stok", "stok adedi", "stok adeti"],
+  sizes: ["sizes", "size", "beden", "bedenler", "numara", "varyant", "varyantlar", "beden listesi"],
 };
 
 function normKey(k: string): string {
@@ -84,17 +126,20 @@ function rawFromObjects(objs: Record<string, unknown>[]): RawParsed {
 }
 
 function parseDelimitedRaw(text: string): RawParsed {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length === 0) return { headers: [], rows: [] };
-  const first = lines[0]!;
-  const delimiter = (first.match(/\t/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? "\t" : ",";
-  const headers = parseDelimitedLine(first, delimiter);
+  const clean = stripBom(text);
+  const firstLine = clean.split(/\r?\n/, 1)[0] ?? "";
+  const delimiter = (firstLine.match(/\t/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? "\t" : ",";
+  const records = parseDelimitedRecords(clean, delimiter);
+  if (records.length === 0) return { headers: [], rows: [] };
+  const headers = records[0]!.map((h) => h.trim());
   const rows: Record<string, string>[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseDelimitedLine(lines[i]!, delimiter);
+  for (let i = 1; i < records.length; i++) {
+    const cols = records[i]!;
+    // Tamamen boş satırları atla (Excel'in bıraktığı sondaki boş satırlar).
+    if (cols.length === 1 && (cols[0] ?? "").trim() === "") continue;
     const r: Record<string, string> = {};
     headers.forEach((h, idx) => {
-      r[h] = cols[idx] ?? "";
+      r[h] = (cols[idx] ?? "").trim();
     });
     rows.push(r);
   }
@@ -154,16 +199,19 @@ async function parseXlsxRaw(buffer: Buffer): Promise<RawParsed> {
 // Dosya adına (uzantı) göre biçim tespiti + HAM satırlara dönüştürme.
 export async function parseRawImport(buffer: Buffer, filename: string): Promise<RawParsed> {
   const ext = (filename.toLowerCase().split(".").pop() ?? "").trim();
-  if (ext === "json") return rawFromObjects(coerceArray(JSON.parse(buffer.toString("utf-8"))));
+  if (ext === "json") return rawFromObjects(coerceArray(JSON.parse(stripBom(buffer.toString("utf-8")))));
   if (ext === "jsonl" || ext === "ndjson")
     return rawFromObjects(
-      buffer
-        .toString("utf-8")
+      stripBom(buffer.toString("utf-8"))
         .split(/\r?\n/)
         .filter((l) => l.trim().length > 0)
         .map((l) => JSON.parse(l) as Record<string, unknown>),
     );
-  if (ext === "xlsx" || ext === "xls") return parseXlsxRaw(buffer);
+  // exceljs yalnızca .xlsx (OOXML) okuyabilir - eski ikili .xls'i açamaz, o
+  // yüzden yanıltıcı bir parse hatası yerine net bir yönerge ver.
+  if (ext === "xls")
+    throw new Error("Eski .xls biçimi desteklenmiyor. Excel'de 'Farklı Kaydet → .xlsx (veya CSV)' ile kaydedip tekrar yükleyin.");
+  if (ext === "xlsx") return parseXlsxRaw(buffer);
   return parseDelimitedRaw(buffer.toString("utf-8"));
 }
 
@@ -219,10 +267,43 @@ async function resolveCategoryId(value: string): Promise<number | null> {
   return byName[0]?.id ?? null;
 }
 
+// Satıcı elektronik tablolarındaki para biçimlerini toleranslı ayrıştır:
+// "₺1.234,56", "199,90 TL", "1,234.56", " 299.90 " vb. Önceki hali sadece
+// ilk virgülü noktaya çeviriyordu; "1.234,56" -> "1.234.56" -> NaN olup
+// geçerli satırlar atlanıyordu.
 function toPriceString(raw: string): string | null {
-  const parsed = Number(raw.replace(",", "."));
-  if (Number.isNaN(parsed) || parsed < 0) return null;
+  let s = raw.trim();
+  if (!s) return null;
+  // Para sembolü/harf/boşluk vs. temizle - sadece rakam, nokta, virgül, eksi.
+  s = s.replace(/[^\d.,-]/g, "");
+  if (!s || s === "-") return null;
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  if (hasComma && hasDot) {
+    // İki tür ayraç var: en sağdaki ondalık, diğerleri binlik ayraçtır.
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      s = s.replace(/\./g, "").replace(",", "."); // TR: 1.234,56
+    } else {
+      s = s.replace(/,/g, ""); // EN: 1,234.56
+    }
+  } else if (hasComma) {
+    const parts = s.split(",");
+    // Tek virgül + en çok 2 ondalık hane -> ondalık (199,90). Aksi halde binlik.
+    if (parts.length === 2 && parts[1]!.length <= 2) s = parts[0] + "." + parts[1];
+    else s = s.replace(/,/g, "");
+  }
+  const parsed = Number(s);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
   return parsed.toFixed(2);
+}
+
+// Stok adedi: "10", "10 adet", boşluk -> tam sayı (>=0). Boş -> null (belirtilmemiş).
+function toStockInt(raw: string): number | null {
+  const s = raw.replace(/[^\d-]/g, "").trim();
+  if (!s) return null;
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 0) return null;
+  return n;
 }
 
 // Kanonik satırları içe aktarır (dryRun=true -> yalnızca doğrulama).
@@ -232,6 +313,18 @@ async function importNormalizedRows(
   dryRun: boolean,
 ): Promise<BulkImportRowResult[]> {
   const results: BulkImportRowResult[] = [];
+  // Kategori aramalarını önbelleğe al - aynı kategoriden yüzlerce ürün
+  // olan dosyalarda satır başına DB sorgusu yapmamak için (perf).
+  const catCache = new Map<string, number | null>();
+  const resolveCategoryCached = async (value: string): Promise<number | null> => {
+    const key = value.trim().toLowerCase();
+    const cached = catCache.get(key);
+    if (cached !== undefined) return cached;
+    const id = await resolveCategoryId(value);
+    catCache.set(key, id);
+    return id;
+  };
+
   for (let i = 0; i < rows.length; i++) {
     const rowNum = i + 2;
     const r = rows[i]!;
@@ -244,37 +337,66 @@ async function importNormalizedRows(
       continue;
     }
     const basePrice = toPriceString(basePriceRaw);
-    if (basePrice === null) {
+    if (basePrice === null || Number(basePrice) <= 0) {
       results.push({ row: rowNum, name, status: "skipped", reason: `fiyat geçersiz: ${basePriceRaw}` });
       continue;
     }
-    const categoryId = await resolveCategoryId(categoryValue);
+    const categoryId = await resolveCategoryCached(categoryValue);
     if (!categoryId) {
       results.push({ row: rowNum, name, status: "skipped", reason: `kategori bulunamadı: ${categoryValue}` });
       continue;
     }
+
+    // Stok (opsiyonel): belirtilmemişse varyantsız ürün için 0 kalır.
+    const stockRaw = (r.stock ?? "").trim();
+    const stock = stockRaw ? toStockInt(stockRaw) : 0;
+    if (stock === null) {
+      results.push({ row: rowNum, name, status: "skipped", reason: `stok geçersiz: ${stockRaw}` });
+      continue;
+    }
+    // Bedenler (opsiyonel): "S,M,L" / "S/M/L" -> her biri için ayrı varyant.
+    const sizes = (r.sizes ?? "")
+      .split(/[,/;|]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     if (dryRun) {
       results.push({ row: rowNum, name, status: "valid" });
       continue;
     }
-    const slug = slugify(name) + "-" + Math.random().toString(36).slice(2, 7);
-    const existing = await findProductBySlugAnyVendor(slug);
-    if (existing) {
-      results.push({ row: rowNum, name, status: "skipped", reason: "adres çakışması, tekrar deneyin" });
-      continue;
-    }
+
     const compareRaw = (r.compareAtPrice ?? "").trim();
     const compareAtPrice = compareRaw ? (toPriceString(compareRaw) ?? undefined) : undefined;
 
-    await insertVendorProduct(vendorId, {
-      categoryId,
-      name,
-      slug,
-      description: (r.description ?? "").trim() || undefined,
-      brand: (r.brand ?? "").trim() || undefined,
-      basePrice,
-      compareAtPrice,
-    });
+    // Slug çakışmasında (nadir) atlamak yerine birkaç kez yeni son ek dene.
+    let created: { id: number } | null = null;
+    for (let attempt = 0; attempt < 5 && !created; attempt++) {
+      const slug = slugify(name) + "-" + Math.random().toString(36).slice(2, 7);
+      if (await findProductBySlugAnyVendor(slug)) continue;
+      created = await insertVendorProduct(vendorId, {
+        categoryId,
+        name,
+        slug,
+        description: (r.description ?? "").trim() || undefined,
+        brand: (r.brand ?? "").trim() || undefined,
+        basePrice,
+        compareAtPrice,
+        // Beden varyantı varsa ürün stoğu varyant toplamından gelir (0 bırakılır);
+        // beden yoksa varyantsız ürün doğrudan products.stock kullanır -> stok>0
+        // ise ürün satılabilir olur (önceden hep 0'dı, hiç satılamıyordu).
+        stock: sizes.length > 0 ? 0 : stock,
+      });
+    }
+    if (!created) {
+      results.push({ row: rowNum, name, status: "skipped", reason: "benzersiz adres üretilemedi, tekrar deneyin" });
+      continue;
+    }
+
+    // Her beden için bir varyant (aynı stok adediyle). SKU otomatik üretilir.
+    for (const size of sizes) {
+      await insertProductVariant(created.id, { size, stock });
+    }
+
     results.push({ row: rowNum, name, status: "created" });
   }
   return results;
@@ -294,6 +416,8 @@ export async function importProductsFromFile(
   mapping?: ColumnMapping,
 ): Promise<BulkImportRowResult[]> {
   const raw = await parseRawImport(buffer, filename);
+  if (raw.rows.length > MAX_IMPORT_ROWS)
+    throw new Error(`Tek seferde en fazla ${MAX_IMPORT_ROWS} satır yüklenebilir (dosyada ${raw.rows.length}). Lütfen dosyayı parçalara bölün.`);
   const map = resolveMapping(raw.headers, mapping);
   return importNormalizedRows(vendorId, raw.rows.map((r) => mapRow(r, map)), dryRun);
 }
@@ -306,6 +430,8 @@ export async function importProductsFromCsv(
   mapping?: ColumnMapping,
 ): Promise<BulkImportRowResult[]> {
   const raw = parseDelimitedRaw(csvText);
+  if (raw.rows.length > MAX_IMPORT_ROWS)
+    throw new Error(`Tek seferde en fazla ${MAX_IMPORT_ROWS} satır yüklenebilir (${raw.rows.length} bulundu). Lütfen parçalara bölün.`);
   const map = resolveMapping(raw.headers, mapping);
   return importNormalizedRows(vendorId, raw.rows.map((r) => mapRow(r, map)), dryRun);
 }

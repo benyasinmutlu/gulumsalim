@@ -293,9 +293,22 @@ export default function CartPage() {
                   </div>
                 )}
                 <div className="summary-row">
-                  <span>Kargo</span>
+                  <span>Kargo{cart && cart.shippingBreakdown.length > 1 ? ` (${cart.shippingBreakdown.length} satıcı)` : ""}</span>
                   <span>{shippingFee === 0 ? "Ücretsiz" : `${shippingFee.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}</span>
                 </div>
+                {cart && cart.shippingBreakdown.length > 1 &&
+                  cart.shippingBreakdown.map((b, i) => (
+                    <div
+                      key={i}
+                      className="summary-row"
+                      style={{ fontSize: "0.8rem", color: "var(--color-text-light)", paddingLeft: 14, marginTop: -4 }}
+                    >
+                      <span>
+                        <i className="fas fa-store" style={{ fontSize: 10, opacity: 0.6 }} /> {b.storeName}
+                      </span>
+                      <span>{b.free ? "Ücretsiz" : `${Number(b.fee).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}</span>
+                    </div>
+                  ))}
                 <div className="summary-row total">
                   <span>Toplam</span>
                   <span>{total.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>

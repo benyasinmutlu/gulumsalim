@@ -227,10 +227,19 @@ export interface CartStockNotice {
   availableStock: number;
 }
 
+export interface CartShippingRow {
+  storeName: string;
+  fee: string;
+  free: boolean;
+}
+
 export interface CartResponse {
   items: CartItem[];
   subtotal: string;
   shippingFee: string;
+  // Satıcı-bazlı kargo kırılımı (her satıcı için ayrı ücret) - müşteriye
+  // "hangi mağazadan ne kadar kargo" göstermek için.
+  shippingBreakdown: CartShippingRow[];
   freeShippingThreshold: number;
   couponCode: string | null;
   discountAmount: string;

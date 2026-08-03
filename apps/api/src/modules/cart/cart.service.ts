@@ -1,5 +1,5 @@
 import { fetchPrimaryImages, fetchProductsForCart, fetchVariantsForCart } from "./cart.repository";
-import { getShippingConfig } from "../../lib/shipping";
+import { getShippingConfig, computeVendorShipping } from "../../lib/shipping";
 import type { CartLine } from "./cart.types";
 
 export function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
@@ -51,8 +51,8 @@ export function removeCartItem(cart: CartLine[], line: Pick<CartLine, "productId
 // biliyordu ve müşteriye hiç gösterilmiyordu.
 export async function hydrateCart(cart: CartLine[]) {
   if (cart.length === 0) {
-    const { shippingFee, freeShippingThreshold } = await getShippingConfig();
-    return { items: [], subtotal: "0.00", validCart: [] as CartLine[], shippingFee: "0.00", freeShippingThreshold, stockNotices: [] };
+    const { freeShippingThreshold } = await getShippingConfig();
+    return { items: [], subtotal: "0.00", validCart: [] as CartLine[], shippingFee: "0.00", shippingBreakdown: [], freeShippingThreshold, stockNotices: [] };
   }
 
   const productIds = [...new Set(cart.map((c) => c.productId))];
@@ -135,8 +135,21 @@ export async function hydrateCart(cart: CartLine[]) {
   }
 
   const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
-  const allItemsFreeShipping = items.length > 0 && items.every((item) => productMap.get(item.productId)?.freeShipping === true);
-  const shippingFee = items.length === 0 || allItemsFreeShipping || subtotal >= freeShippingThreshold ? 0 : baseShippingFee;
+  // Satıcı-bazlı kargo (bkz. lib/shipping.ts computeVendorShipping): her satıcı
+  // için ayrı ücret, o satıcının toplamı eşiği geçince/tümü ücretsizse sıfır.
+  // Checkout toplamla BİREBİR aynı hesabı kullanır; burada ayrıca müşteriye
+  // gösterilecek satıcı kırılımı da üretilir.
+  const shippingLines = items.map((item) => {
+    const p = productMap.get(item.productId);
+    return {
+      vendorId: p?.vendorId ?? 0,
+      storeName: p?.storeName ?? "Mağaza",
+      lineTotal: Number(item.lineTotal),
+      freeShipping: p?.freeShipping === true,
+    };
+  });
+  const { total: shippingFee, breakdown } = computeVendorShipping(shippingLines, baseShippingFee, freeShippingThreshold);
+  const shippingBreakdown = breakdown.map((b) => ({ storeName: b.storeName ?? "Mağaza", fee: b.fee.toFixed(2), free: b.free }));
 
-  return { items, subtotal: subtotal.toFixed(2), validCart, shippingFee: shippingFee.toFixed(2), freeShippingThreshold, stockNotices };
+  return { items, subtotal: subtotal.toFixed(2), validCart, shippingFee: shippingFee.toFixed(2), shippingBreakdown, freeShippingThreshold, stockNotices };
 }

@@ -10,6 +10,8 @@ const mappingSchema = z
     description: z.string(),
     brand: z.string(),
     compareAtPrice: z.string(),
+    stock: z.string(),
+    sizes: z.string(),
   })
   .partial();
 
@@ -54,9 +56,17 @@ const vendorBulkImportRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/vendor/products/bulk-import/paste", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
-    const { csvText, dryRun, mapping } = pasteImportSchema.parse(request.body);
-    const results = await importProductsFromCsv(request.session.vendorId!, csvText, dryRun ?? false, mapping);
-    return reply.status(dryRun ? 200 : 201).send({ results, dryRun: dryRun ?? false });
+    const parsed = pasteImportSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { message: "Geçersiz istek: yapıştırılan tablo verisi boş olamaz." } });
+    }
+    const { csvText, dryRun, mapping } = parsed.data;
+    try {
+      const results = await importProductsFromCsv(request.session.vendorId!, csvText, dryRun ?? false, mapping);
+      return reply.status(dryRun ? 200 : 201).send({ results, dryRun: dryRun ?? false });
+    } catch (err) {
+      return reply.status(400).send({ error: { message: err instanceof Error ? err.message : "Veri işlenemedi" } });
+    }
   });
 };
 
