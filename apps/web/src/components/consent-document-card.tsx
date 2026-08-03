@@ -19,9 +19,9 @@ export default function ConsentDocumentCard({
         alignItems: "center",
         gap: 12,
         padding: "14px 16px",
-        border: `1px solid ${accepted ? "rgba(46,125,50,.3)" : "rgba(224,64,160,.2)"}`,
+        border: `1px solid ${accepted ? "rgba(46,125,50,.3)" : "rgba(204,124,148,.2)"}`,
         borderRadius: 12,
-        background: accepted ? "rgba(46,125,50,.05)" : "rgba(224,64,160,.04)",
+        background: accepted ? "rgba(46,125,50,.05)" : "rgba(204,124,148,.04)",
       }}
     >
       <i

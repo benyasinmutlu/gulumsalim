@@ -21,7 +21,10 @@ export default function CookieConsentBanner() {
     setVisible(false);
   }
 
-  function acceptNecessaryOnly() {
+  // KVKK'da alışılan "Kabul Et / Reddet / Tercihleri Yönet" üçlüsündeki
+  // "Reddet" - işlev zaten buydu (tüm opsiyonel kategorileri false
+  // kaydediyor), sadece buton etiketi netleştirildi.
+  function rejectAll() {
     setCookieConsent({ performans: false, islevsellik: false, reklam: false });
     setVisible(false);
   }
@@ -42,7 +45,7 @@ export default function CookieConsentBanner() {
         bottom: 0,
         zIndex: 900,
         background: "#fff",
-        borderTop: "1px solid #e5c9dc",
+        borderTop: "1px solid var(--color-primary-light)",
         boxShadow: "0 -8px 30px rgba(0,0,0,.12)",
         padding: "16px 20px",
       }}
@@ -56,8 +59,8 @@ export default function CookieConsentBanner() {
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPreferencesOpen((v) => !v)}>
             Tercihleri Yönet
           </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={acceptNecessaryOnly}>
-            Sadece Zorunlu
+          <button type="button" className="btn btn-secondary btn-sm" onClick={rejectAll}>
+            Reddet
           </button>
           <button type="button" className="btn btn-primary btn-sm" onClick={acceptAll}>
             Tümünü Kabul Et

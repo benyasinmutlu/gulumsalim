@@ -6,16 +6,27 @@ import type { CustomerProfile } from "../lib/types";
 // gibi olmalı" - önceden "Satıcı Ol" sadece footer'da (sayfanın en altında,
 // kaçırılması kolay) vardı. Üst şerit her sayfada, kaydırmadan görünen tek
 // yer - Trendyol/Sahibinden'de de bu tür linkler tam burada.
-export default function TopBar({ customer }: { customer: CustomerProfile | null }) {
+// bkz. kullanıcı isteği (mockup): metin mockup'taki gibi "Ücretsiz Kargo
+// {tutar} TL ve üzeri" kalıbında - tutar admin panelden değiştirilebilir
+// gerçek bir ayar (bkz. api/lib/shipping.ts getShippingConfig), bu yüzden
+// mockup'taki "750 TL" örneğini KOPYALAMIYORUZ, gerçek yapılandırılmış
+// değeri (ayarlanmamışsa varsayılan 500 TL) gösteriyoruz.
+const DEFAULT_FREE_SHIPPING_LIMIT = 500;
+
+export default function TopBar({ customer, freeShippingLimit }: { customer: CustomerProfile | null; freeShippingLimit?: string }) {
+  const limit = freeShippingLimit ? Number(freeShippingLimit) : DEFAULT_FREE_SHIPPING_LIMIT;
   return (
     <div className="top-bar">
       <div className="container">
         <div className="top-bar-left">
           <span>
-            <i className="fas fa-shipping-fast" /> 500,00 ₺ üzeri ücretsiz kargo
+            <i className="fas fa-shipping-fast" /> Ücretsiz Kargo {limit.toLocaleString("tr-TR")} TL ve üzeri
           </span>
           <span>
-            <i className="fas fa-undo" /> 14 gün koşulsuz iade
+            <i className="fas fa-undo" /> İade Garantisi 14 gün içinde
+          </span>
+          <span>
+            <i className="fas fa-lock" /> Güvenli Ödeme 256 Bit SSL
           </span>
         </div>
         <div className="top-bar-right">
@@ -27,8 +38,13 @@ export default function TopBar({ customer }: { customer: CustomerProfile | null 
               <i className="fas fa-user-plus" /> Üye Ol
             </Link>
           )}
+          <Link href="/siparis-takip">
+            <i className="fas fa-truck" /> Sipariş Takip
+          </Link>
+          <Link href="/iletisim">
+            <i className="fas fa-life-ring" /> Yardım &amp; Destek
+          </Link>
           <Link href="/hakkimizda">Hakkımızda</Link>
-          <Link href="/iletisim">İletişim</Link>
         </div>
       </div>
     </div>

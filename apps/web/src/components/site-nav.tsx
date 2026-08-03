@@ -28,6 +28,16 @@ async function getSiteBranding(): Promise<SiteSettings> {
   return res.json();
 }
 
+// /favorites girişsiz 401 döner - müşteri yoksa hiç çağrılmaz, gereksiz
+// bir başarısız istekten kaçınılır.
+async function getFavoriteCount(hasCustomer: boolean): Promise<number> {
+  if (!hasCustomer) return 0;
+  const res = await apiFetch("/favorites");
+  if (!res.ok) return 0;
+  const rows: unknown[] = await res.json();
+  return rows.length;
+}
+
 export default async function SiteNav() {
   const [customer, categories, cartCount, branding] = await Promise.all([
     getCurrentCustomer(),
@@ -35,14 +45,16 @@ export default async function SiteNav() {
     getCartCount(),
     getSiteBranding(),
   ]);
+  const favoriteCount = await getFavoriteCount(Boolean(customer));
 
   return (
     <>
-      <TopBar customer={customer} />
+      <TopBar customer={customer} freeShippingLimit={branding.free_shipping_limit} />
       <HeaderShell
         categories={categories}
         customer={customer}
         cartCount={cartCount}
+        favoriteCount={favoriteCount}
         siteName={branding.site_name}
         siteLogo={branding.site_logo}
       />
