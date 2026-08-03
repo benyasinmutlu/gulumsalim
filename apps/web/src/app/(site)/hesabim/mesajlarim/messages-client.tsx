@@ -66,43 +66,31 @@ export default function MessagesClient() {
   return (
     <div className="form-card">
       <h3>Mesajlarım</h3>
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 16 }}>
-        <div style={{ flex: "1 1 260px", border: "1px solid var(--color-border)", borderRadius: 12, overflow: "hidden" }}>
+      <div className="messages-layout">
+        <div className="messages-list">
           {conversations === null ? (
-            <p style={{ padding: 16, fontSize: "0.9rem" }}>Yükleniyor...</p>
+            <p className="messages-list-empty">Yükleniyor...</p>
           ) : conversations.length === 0 && !hasVendorFromQuery ? (
-            <p style={{ padding: 16, fontSize: "0.9rem" }}>Henüz bir mağazayla mesajlaşmadınız.</p>
+            <p className="messages-list-empty">Henüz bir mağazayla mesajlaşmadınız.</p>
           ) : (
             conversations.map((c) => (
               <div
                 key={c.vendorId}
                 onClick={() => openThread(c.vendorId)}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 16px",
-                  borderBottom: "1px solid var(--color-border-light)",
-                  background: selectedVendorId === c.vendorId ? "var(--color-bg-alt)" : "transparent",
-                  cursor: "pointer",
-                }}
+                className={`messages-list-item${selectedVendorId === c.vendorId ? " active" : ""}`}
               >
-                <div style={{ minWidth: 0 }}>
+                <div className="messages-list-item-info">
                   <strong>{c.vendorStoreName}</strong>
-                  <div style={{ fontSize: 12, color: "var(--color-text-light)" }}>{c.lastMessage?.slice(0, 50)}</div>
+                  <div className="messages-list-item-preview">{c.lastMessage?.slice(0, 50)}</div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {c.unreadCount > 0 && (
-                    <span style={{ background: "var(--color-primary)", color: "#fff", borderRadius: 10, fontSize: 11, padding: "2px 7px", height: "fit-content" }}>
-                      {c.unreadCount}
-                    </span>
-                  )}
+                <div className="messages-list-item-actions">
+                  {c.unreadCount > 0 && <span className="messages-unread-badge">{c.unreadCount}</span>}
                   <button
                     type="button"
                     title="Konuşmayı sil"
                     aria-label="Konuşmayı sil"
                     onClick={(e) => { e.stopPropagation(); handleDeleteConversation(c.vendorId); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-text-light)", padding: 4 }}
+                    className="messages-delete-btn"
                   >
                     <i className="fas fa-trash" />
                   </button>
@@ -113,49 +101,33 @@ export default function MessagesClient() {
         </div>
 
         {selectedVendorId && (
-          <div style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", border: "1px solid var(--color-border)", borderRadius: 12, overflow: "hidden" }}>
-            <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--color-border-light)", fontWeight: 700, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="messages-thread">
+            <div className="messages-thread-header">
               <span>{selectedConversation?.vendorStoreName ?? "Yeni mesaj"}</span>
               {selectedConversation && (
-                <button
-                  type="button"
-                  className="btn btn-sec btn-sm"
-                  onClick={() => handleDeleteConversation(selectedVendorId!)}
-                  style={{ fontWeight: 400, fontSize: 12 }}
-                >
+                <button type="button" className="btn btn-sec btn-sm" onClick={() => handleDeleteConversation(selectedVendorId!)}>
                   <i className="fas fa-trash" /> Konuşmayı Sil
                 </button>
               )}
             </div>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, padding: 16, minHeight: 200, maxHeight: 360, overflowY: "auto" }}>
+            <div className="messages-thread-body">
               {thread.length === 0 ? (
-                <p style={{ fontSize: "0.85rem", color: "var(--color-text-light)" }}>Bu mağazaya ilk mesajınızı gönderin.</p>
+                <p className="messages-thread-empty">Bu mağazaya ilk mesajınızı gönderin.</p>
               ) : (
                 thread.map((m) => (
-                  <div
-                    key={m.id}
-                    style={{
-                      alignSelf: m.sender === "customer" ? "flex-end" : "flex-start",
-                      background: m.sender === "customer" ? "var(--color-primary)" : "var(--color-bg-alt)",
-                      color: m.sender === "customer" ? "#fff" : "var(--color-text)",
-                      padding: "8px 14px",
-                      borderRadius: 12,
-                      maxWidth: "80%",
-                    }}
-                  >
+                  <div key={m.id} className={`messages-bubble ${m.sender === "customer" ? "customer" : "vendor"}`}>
                     {m.message}
                   </div>
                 ))
               )}
             </div>
-            <div style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--color-border-light)" }}>
+            <div className="messages-compose">
               <input
                 className="form-control"
                 placeholder="Mesaj yaz..."
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                style={{ flex: 1 }}
               />
               <button className="btn btn-primary" disabled={sending} onClick={handleSend}>
                 Gönder
