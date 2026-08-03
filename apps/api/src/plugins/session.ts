@@ -18,6 +18,10 @@ declare module "fastify" {
     vendorId?: number;
     adminId?: number;
     cart?: CartLine[];
+    // bkz. coupon.service.ts - sepetle aynı oturum tabanlı yaklaşım:
+    // kod POST /cart/coupon ile doğrulanıp burada saklanır, checkout
+    // tamamlanınca (ya da DELETE /cart/coupon ile) temizlenir.
+    couponCode?: string;
   }
 }
 
@@ -38,8 +42,20 @@ const sessionPlugin: FastifyPluginAsync = async (app) => {
     cookieName: "gs_sid",
     cookie: {
       httpOnly: true,
+      // sameSite:"none" YALNIZCA prod'da (secure:true zorunlu kılıyor,
+      // http'de tarayıcı çerezi tamamen reddeder) - bkz. checkout.routes.ts
+      // /payment-callback: iyzico ödeme sonrası tarayıcıyı buraya form-
+      // encoded POST ile geri yönlendiriyor, bu siteler-arası bir POST.
+      // sameSite:"lax" bu istekte oturum çerezini tarayıcıdan hiç
+      // göndermiyordu, sunucu da "oturum yok" sanıp SIFIRDAN anonim bir
+      // oturum açıp cevaba yeni (boş) çerez yazıyordu - kullanıcı sipariş
+      // sonrası oturumdan atılmış gibi görünüyordu (bkz. kullanıcı
+      // bildirimi: "siparişiniz alındı diyince hesaptan çıkış yapıyor").
+      // Bu değişiklik güvenli: state-değiştiren uçlar zaten kendi CSRF
+      // token korumasına (app.csrfProtection, bkz. csrf.ts) sahip,
+      // SameSite'a bağımlı değil.
       secure: env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: SESSION_MAX_AGE_MS,
     },
   });

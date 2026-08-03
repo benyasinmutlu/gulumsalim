@@ -1,5 +1,5 @@
 import type { Redis } from "ioredis";
-import { findProductsByIds, listActiveProducts } from "../catalog/catalog.repository";
+import { findCategoryById, findProductsByIds, listActiveProducts } from "../catalog/catalog.repository";
 import { findProductCategoryVendor } from "../analytics/events.repository";
 import { getDiscoverFeed } from "../discovery/discovery.service";
 import { getRecentlyViewedProductIds } from "../../lib/view-history";
@@ -35,6 +35,16 @@ interface SectionConfig {
   bgColor?: string;
   bannerLayout?: "grid" | "stack";
   showTitle?: boolean;
+  // bkz. kullanıcı isteği: gerçek bitiş zamanına sayan geri sayımlı "Flaş
+  // İndirimler" bölümü - algoType='flash_sale' olduğunda kullanılır (ISO
+  // timestamp). Süresi geçmişse bölüm otomatik gizlenir (bkz.
+  // resolveOneSection) - admin'in ayrıca deaktive etmesi gerekmez.
+  endsAt?: string;
+  // bkz. kullanıcı isteği (2026-08-02): "kategorileri admin panelinde
+  // oluşturabilelim, gerektiğinde indirimli ürünleri de gösterebilsin" -
+  // algoType='category' olduğunda kullanılır.
+  categoryId?: number;
+  saleOnly?: boolean;
 }
 
 type ResolvedBanners = Awaited<ReturnType<typeof listSectionBanners>>;
@@ -56,6 +66,9 @@ interface ResolvedSection {
   bannerLayout?: string;
   showTitle?: boolean;
   seoSlug?: string | null;
+  endsAt?: string;
+  categorySlug?: string;
+  saleOnly?: boolean;
   products: ResolvedProducts;
   banners?: ResolvedBanners;
 }
@@ -132,9 +145,17 @@ async function resolveOneSection(
     };
   }
 
+  // bkz. kullanıcı isteği: "Flaş İndirimler" geri sayımı süresi dolunca
+  // bölüm asılı/sahte bir geri sayım göstermesin - admin ayrıca deaktive
+  // etmeyi unutsa bile süresi geçmiş bir flash_sale hiç render edilmez.
+  if (section.algoType === "flash_sale" && config.endsAt && new Date(config.endsAt) <= new Date()) {
+    return null;
+  }
+
   switch (section.algoType) {
     case "manual":
-    case "featured": {
+    case "featured":
+    case "flash_sale": {
       if (config.productIds?.length) {
         const rows = await findProductsByIds(config.productIds);
         const byId = new Map(rows.map((p) => [p.id, p]));
@@ -160,6 +181,16 @@ async function resolveOneSection(
     case "vendor_carousel": {
       if (config.vendorId) {
         products = await listActiveProducts({ vendorId: config.vendorId, limit });
+      }
+      break;
+    }
+    // bkz. kullanıcı isteği (2026-08-02): "kategorileri admin panelinde
+    // oluşturabilelim, gerektiğinde kategorilerdeki indirimli ürünleri de
+    // gösterebilsin" - saleOnly verilmezse kategorinin GENEL ürünleri
+    // (indirimli olan varsa rozeti kendiliğinden çıkar, bkz. ProductCard).
+    case "category": {
+      if (config.categoryId) {
+        products = await listActiveProducts({ categoryIds: [config.categoryId], saleOnly: config.saleOnly, limit });
       }
       break;
     }
@@ -189,7 +220,7 @@ async function resolveOneSection(
         if (lastViewed) {
           const info = await findProductCategoryVendor(lastViewed);
           if (info) {
-            const rows = await listActiveProducts({ categoryId: info.categoryId, limit: limit + viewedIds.length });
+            const rows = await listActiveProducts({ categoryIds: [info.categoryId], limit: limit + viewedIds.length });
             products = rows.filter((r) => !viewedIds.includes(r.id)).slice(0, limit);
           }
         }
@@ -212,11 +243,21 @@ async function resolveOneSection(
   // algoritmik sonuçların üstüne eklendiği için toplam limit'i aşabilir -
   // sonuç tekrar limit'e kırpılır (sabitlenenler her zaman başta kaldığı
   // için asla düşürülmezler, limit'i aşmadıkları sürece).
-  if (section.algoType !== "manual" && section.algoType !== "featured") {
+  if (section.algoType !== "manual" && section.algoType !== "featured" && section.algoType !== "flash_sale") {
     products = (await applyPinningAndExclusion(products, config)).slice(0, limit);
   }
 
   if (products.length === 0) return null;
+
+  // bkz. kullanıcı isteği (2026-08-02): "tümünü gör diyince direkt
+  // kategoriye gitsin" - kategori vitrini bölümünde "Tümünü Gör" linkinin
+  // doğru adrese (ve saleOnly ise doğru filtreyle) gidebilmesi için
+  // categoryId'den slug'a çözümleniyor.
+  let categorySlug: string | undefined;
+  if (section.algoType === "category" && config.categoryId) {
+    const category = await findCategoryById(config.categoryId);
+    categorySlug = category?.slug;
+  }
 
   return {
     id: section.id,
@@ -233,6 +274,9 @@ async function resolveOneSection(
     bannerLayout: config.bannerLayout,
     showTitle: config.showTitle,
     seoSlug: section.seoSlug,
+    endsAt: config.endsAt,
+    categorySlug,
+    saleOnly: config.saleOnly,
     products,
   };
 }
