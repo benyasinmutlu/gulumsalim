@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import { apiFetchJson } from "@/lib/api";
 import type { VendorProfile } from "@/lib/types";
 import VendorLogoutButton from "./logout-button";
+import VendorMobileNav from "./vendor-mobile-nav";
 import VendorSidebarNav from "./sidebar-nav";
 import VendorSidebarToggle from "./sidebar-toggle";
+import { VendorTypeProvider } from "./vendor-type-context";
 import "./satici.css";
 
 async function getVendor(): Promise<VendorProfile | null> {
@@ -26,9 +28,13 @@ const STATUS_LABEL: Record<VendorProfile["status"], string> = {
 export default async function VendorPanelLayout({ children }: { children: React.ReactNode }) {
   const vendor = await getVendor();
   if (!vendor) redirect("/satici/giris");
+  // bkz. kullanıcı isteği: "bireysel satıcının paneli ... çok daha
+  // kullanışlı olmalı ... dolap gibi" - mobilde sidebar/hamburger yerine
+  // alt tab-bar (bkz. vendor-mobile-nav.tsx), sadece bireysel satıcılarda.
+  const isIndividual = vendor.vendorType === "individual";
 
   return (
-    <>
+    <VendorTypeProvider vendorType={vendor.vendorType}>
       <aside className="sidebar" id="vendorSidebar">
         <div className="sidebar-logo">
           <div className="logo-icon">
@@ -56,7 +62,10 @@ export default async function VendorPanelLayout({ children }: { children: React.
           </div>
           <div className="vendor-info">
             <strong>{vendor.storeName}</strong>
-            <small>{vendor.email}</small>
+            {/* bkz. vendor-auth.service.ts becomeIndividualSeller - bireysel
+                satıcının e-postası artık namespaced (ör. "+ind42"), müşteriye
+                garip görünmemesi için burada hiç gösterilmiyor. */}
+            <small>{isIndividual ? "Bireysel Satıcı" : vendor.email}</small>
           </div>
           <VendorLogoutButton />
         </div>
@@ -64,7 +73,12 @@ export default async function VendorPanelLayout({ children }: { children: React.
 
       <main className="main">
         <div className="topbar">
-          <VendorSidebarToggle />
+          {/* bkz. olay: 2026-08-01 "dışarı tıkladığımda kapanmıyor" -
+              bireysel satıcıda mobilde artık sidebar/hamburger yerine alt
+              tab-bar + "Daha Fazla" sayfası var (bkz. vendor-mobile-nav.tsx),
+              bu yüzden çakışan iki açma/kapama mekanizması olmasın diye
+              hamburger bireysel satıcıda hiç render edilmiyor. */}
+          {!isIndividual && <VendorSidebarToggle />}
           <div className="topbar-title">{vendor.storeName}</div>
           <span className={`st st-${vendor.status === "active" ? "success" : vendor.status === "pending" ? "warn" : "danger"}`}>
             {STATUS_LABEL[vendor.status]}
@@ -73,7 +87,7 @@ export default async function VendorPanelLayout({ children }: { children: React.
             <i className="fas fa-external-link-alt" />
           </a>
         </div>
-        <div className="content">
+        <div className={`content${isIndividual ? " content-mobile-pad" : ""}`}>
           {vendor.status === "pending" && (
             <div className="alert alert-wa">
               <i className="fas fa-triangle-exclamation" /> Mağazanız admin onayı bekliyor. Bu süre boyunca ürün
@@ -89,6 +103,7 @@ export default async function VendorPanelLayout({ children }: { children: React.
           {children}
         </div>
       </main>
-    </>
+      {isIndividual && <VendorMobileNav />}
+    </VendorTypeProvider>
   );
 }

@@ -17,10 +17,24 @@ export default async function FollowedVendorsPage() {
   const vendors = await getFollowedVendors();
 
   return (
-    <div className="form-card">
-      <h3>Takip Ettiğim Mağazalar</h3>
+    <>
+      <div className="account-page-header">
+        <div className="account-page-header-icon">
+          <i className="fas fa-store" />
+        </div>
+        <div>
+          <h3>Takip Ettiğim Mağazalar</h3>
+          <div className="account-page-subtitle">{vendors.length > 0 ? `${vendors.length} mağaza` : "Takip ettiğiniz satıcılar"}</div>
+        </div>
+      </div>
       {vendors.length === 0 ? (
-        <p style={{ fontSize: "0.9rem" }}>Henüz hiçbir mağazayı takip etmiyorsunuz.</p>
+        <div className="form-card account-empty-state">
+          <i className="fas fa-store" />
+          <p>Henüz hiçbir mağazayı takip etmiyorsunuz.</p>
+          <Link href="/magazalar" className="btn btn-primary btn-sm">
+            Mağazaları Keşfet
+          </Link>
+        </div>
       ) : (
         <div className="store-grid">
           {vendors.map((v) => (
@@ -45,6 +59,6 @@ export default async function FollowedVendorsPage() {
           ))}
         </div>
       )}
-    </div>
+    </>
   );
 }

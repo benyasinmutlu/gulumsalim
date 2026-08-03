@@ -5,8 +5,10 @@ import AddToCartButton from "@/app/(site)/urun/[slug]/add-to-cart-button";
 import ReviewForm from "@/app/(site)/urun/[slug]/review-form";
 import QuestionForm from "@/app/(site)/urun/[slug]/question-form";
 import ProductGallery from "@/components/product-gallery";
+import VirtualTryOn from "@/components/virtual-tryon";
 import StarRating from "@/components/star-rating";
 import ProductCard from "@/components/product-card";
+import DwellTracker from "@/components/dwell-tracker";
 
 async function getProduct(slug: string): Promise<ProductDetail | null> {
   const res = await apiFetch(`/products/${slug}`);
@@ -95,7 +97,7 @@ export default async function ProductDetailView({
   // rozeti) gösterebilmesi için schema.org Product yapılandırılmış verisi -
   // önceki halinde sadece isim/açıklama/fiyat vardı, puan/stok/marka/görsel
   // eksikti (bkz. kullanıcı geri bildirimi: "seo mantığı olmalı").
-  const totalStock = product.variants.reduce((sum, v) => sum + v.stock, 0);
+  const totalStock = product.variants.length > 0 ? product.variants.reduce((sum, v) => sum + v.stock, 0) : product.stock;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -127,6 +129,7 @@ export default async function ProductDetailView({
 
   return (
     <main className="main-content">
+      <DwellTracker productId={product.id} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <div className="breadcrumb-bar">
@@ -159,6 +162,21 @@ export default async function ProductDetailView({
                 <i className="fas fa-chevron-right detail-vendor-arrow" />
               </Link>
 
+              {product.videoUrl && (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video
+                  src={product.videoUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  style={{ width: "100%", borderRadius: 12, background: "#000", marginTop: "0.8rem", display: "block" }}
+                />
+              )}
+
+              <div style={{ marginTop: "0.8rem" }}>
+                <VirtualTryOn productImage={product.images[0]?.url ?? null} productName={product.name} />
+              </div>
+
               {summary.total > 0 && (
                 <p style={{ marginTop: "0.6rem", fontSize: "0.85rem" }}>
                   <StarRating value={summary.average ?? 0} size={15} /> {summary.average?.toFixed(1)} / 5 ({summary.total}{" "}
@@ -175,12 +193,14 @@ export default async function ProductDetailView({
                     {Number(product.compareAtPrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
                   </span>
                 )}
-                {discountPercent !== null && discountPercent > 0 && <span>%{discountPercent} İndirim</span>}
+                {discountPercent !== null && discountPercent > 0 && (
+                  <span className="badge badge-sale">%{discountPercent} İndirim</span>
+                )}
               </div>
 
               {product.description && <div className="detail-description">{product.description}</div>}
 
-              <AddToCartButton productId={product.id} variants={product.variants} />
+              <AddToCartButton productId={product.id} variants={product.variants} price={Number(product.basePrice)} stock={product.stock} />
 
               <div className="detail-features">
                 <div className="feature-item">

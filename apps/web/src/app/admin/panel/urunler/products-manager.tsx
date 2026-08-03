@@ -6,13 +6,19 @@ import type { AdminCategory, AdminProductRow } from "@/lib/types";
 
 const STATUS_LABEL: Record<AdminProductRow["status"], string> = {
   draft: "Taslak",
+  pending: "Onay Bekliyor",
   active: "Aktif",
   inactive: "Pasif",
   rejected: "Reddedildi",
 };
 
+// bkz. kullanıcı isteği: "bireysel satıcıların ürünleri yayınlanması için
+// onaylanması gerekiyor adminden" - "Onay Bekliyor" en önde, admin'in her
+// girişte önce bunu görmesi/karar vermesi için (bkz. vendor-products.routes.ts
+// pending akışı).
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Tümü" },
+  { value: "pending", label: "Onay Bekliyor" },
   { value: "active", label: "Aktif" },
   { value: "draft", label: "Taslak" },
   { value: "inactive", label: "Pasif" },
@@ -188,7 +194,12 @@ export default function ProductsManager() {
                         </button>
                       ) : (
                         <button className="admin-btn admin-btn-success admin-btn-sm" disabled={busyId === p.id} onClick={() => updateStatus(p.id, "active")}>
-                          Aktif Et
+                          {p.status === "pending" ? "Onayla" : "Aktif Et"}
+                        </button>
+                      )}
+                      {p.status === "pending" && (
+                        <button className="admin-btn admin-btn-danger admin-btn-sm" disabled={busyId === p.id} onClick={() => updateStatus(p.id, "rejected")}>
+                          Reddet
                         </button>
                       )}
                       <button className="admin-btn admin-btn-danger admin-btn-sm" disabled={busyId === p.id} onClick={() => handleDelete(p.id, p.name)}>

@@ -128,14 +128,19 @@ export default function BannersManager() {
         <div className="ch">
           <h3>Yeni Kampanya Bannerı</h3>
         </div>
-        <div className="card-body" style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div className="fg">
-            <label>Başlık</label>
-            <input className="fi" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          </div>
-          <div className="fg">
-            <label>Alt Başlık (opsiyonel)</label>
-            <input className="fi" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
+        {/* Eski maxWidth:480 tüm formu dar sol şeride sıkıştırıyordu (UI bug).
+            Alanlar row2 çiftleriyle genişçe yayıldı; renk seçici .fi'siz düzgün
+            boyutlandırıldı (type=color + .fi ince bir çizgi gibi bozuluyordu). */}
+        <div className="card-body" style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+          <div className="row2">
+            <div className="fg">
+              <label>Başlık</label>
+              <input className="fi" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div className="fg">
+              <label>Alt Başlık (opsiyonel)</label>
+              <input className="fi" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
+            </div>
           </div>
           <div className="fg">
             <label>Görsel</label>
@@ -146,42 +151,54 @@ export default function BannersManager() {
               accept="image/jpeg,image/png,image/webp,image/gif"
             />
           </div>
-          <div className="fg">
-            <label>Buton Metni</label>
-            <input className="fi" value={form.buttonText} onChange={(e) => setForm({ ...form, buttonText: e.target.value })} />
+          <div className="row2">
+            <div className="fg">
+              <label>Buton Metni</label>
+              <input className="fi" value={form.buttonText} onChange={(e) => setForm({ ...form, buttonText: e.target.value })} />
+            </div>
+            <div className="fg">
+              <label>Hedef Türü</label>
+              <select className="fi" value={form.linkType} onChange={(e) => setForm({ ...form, linkType: e.target.value as BannerFormState["linkType"] })}>
+                {LINK_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div className="fg">
-            <label>Hedef Türü</label>
-            <select className="fi" value={form.linkType} onChange={(e) => setForm({ ...form, linkType: e.target.value as BannerFormState["linkType"] })}>
-              {LINK_TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="fg">
-            <label>{linkValueLabel(form.linkType)}</label>
-            <input
-              className="fi"
-              value={form.linkUrl}
-              onChange={(e) => setForm({ ...form, linkUrl: e.target.value })}
-              placeholder={form.linkType === "url" ? "/urunler" : "ör. kadin-giyim"}
-            />
-          </div>
-          <div className="fg">
-            <label>Görünme Animasyonu</label>
-            <select className="fi" value={form.animStyle} onChange={(e) => setForm({ ...form, animStyle: e.target.value })}>
-              {ANIM_STYLE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+          <div className="row2">
+            <div className="fg">
+              <label>{linkValueLabel(form.linkType)}</label>
+              <input
+                className="fi"
+                value={form.linkUrl}
+                onChange={(e) => setForm({ ...form, linkUrl: e.target.value })}
+                placeholder={form.linkType === "url" ? "/urunler" : "ör. kadin-giyim"}
+              />
+            </div>
+            <div className="fg">
+              <label>Görünme Animasyonu</label>
+              <select className="fi" value={form.animStyle} onChange={(e) => setForm({ ...form, animStyle: e.target.value })}>
+                {ANIM_STYLE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="fg">
             <label>Metin Rengi</label>
-            <input type="color" className="fi" value={form.textColor} onChange={(e) => setForm({ ...form, textColor: e.target.value })} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                type="color"
+                value={form.textColor}
+                onChange={(e) => setForm({ ...form, textColor: e.target.value })}
+                style={{ width: 56, height: 40, padding: 3, border: "1.5px solid var(--br)", borderRadius: 10, background: "var(--s2)", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 13, color: "var(--tx3)", fontFamily: "monospace" }}>{form.textColor}</span>
+            </div>
           </div>
           {error && <p style={{ color: "var(--er)", fontSize: "0.85rem" }}>{error}</p>}
           <button className="btn btn-pr" onClick={handleUpload} disabled={uploading}>

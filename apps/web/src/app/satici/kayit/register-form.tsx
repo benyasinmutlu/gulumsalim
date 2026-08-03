@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
-import type { VendorProfile } from "@/lib/types";
 import ConsentModal from "@/components/consent-modal";
 import ConsentDocumentCard from "@/components/consent-document-card";
 
@@ -36,6 +35,7 @@ export default function VendorRegisterForm() {
   const [consentModalOpen, setConsentModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
 
   function handleStoreNameChange(value: string) {
     setStoreName(value);
@@ -55,7 +55,7 @@ export default function VendorRegisterForm() {
     setLoading(true);
     setError(null);
     try {
-      await mutateJson<VendorProfile>("/vendor/auth/register", "POST", {
+      await mutateJson<{ email: string; verificationRequired: boolean }>("/vendor/auth/register", "POST", {
         storeName,
         storeSlug,
         fullName,
@@ -66,12 +66,24 @@ export default function VendorRegisterForm() {
         legalAddress,
         consentAccepted,
       });
-      window.location.href = "/satici/panel";
+      // bkz. kullanıcı isteği: e-posta doğrulaması zorunlu - kayıt artık
+      // otomatik giriş yapmıyor.
+      setSent(true);
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Kayıt başarısız oldu");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (sent) {
+    return (
+      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+        <i className="fas fa-envelope-circle-check" /> <strong>{email}</strong> adresine bir doğrulama bağlantısı gönderdik. Satıcı
+        panelinize giriş yapabilmek için gelen kutunuzdaki (ve spam klasörünüzdeki) bağlantıya tıklayın. Ayrıca başvurunuz admin onayı
+        bekliyor olacak.
+      </div>
+    );
   }
 
   return (

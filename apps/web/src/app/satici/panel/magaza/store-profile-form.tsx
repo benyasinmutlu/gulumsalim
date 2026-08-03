@@ -90,17 +90,35 @@ export default function StoreProfileForm() {
     }
   }
 
-  async function handleImageUpload(field: "logo" | "coverImage", file: File) {
-    const setUploading = field === "logo" ? setUploadingLogo : setUploadingCover;
-    setUploading(true);
+  async function handleLogoUpload(file: File) {
+    setUploadingLogo(true);
     setMessage(null);
     try {
-      const updated = await uploadFile<VendorProfile>(field === "logo" ? "/vendor/profile/logo" : "/vendor/profile/cover", file);
+      const updated = await uploadFile<VendorProfile>("/vendor/profile/logo", file);
       setVendor(updated);
     } catch (err) {
       setMessage({ type: "err", text: err instanceof ClientApiError ? err.message : "Görsel yüklenemedi" });
     } finally {
-      setUploading(false);
+      setUploadingLogo(false);
+    }
+  }
+
+  // bkz. kullanıcı isteği: "mağazalarda resim olsun uygun bir şekilde" -
+  // kapak fotoğrafı satıcının KENDİ genel sayfasında (vendor-storefront.tsx,
+  // sade tasarım) gösterilmiyor, ama /magazalar dizin listesindeki mağaza
+  // kartının arka planı olarak KULLANILIYOR (bkz. magazalar/page.tsx
+  // .store-cover) - bu yükleme kontrolü daha önce "hiçbir yerde
+  // görünmüyor" varsayımıyla kaldırılmıştı, bu yanlıştı.
+  async function handleCoverUpload(file: File) {
+    setUploadingCover(true);
+    setMessage(null);
+    try {
+      const updated = await uploadFile<VendorProfile>("/vendor/profile/cover", file);
+      setVendor(updated);
+    } catch (err) {
+      setMessage({ type: "err", text: err instanceof ClientApiError ? err.message : "Görsel yüklenemedi" });
+    } finally {
+      setUploadingCover(false);
     }
   }
 
@@ -112,35 +130,18 @@ export default function StoreProfileForm() {
     <div className="fc" style={{ gap: 20 }}>
       <div className="card" style={{ overflow: "hidden" }}>
         {/* Mağazanın herkese açık sayfasındaki görünümün canlı önizlemesi -
-            aynı .vendor-hero/.vendor-avatar sınıflarını kullanır, böylece
-            admin ne kaydettiğini değil neyi göreceğini görür. */}
-        <div className="vendor-hero" style={{ height: 220 }}>
-          {vendor.coverImage && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={vendor.coverImage} alt="" className="vendor-hero-bg" />
-          )}
-          <button
-            type="button"
-            onClick={() => coverInputRef.current?.click()}
-            disabled={uploadingCover}
-            style={{
-              position: "absolute", top: 14, right: 14, zIndex: 3,
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,.35)",
-              background: "rgba(0,0,0,.35)", backdropFilter: "blur(8px)", color: "#fff",
-              fontSize: 12, fontWeight: 600, cursor: "pointer",
-            }}
-          >
-            <i className="fas fa-camera" /> {uploadingCover ? "Yükleniyor..." : "Kapak Değiştir"}
-          </button>
-          <input ref={coverInputRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && handleImageUpload("coverImage", e.target.files[0])} />
-
-          <div className="vendor-hero-content">
+            aynı .vendor-header/.vendor-avatar-flat sınıflarını kullanır
+            (bkz. kullanıcı isteği: "mağaza sayfasını mockup'taki gibi sade
+            yap" - kendi genel sayfasında kapak fotoğrafı yok, bu yüzden
+            burada gösterilmiyor; kapak yükleme kontrolü aşağıda ayrı bir
+            bölümde, /magazalar dizin kartı için). */}
+        <div className="vendor-header" style={{ padding: 20 }}>
+          <div className="vendor-header-row">
             <div style={{ position: "relative" }}>
-              <div className="vendor-avatar" style={{ overflow: "hidden" }}>
+              <div className="vendor-avatar-flat">
                 {vendor.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={vendor.logo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={vendor.logo} alt="" />
                 ) : (
                   vendor.storeName.charAt(0)
                 )}
@@ -152,27 +153,23 @@ export default function StoreProfileForm() {
                 title="Logoyu Değiştir"
                 style={{
                   position: "absolute", bottom: -4, right: -4,
-                  width: 32, height: 32, borderRadius: "50%",
+                  width: 28, height: 28, borderRadius: "50%",
                   background: "var(--pr)", color: "#fff", border: "3px solid #fff",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", fontSize: 12,
+                  cursor: "pointer", fontSize: 11,
                 }}
               >
                 <i className="fas fa-camera" />
               </button>
-              <input ref={logoInputRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && handleImageUpload("logo", e.target.files[0])} />
+              <input ref={logoInputRef} type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
             </div>
-            <div className="vendor-hero-info">
-              <h1 style={{ fontSize: "1.6rem" }}>{form.storeName || vendor.storeName}</h1>
-              <div className="vendor-stats">
-                <div className="vendor-stat-item">
-                  <div className="val">{stats?.productCount ?? "…"}</div>
-                  <div className="lbl">Ürün</div>
-                </div>
-                <div className="vendor-stat-item">
-                  <div className="val">{stats?.followerCount ?? "…"}</div>
-                  <div className="lbl">Takipçi</div>
-                </div>
+            <div className="vendor-header-info">
+              <div className="vendor-header-name-row">
+                <h1>{form.storeName || vendor.storeName}</h1>
+              </div>
+              <div className="vendor-header-stats">
+                <span>{stats?.productCount ?? "…"} Ürün</span>
+                <span>{stats?.followerCount ?? "…"} Takipçi</span>
               </div>
             </div>
           </div>
@@ -206,6 +203,50 @@ export default function StoreProfileForm() {
                 <label>Şehir</label>
                 <input className="fi" value={form.city} onChange={(e) => set("city", e.target.value)} />
               </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--br)", paddingTop: 16, marginTop: 4 }}>
+              <h4 style={{ margin: "0 0 8px", display: "flex", alignItems: "center", gap: 8 }}>
+                <i className="fas fa-image" style={{ color: "var(--pr)" }} /> Kapak Fotoğrafı
+              </h4>
+              <p style={{ fontSize: 12, color: "var(--tx3)", margin: "0 0 12px" }}>
+                <i className="fas fa-eye" /> Mağazalar dizinindeki (
+                <a href="/magazalar" target="_blank" rel="noreferrer" style={{ color: "var(--pr)", fontWeight: 600 }}>
+                  /magazalar
+                </a>
+                ) kartınızın arka planında görünür.
+              </p>
+              <div
+                style={{
+                  position: "relative",
+                  height: 120,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  background: vendor.coverImage ? undefined : "var(--s2)",
+                  border: "1px solid var(--br)",
+                }}
+              >
+                {vendor.coverImage && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={vendor.coverImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                )}
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  disabled={uploadingCover}
+                  className="btn btn-sec btn-sm"
+                  style={{ position: "absolute", bottom: 10, right: 10 }}
+                >
+                  <i className="fas fa-camera" /> {uploadingCover ? "Yükleniyor..." : "Kapağı Değiştir"}
+                </button>
+              </div>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => e.target.files?.[0] && handleCoverUpload(e.target.files[0])}
+              />
             </div>
 
             <div style={{ borderTop: "1px solid var(--br)", paddingTop: 16, marginTop: 4 }}>

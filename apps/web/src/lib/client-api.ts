@@ -16,6 +16,7 @@ export class ClientApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message);
   }
@@ -44,7 +45,7 @@ export async function mutateJson<T>(path: string, method: "POST" | "PATCH" | "DE
 
   if (!res.ok) {
     const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ClientApiError(res.status, errBody?.error?.message ?? "İstek başarısız oldu");
+    throw new ClientApiError(res.status, errBody?.error?.message ?? "İstek başarısız oldu", errBody?.error?.code);
   }
 
   return res.json() as Promise<T>;
@@ -67,7 +68,7 @@ export async function uploadFile<T>(path: string, file: File): Promise<T> {
 
   if (!res.ok) {
     const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ClientApiError(res.status, errBody?.error?.message ?? "Yükleme başarısız oldu");
+    throw new ClientApiError(res.status, errBody?.error?.message ?? "Yükleme başarısız oldu", errBody?.error?.code);
   }
 
   return res.json() as Promise<T>;
@@ -86,11 +87,50 @@ export function trackPromoBannerView(bannerId: number) {
   fetch(`/api/promo-banners/${bannerId}/view`, { method: "POST", keepalive: true }).catch(() => {});
 }
 
+// bkz. kullanıcı isteği: "admin panelden anlık sitede kaç kişi var
+// görebilmeliyim" - trackPromoBannerClick/View ile aynı desen: kimlik/CSRF
+// gerekmez, navigasyonu bloklamaz (bkz. components/presence-heartbeat.tsx).
+export function pingPresence(path: string) {
+  fetch("/api/presence/ping", {
+    method: "POST",
+    keepalive: true,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  }).catch(() => {});
+}
+
+// Sayfa kapanırken/sekme değişirken güvenilir teslimat için sendBeacon
+// kullanılır (bkz. components/dwell-tracker.tsx) - fetch keepalive bu anda
+// tarayıcı tarafından iptal edilebiliyor, sendBeacon özellikle bunun için var.
+export function reportDwell(productId: number, ms: number) {
+  const blob = new Blob([JSON.stringify({ productId, ms })], { type: "application/json" });
+  navigator.sendBeacon?.("/api/analytics/dwell", blob);
+}
+
+// bkz. kullanıcı isteği: "kategoriler sayfalar koleksiyonlar mağazalar
+// kampanyalar ... çok önemli bunlar" - anasayfa bölümü görüntülenmesi/kalma
+// süresi için genel izleme ucu (bkz. components/section-analytics-tracker.tsx).
+// "view" anlık/hafif olduğu için fetch+keepalive yeterli; "dwell" sayfadan
+// ayrılırken gönderildiği için reportDwell ile aynı sendBeacon gerekçesi geçerli.
+export function trackContentView(contentType: "category" | "homepage_section", contentId: number) {
+  fetch("/api/analytics/track", {
+    method: "POST",
+    keepalive: true,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contentType, contentId, eventType: "view" }),
+  }).catch(() => {});
+}
+
+export function trackContentDwell(contentType: "category" | "homepage_section", contentId: number, ms: number) {
+  const blob = new Blob([JSON.stringify({ contentType, contentId, eventType: "dwell", value: ms })], { type: "application/json" });
+  navigator.sendBeacon?.("/api/analytics/track", blob);
+}
+
 export async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`/api${path}`, { credentials: "include" });
   if (!res.ok) {
     const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ClientApiError(res.status, errBody?.error?.message ?? "İstek başarısız oldu");
+    throw new ClientApiError(res.status, errBody?.error?.message ?? "İstek başarısız oldu", errBody?.error?.code);
   }
   return res.json() as Promise<T>;
 }

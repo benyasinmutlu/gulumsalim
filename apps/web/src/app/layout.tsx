@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, Playfair_Display } from "next/font/google";
 import { publicFetchJson } from "@/lib/api";
 import type { SiteSettings } from "@/lib/types";
+import PresenceHeartbeat from "@/components/presence-heartbeat";
 import "./globals.css";
 
 async function getSiteSettings(): Promise<SiteSettings> {
@@ -123,6 +124,7 @@ export default async function RootLayout({
             />
           </noscript>
         )}
+        <PresenceHeartbeat />
         {children}
       </body>
     </html>

@@ -11,19 +11,33 @@ export default function VendorLoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setNeedsVerification(false);
+    setResendSent(false);
     try {
       await mutateJson<VendorProfile>("/vendor/auth/login", "POST", { email, password });
       window.location.href = "/satici/panel";
     } catch (err) {
-      setError(err instanceof ClientApiError ? err.message : "Giriş başarısız oldu");
+      if (err instanceof ClientApiError) {
+        setError(err.message);
+        setNeedsVerification(err.code === "email_not_verified");
+      } else {
+        setError("Giriş başarısız oldu");
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResendVerification() {
+    await mutateJson("/vendor/auth/resend-verification", "POST", { email });
+    setResendSent(true);
   }
 
   return (
@@ -31,6 +45,15 @@ export default function VendorLoginForm() {
       {error && (
         <div className="ga-alert">
           <i className="fas fa-exclamation-circle" /> {error}
+          {needsVerification && !resendSent && (
+            <>
+              {" "}
+              <button type="button" onClick={handleResendVerification} style={{ textDecoration: "underline", color: "inherit" }}>
+                Doğrulama e-postasını tekrar gönder
+              </button>
+            </>
+          )}
+          {resendSent && <p style={{ marginTop: 6 }}>Doğrulama e-postası tekrar gönderildi.</p>}
         </div>
       )}
 

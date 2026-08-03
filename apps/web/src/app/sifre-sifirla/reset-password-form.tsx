@@ -42,7 +42,7 @@ export default function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="ga-alert" style={{ background: "var(--color-success-bg, #E8F5E9)", color: "var(--color-success, #2E7D32)" }}>
+      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
         <i className="fas fa-check-circle" /> Şifreniz güncellendi. Artık yeni şifrenizle{" "}
         <a href="/giris" style={{ textDecoration: "underline" }}>
           giriş yapabilirsiniz

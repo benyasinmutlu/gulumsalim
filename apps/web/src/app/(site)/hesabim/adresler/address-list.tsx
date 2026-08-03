@@ -26,6 +26,13 @@ export default function AddressList({ addresses }: { addresses: CustomerAddress[
     <div>
       {error && <p className="error-text">{error}</p>}
 
+      {addresses.length === 0 && !creating && (
+        <div className="account-empty-state" style={{ padding: "32px 0" }}>
+          <i className="fas fa-map-marker-alt" />
+          <p>Henüz kayıtlı adresiniz yok.</p>
+        </div>
+      )}
+
       {addresses.map((addr) =>
         editingId === addr.id ? (
           <AddressForm key={addr.id} address={addr} onDone={() => setEditingId(null)} />

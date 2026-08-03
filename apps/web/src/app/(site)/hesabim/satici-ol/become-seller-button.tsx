@@ -52,15 +52,15 @@ export default function BecomeSellerButton() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
-      <label style={{ fontSize: 13, fontWeight: 600 }}>
-        Vergi No / TCKN
-        <input className="form-control" required value={taxId} onChange={(e) => setTaxId(e.target.value)} style={{ marginTop: 6 }} />
-      </label>
-      <label style={{ fontSize: 13, fontWeight: 600 }}>
-        Adres
-        <input className="form-control" required value={legalAddress} onChange={(e) => setLegalAddress(e.target.value)} style={{ marginTop: 6 }} />
-      </label>
+    <form onSubmit={handleSubmit} className="become-seller-form">
+      <div className="form-group">
+        <label>Vergi No / TCKN</label>
+        <input className="form-control" required value={taxId} onChange={(e) => setTaxId(e.target.value)} />
+      </div>
+      <div className="form-group">
+        <label>Adres</label>
+        <input className="form-control" required value={legalAddress} onChange={(e) => setLegalAddress(e.target.value)} />
+      </div>
       <ConsentDocumentCard
         label="Satıcı Sözleşmesi, Komisyon Politikası, Yasaklı Ürünler Politikası ve KVKK"
         accepted={consentAccepted}
@@ -73,7 +73,7 @@ export default function BecomeSellerButton() {
         title="Satıcı Belgeleri"
         slugs={VENDOR_CONSENT_SLUGS}
       />
-      {error && <p className="error-text" style={{ fontSize: 12 }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
       <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
         {loading ? "Hazırlanıyor..." : "Onayla ve Başla"}
       </button>

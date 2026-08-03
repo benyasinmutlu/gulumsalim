@@ -206,6 +206,16 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
     if (section) return <SectionPage section={section} />;
     const category = await findCategoryBySlug(slug);
     if (category) {
+      // bkz. kullanıcı isteği: "kategoriler sayfalar ... çok önemli bunlar"
+      // - kategori sayfasının API'de kendine özel bir ucu olmadığından
+      // (bkz. findCategoryBySlug - tüm kategori listesinden slug'a göre
+      // filtreleniyor), görüntülenme genel /analytics/track ucuna sunucu
+      // tarafından bildirilir.
+      apiFetch("/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: "category", contentId: category.id, eventType: "view" }),
+      }).catch(() => {});
       return (
         <ProductListing
           params={{ ...query, category: category.slug }}
@@ -297,8 +307,8 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
                       style={{
                         margin: "20px 0",
                         padding: "16px 20px",
-                        background: "rgba(224,64,160,.04)",
-                        border: "1px solid rgba(224,64,160,.15)",
+                        background: "rgba(204,124,148,.04)",
+                        border: "1px solid rgba(204,124,148,.15)",
                         borderRadius: 12,
                       }}
                     >

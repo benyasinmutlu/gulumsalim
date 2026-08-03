@@ -10,10 +10,26 @@ interface CheckoutResult {
   checkoutFormContent: string;
 }
 
+interface SelectedLine {
+  productId: number;
+  variantId?: number;
+}
+
 // bkz. kullanıcı isteği: "adresi kayıtlı ise teslimat bilgileri kısmı
 // direkt dolu olarak gelsin" - form yine tamamen düzenlenebilir kalır,
 // sadece varsayılan değerler kayıtlı adresten gelir.
-export default function CheckoutForm({ isGuest, defaultAddress }: { isGuest: boolean; defaultAddress?: CustomerAddress | null }) {
+export default function CheckoutForm({
+  isGuest,
+  defaultAddress,
+  selectedLines,
+}: {
+  isGuest: boolean;
+  defaultAddress?: CustomerAddress | null;
+  // bkz. sepet/page.tsx checkbox seçimi - verilirse sadece bu kalemler
+  // ödenir, sepetteki diğer kalemler dokunulmadan kalır (bkz.
+  // checkout.routes.ts filterCartBySelection).
+  selectedLines?: SelectedLine[];
+}) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState(defaultAddress?.fullName ?? "");
   const [phone, setPhone] = useState(defaultAddress?.phone ?? "");
@@ -45,6 +61,7 @@ export default function CheckoutForm({ isGuest, defaultAddress }: { isGuest: boo
       const data = await mutateJson<{ html: string }>("/checkout/contract-preview", "POST", {
         shippingAddress: { fullName, phone, city, district, addressLine, zipCode: zipCode || undefined },
         email: isGuest ? email : undefined,
+        selectedLines,
       });
       setContractHtml(data.html);
       setContractModalOpen(true);
@@ -83,6 +100,7 @@ export default function CheckoutForm({ isGuest, defaultAddress }: { isGuest: boo
         email: isGuest ? email : undefined,
         orderNote: orderNote || undefined,
         contractAccepted,
+        selectedLines,
       });
       setResult(data);
     } catch (err) {

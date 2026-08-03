@@ -12,6 +12,8 @@ export interface ProductListingParams {
   cursor?: string;
   search?: string;
   saleOnly?: string;
+  secondHand?: string;
+  minDiscountPercent?: string;
   size?: string;
   color?: string;
   vendor?: string;
@@ -80,12 +82,20 @@ export default async function ProductListing({
       ? `"${params.search}" için sonuçlar`
       : params.saleOnly
         ? "İndirimli Ürünler"
-        : (matchedCategory?.name ?? "Tüm Koleksiyon"));
+        : params.secondHand
+          ? "Dolap - 2. El Ürünler"
+          : (matchedCategory?.name ?? "Tüm Koleksiyon"));
 
   // bkz. kullanıcı isteği: "tümünü gör sayfalarının arka planında başlığa
   // özel hareketli ikonlar olsun" - kategori sayfasındaysa o kategorinin
   // ikonu, indirim filtresindeyse etiket ikonu, aksi halde genel bir ikon.
-  const headingIcon = matchedCategory ? categoryIcon(matchedCategory) : params.saleOnly ? "fa-tag" : "fa-bag-shopping";
+  const headingIcon = matchedCategory
+    ? categoryIcon(matchedCategory)
+    : params.saleOnly
+      ? "fa-tag"
+      : params.secondHand
+        ? "fa-recycle"
+        : "fa-bag-shopping";
 
   const nextPageParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {

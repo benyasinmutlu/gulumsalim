@@ -3,8 +3,31 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ClientApiError, fetchJson, mutateJson, uploadFile } from "@/lib/client-api";
 import type { Category, VendorProduct, VendorProductImage, VendorProductVariant } from "@/lib/types";
+import { useIsIndividualVendor } from "../../vendor-type-context";
+
+const STATUS_LABEL: Record<VendorProduct["status"], string> = {
+  draft: "Taslak",
+  pending: "Onay Bekliyor",
+  active: "Aktif",
+  inactive: "Pasif",
+  rejected: "Reddedildi",
+};
+
+const STATUS_CLASS: Record<VendorProduct["status"], string> = {
+  draft: "muted",
+  pending: "warn",
+  active: "success",
+  inactive: "warn",
+  rejected: "danger",
+};
 
 export default function EditProduct({ productId }: { productId: number }) {
+  // bkz. kullanıcı isteği: "bireysel satıcıları ... yerleri daha basit ve
+  // kullanımı kolay olsun" - beden/renk/stok varyant yönetimi tek parça
+  // satan bir bireysel satıcı için gereksiz karmaşıklık (bkz. sidebar-nav.tsx
+  // aynı gerekçe). Varyant eklenmese de ürün zaten tek seçenek olarak
+  // satılabiliyor, bu yüzden kartı tamamen kaldırmak veri kaybı yaratmıyor.
+  const isIndividual = useIsIndividualVendor();
   const [product, setProduct] = useState<VendorProduct | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [images, setImages] = useState<VendorProductImage[]>([]);
@@ -15,13 +38,21 @@ export default function EditProduct({ productId }: { productId: number }) {
   const [compareAtPrice, setCompareAtPrice] = useState("");
   const [brand, setBrand] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState("draft");
+  const [status, setStatus] = useState<VendorProduct["status"]>("draft");
   const [freeShipping, setFreeShipping] = useState(false);
   const [isSecondHand, setIsSecondHand] = useState(false);
+  // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
+  // zorunlu olarak girilmeli" - sadece varyantsız (renk/beden eklenmemiş)
+  // kurumsal ürünlerde gösterilir, load() içinde totalStock'tan doldurulur
+  // (varyantsız üründe totalStock === products.stock, bkz. backend
+  // listVendorProducts).
+  const [stock, setStock] = useState("0");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
 
   const [variantSize, setVariantSize] = useState("");
   const [variantColor, setVariantColor] = useState("");
@@ -49,6 +80,7 @@ export default function EditProduct({ productId }: { productId: number }) {
       setStatus(found.status);
       setFreeShipping(found.freeShipping);
       setIsSecondHand(found.isSecondHand ?? false);
+      setStock(String(found.totalStock));
     }
     setImages(imageList);
     setVariants(variantList);
@@ -70,13 +102,34 @@ export default function EditProduct({ productId }: { productId: number }) {
         compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
         brand: brand || undefined,
         description: description || undefined,
-        status,
+        // bkz. olay: 2026-08-02 - bireysel satıcı durumu bu formdan
+        // değiştiremez (bkz. handleSubmitForApproval), göndermeden atlanır.
+        ...(isIndividual ? {} : { status }),
         freeShipping,
-        isSecondHand,
+        isSecondHand: isIndividual ? isSecondHand : false,
+        ...(!isIndividual && variants.length === 0 ? { stock: Number(stock) } : {}),
       });
       setMessage("Kaydedildi.");
     } catch (err) {
       setMessage(err instanceof ClientApiError ? err.message : "Kaydedilemedi");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // bkz. kullanıcı isteği: "bireysel satıcıların ürünleri yayınlanması için
+  // onaylanması gerekiyor adminden" - taslak/pasif/reddedilmiş bir ürünü
+  // "onay bekliyor"a taşır; admin onaylayana kadar sitede görünmez (bkz.
+  // vendor-products.routes.ts PATCH).
+  async function handleSubmitForApproval() {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const updated = await mutateJson<VendorProduct>(`/vendor/products/${productId}`, "PATCH", { status: "pending" });
+      setStatus(updated.status);
+      setMessage("Onaya gönderildi.");
+    } catch (err) {
+      setMessage(err instanceof ClientApiError ? err.message : "Gönderilemedi");
     } finally {
       setSaving(false);
     }
@@ -106,6 +159,28 @@ export default function EditProduct({ productId }: { productId: number }) {
   async function handleSetPrimaryImage(imageId: number) {
     await mutateJson(`/vendor/products/${productId}/images/${imageId}/primary`, "POST");
     await load();
+  }
+
+  async function handleVideoSelected() {
+    const file = videoInputRef.current?.files?.[0];
+    if (!file) return;
+    setVideoUploading(true);
+    setMessage(null);
+    try {
+      const updated = await uploadFile<VendorProduct>(`/vendor/products/${productId}/video`, file);
+      setProduct(updated);
+    } catch (err) {
+      setMessage(err instanceof ClientApiError ? err.message : "Video yüklenemedi");
+    } finally {
+      setVideoUploading(false);
+      if (videoInputRef.current) videoInputRef.current.value = "";
+    }
+  }
+
+  async function handleDeleteVideo() {
+    if (!confirm("Video silinsin mi?")) return;
+    await mutateJson(`/vendor/products/${productId}/video`, "DELETE");
+    setProduct((p) => (p ? { ...p, videoUrl: null } : p));
   }
 
   async function handleAddVariant(e: FormEvent) {
@@ -178,27 +253,64 @@ export default function EditProduct({ productId }: { productId: number }) {
               <input className="fi" type="number" min={0} step="0.01" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} placeholder="Opsiyonel" />
             </div>
           </div>
-          <div className="fg">
-            <label>Durum</label>
-            <select className="fi" value={status} onChange={(e) => setStatus(e.target.value)} disabled={status === "rejected"}>
-              {status === "rejected" && <option value="rejected">Reddedildi (admin tarafından)</option>}
-              <option value="draft">Taslak</option>
-              <option value="active">Aktif</option>
-              <option value="inactive">Pasif</option>
-            </select>
-          </div>
+          {isIndividual ? (
+            <div className="fg">
+              <label>Durum</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span className={`st st-${STATUS_CLASS[status]}`}>{STATUS_LABEL[status]}</span>
+                {(status === "draft" || status === "inactive" || status === "rejected") && (
+                  <button type="button" className="btn btn-pr btn-sm" onClick={handleSubmitForApproval} disabled={saving}>
+                    <i className="fas fa-paper-plane" /> Onaya Gönder
+                  </button>
+                )}
+              </div>
+              {status === "pending" && (
+                <p style={{ fontSize: "0.8rem", color: "var(--tx3)", marginTop: 6 }}>
+                  Ürününüz admin onayını bekliyor, onaylanınca sitede görünecek.
+                </p>
+              )}
+              {status === "rejected" && (
+                <p style={{ fontSize: "0.8rem", color: "var(--er)", marginTop: 6 }}>
+                  Ürününüz reddedildi. Bilgileri güncelleyip tekrar onaya gönderebilirsiniz.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="fg">
+              <label>Durum</label>
+              <select className="fi" value={status} onChange={(e) => setStatus(e.target.value as VendorProduct["status"])} disabled={status === "rejected"}>
+                {status === "rejected" && <option value="rejected">Reddedildi (admin tarafından)</option>}
+                <option value="draft">Taslak</option>
+                <option value="active">Aktif</option>
+                <option value="inactive">Pasif</option>
+              </select>
+            </div>
+          )}
+          {!isIndividual && variants.length === 0 && (
+            <div className="fg">
+              <label>Stok Adedi</label>
+              <input className="fi" type="number" min={0} value={stock} onChange={(e) => setStock(e.target.value)} />
+              <small style={{ color: "var(--tx3)" }}>
+                Beden/renk varyantı eklemediğiniz için ürün bu stok adediyle tek seçenek olarak satılır. Ürünü aktife çekmeden önce stok girmeniz zorunludur.
+              </small>
+            </div>
+          )}
           <div className="fg">
             <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <input type="checkbox" checked={freeShipping} onChange={(e) => setFreeShipping(e.target.checked)} />
               Bu ürün için kargo her zaman ücretsiz
             </label>
           </div>
-          <div className="fg">
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={isSecondHand} onChange={(e) => setIsSecondHand(e.target.checked)} />
-              Bu ürün 2. el
-            </label>
-          </div>
+          {/* bkz. kullanıcı isteği: "normal kurumsal satıcılar için 2.el
+              seçeneği olmasın" - sadece bireysel satıcılarda görünür. */}
+          {isIndividual && (
+            <div className="fg">
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={isSecondHand} onChange={(e) => setIsSecondHand(e.target.checked)} />
+                Bu ürün 2. el
+              </label>
+            </div>
+          )}
           <div className="fg">
             <label>Açıklama</label>
             <textarea className="fi" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ürününüzü müşterilere anlatın: kumaş, kalıp, bakım önerileri..." />
@@ -251,6 +363,44 @@ export default function EditProduct({ productId }: { productId: number }) {
         </div>
       </div>
 
+      <div className="card">
+        <div className="ch">
+          <h3>Ürün Videosu</h3>
+        </div>
+        <div className="card-body">
+          {product.videoUrl ? (
+            <div style={{ marginBottom: "1rem" }}>
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <video
+                src={product.videoUrl}
+                controls
+                playsInline
+                preload="metadata"
+                style={{ width: "100%", maxWidth: 360, borderRadius: 12, background: "#000", display: "block" }}
+              />
+              <button className="btn btn-danger btn-sm" style={{ marginTop: "0.5rem" }} onClick={handleDeleteVideo}>
+                <i className="fas fa-trash" /> Videoyu Kaldır
+              </button>
+            </div>
+          ) : (
+            <p style={{ fontSize: "0.85rem", color: "var(--tx3)", marginBottom: "0.75rem" }}>
+              Ürününüz için kısa bir tanıtım videosu ekleyebilirsiniz — ürün sayfasında müşterilere oynatılır (MP4, WebM, MOV · en fazla 50MB).
+            </p>
+          )}
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            onChange={handleVideoSelected}
+            disabled={videoUploading}
+          />
+          {videoUploading && (
+            <p style={{ fontSize: "0.85rem", marginTop: "0.4rem" }}>Video yükleniyor... (büyük dosya biraz sürebilir)</p>
+          )}
+        </div>
+      </div>
+
+      {!isIndividual && (
       <div className="card">
         <div className="ch">
           <h3>Beden / Renk Varyantları</h3>
@@ -328,6 +478,7 @@ export default function EditProduct({ productId }: { productId: number }) {
         </form>
         {variantError && <p style={{ color: "var(--er)", fontSize: "0.85rem", padding: "0 20px 16px" }}>{variantError}</p>}
       </div>
+      )}
     </div>
   );
 }

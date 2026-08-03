@@ -24,7 +24,7 @@ export default function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="ga-alert" style={{ background: "var(--color-success-bg, #E8F5E9)", color: "var(--color-success, #2E7D32)" }}>
+      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
         <i className="fas fa-check-circle" /> Bu e-posta adresi kayıtlıysa, şifre sıfırlama bağlantısı gönderildi. Gelen kutunuzu (ve spam klasörünü) kontrol edin.
       </div>
     );
