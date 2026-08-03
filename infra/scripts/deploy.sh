@@ -57,7 +57,25 @@ ssh "$SERVER" bash -s <<'REMOTE'
 set -euo pipefail
 tar -xzf /tmp/gulumsalim-deploy.tar.gz -C /opt/gulumsalim/app
 rm -f /tmp/gulumsalim-deploy.tar.gz
-chown -R gulumsalim:gulumsalim /opt/gulumsalim/app
+# NOT: /opt/gulumsalim/app artık bir release dizinine (/opt/gulumsalim/releases/<rev>)
+# sembolik bağlantı - "chown -R" komut satırındaki sembolik bağlantı argümanlarını
+# VARSAYILAN OLARAK takip etmez (-H/-L olmadan), yani gerçek release dizininin
+# İÇİNE hiç inmez ve tar'dan gelen orijinal (yerel makine) sahiplik bilgisi kalır
+# - bu da gulumsalim kullanıcısının pnpm install sırasında EACCES almasına yol
+# açar (bkz. olay: 2026-07-29). "-H" ile üstteki sembolik bağlantı takip edilir.
+#
+# NOT (bkz. olay: 2026-08-01): yerel makinedeki pnpm store'da zaman zaman
+# hedefi olmayan (dangling) symlink'ler birikiyor (ör. kaldırılmış bir
+# bağımlılığın .pnpm/node_modules altındaki linki) - tar bunları olduğu gibi
+# arşivler, chown -R bunlara rastlayınca "cannot dereference" ile başarısız
+# olur ve set -e altında TÜM deploy'u (pnpm install/build/restart hiç
+# çalışmadan) durdurur. Bu chown tamamen en-iyi-çaba bir sahiplik düzeltmesi
+# - birkaç kırık symlink'te başarısız olması pnpm install/build'i bozmaz
+# (o paketler zaten kullanılmıyor), bu yüzden script'i durdurmasına izin
+# verilmiyor.
+if ! chown -R -H gulumsalim:gulumsalim /opt/gulumsalim/app; then
+  echo "UYARI: chown bazı dosyalarda başarısız oldu (muhtemelen bozuk/dangling symlink) - devam ediliyor" >&2
+fi
 
 cd /opt/gulumsalim/app
 # --frozen-lockfile: lockfile package.json ile uyuşmazsa deploy'u fail et,
@@ -67,7 +85,13 @@ sudo -u gulumsalim env PATH=/usr/local/bin:/usr/bin:/bin pnpm install --frozen-l
 sudo -u gulumsalim env PATH=/usr/local/bin:/usr/bin:/bin pnpm --filter @gulumsalim/web build
 
 cd /opt/gulumsalim/app/services/discovery
-sudo -u gulumsalim env PATH=/usr/local/go/bin:/usr/bin:/bin HOME=/opt/gulumsalim go build -o discovery ./cmd/server
+# NOT: /opt/gulumsalim (gulumsalim kullanıcısının HOME'u) içindeki .git deposu
+# root'a ait - gulumsalim kullanıcısı için "dubious ownership" hatası verir
+# (git config --global --add safe.directory çözümü de HOME yazma izni olmadığı
+# için başarısız olur, bkz. olay: 2026-07-29). -buildvcs=false ile Go'nun VCS
+# damgalama adımı tamamen atlanır, build hash/versiyon zaten deploy.sh dışında
+# takip edilmiyor.
+sudo -u gulumsalim env PATH=/usr/local/go/bin:/usr/bin:/bin HOME=/opt/gulumsalim go build -buildvcs=false -o discovery ./cmd/server
 
 systemctl restart gulumsalim-api gulumsalim-web gulumsalim-discovery
 systemctl --no-pager status gulumsalim-api gulumsalim-web gulumsalim-discovery

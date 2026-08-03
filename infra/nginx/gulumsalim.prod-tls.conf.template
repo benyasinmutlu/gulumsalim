@@ -64,7 +64,10 @@ server {
     # gönderildiğinde tarayıcı domaini HTTPS'e kilitler; TLS çalışmadan ASLA.
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Frame-Options "DENY" always;
+    # SAMEORIGIN (DENY değil): satıcı panelinin "Mağaza Düzeni" canlı
+    # önizlemesi mağaza sayfasını aynı domainde iframe'e alıyor - DENY bunu
+    # engelliyordu. SAMEORIGIN dış site clickjacking korumasını korur.
+    add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
     # CSP: uygulama davranışına bağlı — web ekibiyle netleştirilip açılmalı.
