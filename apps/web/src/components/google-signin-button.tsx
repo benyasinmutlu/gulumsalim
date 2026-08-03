@@ -24,46 +24,26 @@ declare global {
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
-// bkz. kullanıcı isteği: "google ile giriş yapma olayını da ekleyelim" -
-// Google Identity Services'in resmi butonu, ID token'ı doğrudan (bir
-// yönlendirme/authorization code değişimi olmadan) alır; token backend'e
-// gönderilip doğrulanır (bkz. auth.service.ts verifyGoogleIdToken).
-export default function GoogleSignInButton({
-  mode,
-  enabled = true,
-  marketingConsent = false,
-  analyticsConsent = false,
-  onError,
-}: {
-  mode: "login" | "register";
-  // Kayıt Ol sayfasında Üyelik Sözleşmesi/KVKK checkbox'ı işaretlenmeden
-  // false - e-posta kaydındaki zorunluluğun aynısı, Google tek tıkla bu
-  // onayı atlamaz (bkz. register-form.tsx).
-  enabled?: boolean;
-  marketingConsent?: boolean;
-  analyticsConsent?: boolean;
-  onError: (message: string) => void;
-}) {
+// bkz. kullanıcı isteği: "google ile giriş yap a tıklayınca direkt kayıt
+// yapılsın eksik bilgileri giriş yapınca tamamlatalım müşteri kaydı
+// kısmında google ile giriş yap olmasın" - tek buton, sadece giriş
+// sayfasında (bkz. login-form.tsx). /auth/google/login hem mevcut hesapla
+// giriş yapar hem de hesap yoksa anında açar (bkz. auth.service.ts
+// loginWithGoogle); Üyelik Sözleşmesi/KVKK onayı bu adımda alınamadığı
+// için yeni hesaplarda needsConsent true döner, kullanıcı /uyelik-tamamla'ya
+// yönlendirilir.
+export default function GoogleSignInButton({ onError }: { onError: (message: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
-    if (!scriptLoaded || !CLIENT_ID || !containerRef.current || !enabled) return;
+    if (!scriptLoaded || !CLIENT_ID || !containerRef.current) return;
 
     async function handleCredential(response: GoogleCredentialResponse) {
       try {
-        const path = mode === "login" ? "/auth/google/login" : "/auth/google/register";
-        const body =
-          mode === "login"
-            ? { idToken: response.credential }
-            : { idToken: response.credential, membershipConsent: true, marketingConsent, analyticsConsent };
-        await mutateJson<CustomerProfile>(path, "POST", body);
-        window.location.href = "/";
+        const customer = await mutateJson<CustomerProfile>("/auth/google/login", "POST", { idToken: response.credential });
+        window.location.href = customer.needsConsent ? "/uyelik-tamamla" : "/";
       } catch (err) {
-        if (err instanceof ClientApiError && err.code === "google_account_not_found") {
-          onError("Bu Google hesabıyla eşleşen bir üyelik bulunamadı. Lütfen önce Kayıt Ol.");
-          return;
-        }
         onError(err instanceof ClientApiError ? err.message : "Google ile giriş başarısız oldu");
       }
     }
@@ -74,10 +54,11 @@ export default function GoogleSignInButton({
       theme: "outline",
       size: "large",
       width: 360,
-      text: mode === "login" ? "signin_with" : "signup_with",
+      text: "signin_with",
       locale: "tr",
     });
-  }, [scriptLoaded, enabled, mode, marketingConsent, analyticsConsent, onError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptLoaded]);
 
   if (!CLIENT_ID) return null;
 
@@ -87,16 +68,7 @@ export default function GoogleSignInButton({
       <div className="oauth-divider">
         <span>veya</span>
       </div>
-      {enabled ? (
-        <div ref={containerRef} className="google-signin-btn" />
-      ) : (
-        <>
-          <div className="google-signin-placeholder">
-            <i className="fab fa-google" /> Google ile Devam Et
-          </div>
-          <p className="oauth-hint">Devam etmek için yukarıdaki onayı işaretleyin</p>
-        </>
-      )}
+      <div ref={containerRef} className="google-signin-btn" />
     </>
   );
 }

@@ -26,13 +26,30 @@ const envSchema = z.object({
 
   UPLOADS_DIR: z.string().default("./uploads"),
 
-  // Sifremi unuttum e-postalari icin (bkz. lib/mailer.ts) - info@gulumsalim.com
-  // kutusu uzerinden STARTTLS ile gonderiliyor.
-  SMTP_HOST: z.string().min(1),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
-  SMTP_USER: z.string().min(1),
-  SMTP_PASS: z.string().min(1),
+  // Görsel/video deposu. Varsayılan "local" (UPLOADS_DIR'e yazar, /uploads/..
+  // döner). "s3" seçilirse aşağıdaki S3_* değerleri kullanılır (lib/storage.ts).
+  // S3'e geçiş SADECE bu env'lerle olur - uygulama kodu değişmeden.
+  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().optional(),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_PUBLIC_URL: z.string().url().optional(),
+
+  // Tum transactional e-postalar (sifremi unuttum, siparis onayi, kargo
+  // durumu, sepet hatirlatma, kisiye ozel oneriler) Resend API'si uzerinden
+  // gonderiliyor - bkz. lib/mailer.ts. SMTP_FROM adi "Ad <email>" formatinda
+  // (orn. "Gulum Salim <info@gulumsalim.com>") - gonderen domain Resend
+  // panelinde dogrulanmis olmali, aksi halde gonderim reddedilir.
+  RESEND_API_KEY: z.string().min(1),
   SMTP_FROM: z.string().min(1),
+
+  // "Google ile giriş yap" (bkz. auth.service.ts loginWithGoogle/registerWithGoogle).
+  // Optional - diğer required env'lerin aksine boşsa uygulama açılmayı
+  // reddetmez, sadece /auth/google/* uçları 503 döner (bkz. auth.routes.ts) ve
+  // google-signin-button.tsx NEXT_PUBLIC_GOOGLE_CLIENT_ID yoksa butonu hiç
+  // göstermez - özellik yapılandırılmamışken sessizce devre dışı kalır.
+  GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
 // Parsed once at boot. Fails fast with a readable error if the environment

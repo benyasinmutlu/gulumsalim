@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useSearchParams } from "next/navigation";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
-import type { CustomerProfile } from "@/lib/types";
 import ConsentModal from "@/components/consent-modal";
 import ConsentDocumentCard from "@/components/consent-document-card";
 
 export default function RegisterForm() {
-  const searchParams = useSearchParams();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -22,6 +19,7 @@ export default function RegisterForm() {
   const [membershipModalOpen, setMembershipModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -36,7 +34,7 @@ export default function RegisterForm() {
     setLoading(true);
     setError(null);
     try {
-      await mutateJson<CustomerProfile>("/auth/register", "POST", {
+      await mutateJson<{ email: string; verificationRequired: boolean }>("/auth/register", "POST", {
         fullName: `${firstName} ${lastName}`.trim(),
         email,
         phone: phone || undefined,
@@ -45,13 +43,23 @@ export default function RegisterForm() {
         marketingConsent,
         analyticsConsent,
       });
-      const redirect = searchParams.get("redirect");
-      window.location.href = redirect && redirect.startsWith("/") ? redirect : "/";
+      // bkz. kullanıcı isteği: "email doğrulamayı zorunlu olmalı" - kayıt
+      // artık otomatik giriş yapmıyor, doğrulama e-postasını bekliyoruz.
+      setSent(true);
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Kayıt başarısız oldu");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (sent) {
+    return (
+      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+        <i className="fas fa-envelope-circle-check" /> <strong>{email}</strong> adresine bir doğrulama bağlantısı gönderdik. Hesabınızı
+        kullanabilmek için gelen kutunuzdaki (ve spam klasörünüzdeki) bağlantıya tıklayın.
+      </div>
+    );
   }
 
   return (

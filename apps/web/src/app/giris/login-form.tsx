@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
 import type { CustomerProfile } from "@/lib/types";
+import GoogleSignInButton from "@/components/google-signin-button";
 
 export default function LoginForm() {
   const searchParams = useSearchParams();
@@ -13,11 +14,15 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setNeedsVerification(false);
+    setResendSent(false);
     try {
       await mutateJson<CustomerProfile>("/auth/login", "POST", { email, password });
       const redirect = searchParams.get("redirect");
@@ -26,10 +31,20 @@ export default function LoginForm() {
       // yapılmamış" gibi görünebiliyordu. Tam sayfa yönlendirme kullanılıyor.
       window.location.href = redirect && redirect.startsWith("/") ? redirect : "/";
     } catch (err) {
-      setError(err instanceof ClientApiError ? err.message : "Giriş başarısız oldu");
+      if (err instanceof ClientApiError) {
+        setError(err.message);
+        setNeedsVerification(err.code === "email_not_verified");
+      } else {
+        setError("Giriş başarısız oldu");
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResendVerification() {
+    await mutateJson("/auth/resend-verification", "POST", { email });
+    setResendSent(true);
   }
 
   return (
@@ -37,6 +52,15 @@ export default function LoginForm() {
       {error && (
         <div className="ga-alert">
           <i className="fas fa-exclamation-circle" /> {error}
+          {needsVerification && !resendSent && (
+            <>
+              {" "}
+              <button type="button" onClick={handleResendVerification} style={{ textDecoration: "underline", color: "inherit" }}>
+                Doğrulama e-postasını tekrar gönder
+              </button>
+            </>
+          )}
+          {resendSent && <p style={{ marginTop: 6 }}>Doğrulama e-postası tekrar gönderildi.</p>}
         </div>
       )}
 
@@ -84,6 +108,8 @@ export default function LoginForm() {
       <button className="ga-submit" type="submit" disabled={loading} style={{ marginTop: 8 }}>
         {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
       </button>
+
+      <GoogleSignInButton onError={setError} />
     </form>
   );
 }

@@ -20,6 +20,21 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const googleLoginSchema = z.object({
+  idToken: z.string().min(1),
+});
+
+// bkz. auth.service.ts completeGoogleConsent - Google ile anında açılan
+// hesabın girişten sonra tamamladığı zorunlu onay formu.
+export const completeConsentSchema = z.object({
+  membershipConsent: z.literal(true, {
+    errorMap: () => ({ message: "Üyelik Sözleşmesi ve KVKK Aydınlatma Metnini kabul etmelisiniz" }),
+  }),
+  marketingConsent: z.boolean().default(false),
+  analyticsConsent: z.boolean().default(false),
+  phone: z.string().optional(),
+});
+
 export const forgotPasswordSchema = z.object({
   email: z.string().email(),
 });
@@ -41,6 +56,8 @@ export const updateProfileSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type GoogleLoginInput = z.infer<typeof googleLoginSchema>;
+export type CompleteConsentInput = z.infer<typeof completeConsentSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
