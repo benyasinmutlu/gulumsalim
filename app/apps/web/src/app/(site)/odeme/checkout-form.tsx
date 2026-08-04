@@ -3,16 +3,33 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
 import type { CustomerAddress } from "@/lib/types";
+import Modal from "@/components/modal";
 
 interface CheckoutResult {
   orderNumber: string;
   checkoutFormContent: string;
 }
 
+interface SelectedLine {
+  productId: number;
+  variantId?: number;
+}
+
 // bkz. kullanıcı isteği: "adresi kayıtlı ise teslimat bilgileri kısmı
 // direkt dolu olarak gelsin" - form yine tamamen düzenlenebilir kalır,
 // sadece varsayılan değerler kayıtlı adresten gelir.
-export default function CheckoutForm({ isGuest, defaultAddress }: { isGuest: boolean; defaultAddress?: CustomerAddress | null }) {
+export default function CheckoutForm({
+  isGuest,
+  defaultAddress,
+  selectedLines,
+}: {
+  isGuest: boolean;
+  defaultAddress?: CustomerAddress | null;
+  // bkz. sepet/page.tsx checkbox seçimi - verilirse sadece bu kalemler
+  // ödenir, sepetteki diğer kalemler dokunulmadan kalır (bkz.
+  // checkout.routes.ts filterCartBySelection).
+  selectedLines?: SelectedLine[];
+}) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState(defaultAddress?.fullName ?? "");
   const [phone, setPhone] = useState(defaultAddress?.phone ?? "");
@@ -25,6 +42,35 @@ export default function CheckoutForm({ isGuest, defaultAddress }: { isGuest: boo
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CheckoutResult | null>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
+
+  // Ödeme öncesi Mesafeli Satış Sözleşmesi + Ön Bilgilendirme Formu'nun
+  // GERÇEK sipariş bilgileriyle doldurulmuş önizlemesi (bkz. contract-
+  // template.ts, POST /checkout/contract-preview). Onay kutusu, önizleme en
+  // az bir kez açılıp gösterilmeden aktif olmaz - müşteri gerçekten görmeden
+  // tikleyemez.
+  const [contractHtml, setContractHtml] = useState<string | null>(null);
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractLoading, setContractLoading] = useState(false);
+  const [contractError, setContractError] = useState<string | null>(null);
+  const [contractAccepted, setContractAccepted] = useState(false);
+
+  async function handlePreviewContract() {
+    setContractLoading(true);
+    setContractError(null);
+    try {
+      const data = await mutateJson<{ html: string }>("/checkout/contract-preview", "POST", {
+        shippingAddress: { fullName, phone, city, district, addressLine, zipCode: zipCode || undefined },
+        email: isGuest ? email : undefined,
+        selectedLines,
+      });
+      setContractHtml(data.html);
+      setContractModalOpen(true);
+    } catch (err) {
+      setContractError(err instanceof ClientApiError ? err.message : "Sözleşme önizlemesi alınamadı");
+    } finally {
+      setContractLoading(false);
+    }
+  }
 
   // iyzico'nun checkoutFormContent'i bir <script src="..."> etiketi
   // içeriyor ve o script çalışınca ödeme iframe'ini DOM'a kendisi yazıyor.
@@ -53,6 +99,8 @@ export default function CheckoutForm({ isGuest, defaultAddress }: { isGuest: boo
         shippingAddress: { fullName, phone, city, district, addressLine, zipCode: zipCode || undefined },
         email: isGuest ? email : undefined,
         orderNote: orderNote || undefined,
+        contractAccepted,
+        selectedLines,
       });
       setResult(data);
     } catch (err) {
@@ -137,10 +185,32 @@ export default function CheckoutForm({ isGuest, defaultAddress }: { isGuest: boo
           placeholder="Kargo/teslimat ile ilgili notunuz (opsiyonel)"
         />
       </div>
+      <div className="form-group">
+        <button type="button" className="btn btn-secondary" onClick={handlePreviewContract} disabled={contractLoading}>
+          {contractLoading ? "Hazırlanıyor..." : "Mesafeli Satış Sözleşmesi'ni Görüntüle"}
+        </button>
+        {contractError && <p className="error-text">{contractError}</p>}
+      </div>
+
+      <label className="ga-consent">
+        <input
+          type="checkbox"
+          required
+          disabled={!contractHtml}
+          checked={contractAccepted}
+          onChange={(e) => setContractAccepted(e.target.checked)}
+        />
+        Mesafeli Satış Sözleşmesi'ni ve Ön Bilgilendirme Formu'nu (yukarıdaki "Görüntüle" ile) okudum, onaylıyorum.
+      </label>
+
       {error && <p className="error-text">{error}</p>}
-      <button className="btn btn-primary btn-block" type="submit" disabled={loading}>
+      <button className="btn btn-primary btn-block" type="submit" disabled={loading || !contractAccepted}>
         {loading ? "Yönlendiriliyor..." : "Ödemeye Geç"}
       </button>
+
+      <Modal open={contractModalOpen} onClose={() => setContractModalOpen(false)} title="Mesafeli Satış Sözleşmesi">
+        {contractHtml && <div dangerouslySetInnerHTML={{ __html: contractHtml }} />}
+      </Modal>
     </form>
   );
 }

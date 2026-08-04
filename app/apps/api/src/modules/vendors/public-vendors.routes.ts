@@ -6,7 +6,7 @@ import { collectionProducts, collections } from "../../db/schema/index";
 import { decodeCursor, encodeCursor } from "../../lib/pagination";
 import { findProductsByIds, listActiveProducts, listFavoritesByCustomer } from "../catalog/catalog.repository";
 import { getRecentlyViewedProductIds } from "../../lib/view-history";
-import { findActiveVendorBySlugPublic, listActiveVendors } from "./vendor.repository";
+import { findActiveVendorBySlugPublic, incrementVendorViewCount, listActiveVendors } from "./vendor.repository";
 import { isFollowingVendor, listFollowedVendors, toggleVendorFollow } from "./vendor-follow.repository";
 import {
   findReviewableVendor,
@@ -16,6 +16,8 @@ import {
 } from "./vendor-reviews.repository";
 import { listVendorSocialPosts, listVendorStoreSlides } from "./vendor-store-content.repository";
 import { insertVendorComplaint } from "./vendor-complaints.repository";
+import { listActiveVendorPromoBanners } from "./vendor-promo-banners.repository";
+import { recordContentEvent } from "../analytics/content-analytics.repository";
 
 const storefrontQuerySchema = z.object({
   cursor: z.string().optional(),
@@ -60,12 +62,33 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
       : false;
     const reviewSummary = await getVendorReviewSummary(vendor.id);
 
-    return reply.send({ vendor: { ...vendor, isFollowing, reviewSummary }, products: { items, nextCursor } });
+    // bkz. vendor.repository.ts yorumu - hiç teslimat yoksa null (mockup'taki
+    // gibi "Yeni Satıcı" gösterilebilir, sahte bir yüzde asla uydurulmaz).
+    const { deliveredCount, refundedDeliveredCount, ...vendorRest } = vendor;
+    const successRate = deliveredCount > 0 ? Math.round(((deliveredCount - refundedDeliveredCount) / deliveredCount) * 1000) / 10 : null;
+
+    // bkz. catalog.routes.ts incrementProductViewCount ile aynı desen -
+    // sayfa yanıtını beklemeden, arka planda sessizce artırılır.
+    incrementVendorViewCount(vendor.id).catch(() => {});
+    recordContentEvent("vendor", vendor.id, "view").catch(() => {});
+
+    return reply.send({ vendor: { ...vendorRest, isFollowing, reviewSummary, successRate }, products: { items, nextCursor } });
   });
 
   // vendor-store.php'deki mağaza değerlendirmesi bölümünün karşılığı -
   // ürün değerlendirmesinden (product reviews) ayrı, tüm mağaza deneyimine
   // puan verilir.
+  // bkz. kullanıcı isteği (mockup): mağaza sayfasında ayrı bir "Kampanyalar"
+  // sekmesi - satıcının onaylanmış/aktif kampanya bannerları.
+  app.get("/vendors/:slug/promo-banners", async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const vendor = await findActiveVendorBySlugPublic(slug);
+    if (!vendor) {
+      return reply.status(404).send({ error: { message: "Mağaza bulunamadı" } });
+    }
+    return reply.send(await listActiveVendorPromoBanners(vendor.id));
+  });
+
   app.get("/vendors/:slug/reviews", async (request, reply) => {
     const { slug } = request.params as { slug: string };
     const vendor = await findActiveVendorBySlugPublic(slug);
@@ -219,6 +242,7 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
       .where(eq(collectionProducts.collectionId, collection.id))
       .orderBy(asc(collectionProducts.sortOrder));
     const products = await findProductsByIds(memberships.map((m) => m.productId));
+    recordContentEvent("collection", collection.id, "view").catch(() => {});
     return reply.send({ vendor, collection, products });
   });
 };

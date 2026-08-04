@@ -1,10 +1,40 @@
-import { and, count, eq, gte, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { promoBanners, promoBannerClicks } from "../../db/schema/index";
+import { promoBanners, promoBannerClicks, promoBannerImages } from "../../db/schema/index";
 import { resolveBannerScope } from "../content/promo-banner-scope";
+import { resolveCollectionLink } from "../content/content.repository";
 
 export async function listVendorPromoBanners(vendorId: number) {
   return db.select().from(promoBanners).where(eq(promoBanners.vendorId, vendorId)).orderBy(promoBanners.sortOrder);
+}
+
+// Mağaza sayfasının "Kampanyalar" sekmesi için - content.repository.ts
+// listActivePromoBanners ile AYNI isActive+status='approved' filtresi,
+// tek farkı tek bir satıcıya sınırlı olması (bkz. vendor-storefront.tsx).
+export async function listActiveVendorPromoBanners(vendorId: number) {
+  const banners = await db
+    .select()
+    .from(promoBanners)
+    .where(and(eq(promoBanners.vendorId, vendorId), eq(promoBanners.isActive, true), eq(promoBanners.status, "approved")))
+    .orderBy(promoBanners.sortOrder);
+  if (banners.length === 0) return [];
+
+  const ids = banners.map((b) => b.id);
+  const images = await db
+    .select({ bannerId: promoBannerImages.bannerId, image: promoBannerImages.image })
+    .from(promoBannerImages)
+    .where(inArray(promoBannerImages.bannerId, ids))
+    .orderBy(asc(promoBannerImages.sortOrder));
+  const byBanner = new Map<number, string[]>();
+  for (const img of images) {
+    const list = byBanner.get(img.bannerId) ?? [];
+    list.push(img.image);
+    byBanner.set(img.bannerId, list);
+  }
+  const withExtras = banners.map((b) => ({ ...b, extraImages: byBanner.get(b.id) ?? [] }));
+  return Promise.all(
+    withExtras.map(async (b) => ({ ...b, resolvedLink: await resolveCollectionLink(b.linkType, b.linkUrl) })),
+  );
 }
 
 interface VendorBannerInput {

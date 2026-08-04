@@ -14,6 +14,7 @@ import { CategoryNavSync } from "@/components/category-nav-context";
 import ScrollReveal from "@/components/scroll-reveal";
 import TitleBackgroundIcons from "@/components/title-background-icons";
 import { sectionIcon } from "@/lib/title-icon";
+import LegalPagePrintButton from "@/components/legal-page-print-button";
 
 interface CmsPage {
   id: number;
@@ -21,6 +22,37 @@ interface CmsPage {
   title: string;
   content: string;
   updatedAt: string;
+}
+
+function slugifyHeading(text: string): string {
+  return text
+    .toLocaleLowerCase("tr-TR")
+    .replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ş/g, "s").replace(/ü/g, "u")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// docs/ klasöründeki hukuki belgelerin (KVKK, Gizlilik Politikası vb.)
+// hepsi `<h3>` ile numaralı bölümlere ayrılmış olarak geliyor (bkz. admin
+// panelden girilen page.content). Bu bölümlere çapa (anchor) id'si ekleyip
+// tıklanabilir bir "İçindekiler" listesi çıkarır - kısa sayfalarda (tek
+// bölüm) gereksiz olduğu için en az 2 başlık şart koşulur.
+function buildTableOfContents(html: string): { html: string; toc: { id: string; text: string }[] } {
+  const toc: { id: string; text: string }[] = [];
+  const usedIds = new Set<string>();
+  const annotated = html.replace(/<h3>(.*?)<\/h3>/g, (_match, inner: string) => {
+    const text = inner.replace(/<[^>]+>/g, "").trim();
+    let id = slugifyHeading(text) || `bolum-${toc.length + 1}`;
+    while (usedIds.has(id)) id = `${id}-${toc.length + 1}`;
+    usedIds.add(id);
+    toc.push({ id, text });
+    return `<h3 id="${id}">${inner}</h3>`;
+  });
+  return { html: annotated, toc: toc.length >= 2 ? toc : [] };
+}
+
+function formatUpdatedAt(iso: string): string {
+  return new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 interface Props {
@@ -174,6 +206,16 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
     if (section) return <SectionPage section={section} />;
     const category = await findCategoryBySlug(slug);
     if (category) {
+      // bkz. kullanıcı isteği: "kategoriler sayfalar ... çok önemli bunlar"
+      // - kategori sayfasının API'de kendine özel bir ucu olmadığından
+      // (bkz. findCategoryBySlug - tüm kategori listesinden slug'a göre
+      // filtreleniyor), görüntülenme genel /analytics/track ucuna sunucu
+      // tarafından bildirilir.
+      apiFetch("/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: "category", contentId: category.id, eventType: "view" }),
+      }).catch(() => {});
       return (
         <ProductListing
           params={{ ...query, category: category.slug }}
@@ -244,12 +286,62 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
               <ContactSection settings={settings} customer={customer} />
             </>
           ) : (
-            <>
-              <h1 className="page-title">{page.title}</h1>
-              {/* page.content admin panelinden zengin metin (HTML) olarak geliyor -
-                  eski sitede de page.php aynı şekilde ham HTML olarak basıyordu. */}
-              <div style={{ lineHeight: 1.8, color: "var(--color-text-light)" }} dangerouslySetInnerHTML={{ __html: page.content }} />
-            </>
+            (() => {
+              const { html, toc } = buildTableOfContents(page.content);
+              return (
+                <>
+                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginBottom: 8 }}>
+                    <h1 className="page-title" style={{ marginBottom: 0 }}>{page.title}</h1>
+                    <div className="hide-on-print" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 12, color: "var(--color-text-light)" }}>
+                        Son güncelleme: {formatUpdatedAt(page.updatedAt)}
+                      </span>
+                      <LegalPagePrintButton />
+                    </div>
+                  </div>
+
+                  {toc.length > 0 && (
+                    <nav
+                      className="hide-on-print"
+                      aria-label="İçindekiler"
+                      style={{
+                        margin: "20px 0",
+                        padding: "16px 20px",
+                        background: "rgba(204,124,148,.04)",
+                        border: "1px solid rgba(204,124,148,.15)",
+                        borderRadius: 12,
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: "var(--color-primary)" }}>
+                        <i className="fas fa-list" /> İçindekiler
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: 18, columns: toc.length > 6 ? 2 : 1, fontSize: 13, lineHeight: 1.9 }}>
+                        {toc.map((item) => (
+                          <li key={item.id}>
+                            <a href={`#${item.id}`}>{item.text}</a>
+                          </li>
+                        ))}
+                      </ul>
+                    </nav>
+                  )}
+
+                  {/* page.content admin panelinden zengin metin (HTML) olarak geliyor -
+                      eski sitede de page.php aynı şekilde ham HTML olarak basıyordu. */}
+                  <div
+                    style={{
+                      lineHeight: 1.8,
+                      color: "var(--color-text-light)",
+                      background: "#fff",
+                      border: "1px solid rgba(0,0,0,.06)",
+                      borderRadius: 14,
+                      padding: "28px 32px",
+                      boxShadow: "0 4px 24px rgba(0,0,0,.04)",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: html }}
+                  />
+                </>
+              );
+            })()
           )}
         </div>
       </section>

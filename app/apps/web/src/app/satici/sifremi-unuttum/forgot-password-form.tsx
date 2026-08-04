@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { mutateJson } from "@/lib/client-api";
-import { AuthAlert, AuthField, AuthSubmit } from "@/components/auth/auth-controls";
 
 export default function VendorForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -22,27 +21,25 @@ export default function VendorForgotPasswordForm() {
 
   if (sent) {
     return (
-      <AuthAlert variant="success">
-        Bu e-posta adresi kayıtlıysa, şifre sıfırlama bağlantısı gönderildi. Gelen kutunuzu (ve spam klasörünü)
-        kontrol edin.
-      </AuthAlert>
+      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+        <i className="fas fa-check-circle" /> Bu e-posta adresi kayıtlıysa, şifre sıfırlama bağlantısı gönderildi. Gelen kutunuzu (ve spam klasörünü) kontrol edin.
+      </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
-      <AuthField
-        label="E-Posta Adresi"
-        icon="fas fa-envelope"
-        type="email"
-        required
-        value={email}
-        onValueChange={setEmail}
-        autoComplete="email"
-      />
-      <AuthSubmit loading={loading} loadingLabel="Gönderiliyor...">
-        Sıfırlama Bağlantısı Gönder
-      </AuthSubmit>
+    <form onSubmit={handleSubmit}>
+      <div className="ga-fg">
+        <label>E-Posta Adresi</label>
+        <div className="ga-input-wrap">
+          <i className="fas fa-envelope ga-ic" />
+          <input className="ga-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+      </div>
+
+      <button className="ga-submit" type="submit" disabled={loading} style={{ marginTop: 8 }}>
+        {loading ? "Gönderiliyor..." : "Sıfırlama Bağlantısı Gönder"}
+      </button>
     </form>
   );
 }

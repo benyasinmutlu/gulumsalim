@@ -24,6 +24,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       description: "Gülüm Şalım'daki tüm indirimli kadın giyim ürünlerini kaçırmayın.",
     };
   }
+  if (params.secondHand === "true") {
+    return {
+      title: "Dolap - 2. El Ürünler | Gülüm Şalım",
+      description: "Gülüm Şalım Dolap'ta satıcıların 2. el ürünlerini keşfedin.",
+    };
+  }
   if (params.vendor) {
     return { title: `Mağaza Ürünleri | Gülüm Şalım` };
   }

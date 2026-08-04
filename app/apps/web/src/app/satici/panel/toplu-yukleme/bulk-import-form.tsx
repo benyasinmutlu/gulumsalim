@@ -1,10 +1,31 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { ClientApiError, mutateJson, uploadFile } from "@/lib/client-api";
 import type { BulkImportRowResult } from "@/lib/types";
 
-const TEMPLATE_CSV = "name,basePrice,categorySlug,description,brand,compareAtPrice\nÖrnek Elbise,299.90,elbise,Açıklama metni,Marka Adı,349.90\n";
+const TEMPLATE_CSV =
+  'name,basePrice,categorySlug,description,brand,compareAtPrice,stock,sizes\nÖrnek Elbise,299.90,elbise,Açıklama metni,Marka Adı,349.90,25,"S,M,L"\n';
+
+// [alan, etiket, zorunlu mu]
+const FIELDS: [string, string, boolean][] = [
+  ["name", "Ürün Adı", true],
+  ["basePrice", "Fiyat", true],
+  ["categorySlug", "Kategori", true],
+  ["description", "Açıklama", false],
+  ["brand", "Marka", false],
+  ["compareAtPrice", "İndirimli Fiyat", false],
+  ["stock", "Stok Adedi", false],
+  ["sizes", "Bedenler (S,M,L)", false],
+];
+
+type Mapping = Record<string, string>;
+
+interface DetectResult {
+  columns: string[];
+  autoMap: Mapping;
+  sample: Record<string, string>[];
+}
 
 function downloadTemplate() {
   const blob = new Blob([TEMPLATE_CSV], { type: "text/csv;charset=utf-8" });
@@ -16,11 +37,22 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function ResultsTable({ results }: { results: BulkImportRowResult[] }) {
+function statusMeta(s: BulkImportRowResult["status"]): { cls: string; label: string } {
+  if (s === "created") return { cls: "st-success", label: "Eklendi" };
+  if (s === "valid") return { cls: "st-info", label: "Geçerli" };
+  return { cls: "st-warn", label: "Atlandı" };
+}
+
+function ResultsTable({ results, preview }: { results: BulkImportRowResult[]; preview: boolean }) {
+  const ok = results.filter((r) => r.status === "created" || r.status === "valid").length;
+  const skipped = results.length - ok;
   return (
     <div className="card">
       <div className="ch">
-        <h3>Sonuçlar ({results.filter((r) => r.status === "created").length} eklendi)</h3>
+        <h3>
+          {preview ? "Önizleme" : "Sonuçlar"} — {ok} {preview ? "geçerli" : "eklendi"}
+          {skipped > 0 && `, ${skipped} atlandı`}
+        </h3>
       </div>
       <div className="table-wrap">
         <table>
@@ -33,18 +65,19 @@ function ResultsTable({ results }: { results: BulkImportRowResult[] }) {
             </tr>
           </thead>
           <tbody>
-            {results.map((r) => (
-              <tr key={r.row}>
-                <td>{r.row}</td>
-                <td>{r.name}</td>
-                <td>
-                  <span className={`st ${r.status === "created" ? "st-success" : "st-warn"}`}>
-                    {r.status === "created" ? "Eklendi" : "Atlandı"}
-                  </span>
-                </td>
-                <td style={{ fontSize: "0.8rem", color: "var(--tx3)" }}>{r.reason ?? "—"}</td>
-              </tr>
-            ))}
+            {results.map((r) => {
+              const m = statusMeta(r.status);
+              return (
+                <tr key={`${r.row}-${r.name}`}>
+                  <td>{r.row}</td>
+                  <td>{r.name}</td>
+                  <td>
+                    <span className={`st ${m.cls}`}>{m.label}</span>
+                  </td>
+                  <td style={{ fontSize: "0.8rem", color: "var(--tx3)" }}>{r.reason ?? "—"}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -54,50 +87,99 @@ function ResultsTable({ results }: { results: BulkImportRowResult[] }) {
 
 export default function BulkImportForm() {
   const [tab, setTab] = useState<"file" | "paste">("file");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [columns, setColumns] = useState<string[] | null>(null);
+  const [mapping, setMapping] = useState<Mapping>({});
   const [pasteText, setPasteText] = useState("");
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<BulkImportRowResult[] | null>(null);
+  const [isPreview, setIsPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleUpload() {
-    const file = fileInputRef.current?.files?.[0];
+  function resetResults() {
+    setResults(null);
+    setIsPreview(false);
+    setError(null);
+  }
+
+  // Dosya seçilince: ham sütunları algıla + otomatik eşlemeyi doldur.
+  async function handleFile(f: File | null) {
+    setFile(f);
+    setColumns(null);
+    setMapping({});
+    resetResults();
+    if (!f) return;
+    setBusy(true);
+    try {
+      const d = await uploadFile<DetectResult>("/vendor/products/bulk-import?detect=1", f);
+      setColumns(d.columns ?? []);
+      setMapping(d.autoMap ?? {});
+    } catch (err) {
+      setError(err instanceof ClientApiError ? err.message : "Dosya okunamadı");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setField(field: string, value: string) {
+    setMapping((m) => {
+      const n = { ...m };
+      if (value) n[field] = value;
+      else delete n[field];
+      return n;
+    });
+    resetResults();
+  }
+
+  const mappingReady = !!(mapping.name && mapping.basePrice && mapping.categorySlug);
+
+  async function runFile(dryRun: boolean) {
     if (!file) {
-      setError("Lütfen bir CSV dosyası seçin");
+      setError("Lütfen bir dosya seçin");
+      return;
+    }
+    if (!mappingReady) {
+      setError("Ürün Adı, Fiyat ve Kategori sütunlarını eşlemelisiniz.");
       return;
     }
     setBusy(true);
     setError(null);
-    setResults(null);
     try {
-      const data = await uploadFile<{ results: BulkImportRowResult[] }>("/vendor/products/bulk-import", file);
+      const mq = encodeURIComponent(JSON.stringify(mapping));
+      const url = `/vendor/products/bulk-import?mapping=${mq}${dryRun ? "&dryRun=1" : ""}`;
+      const data = await uploadFile<{ results: BulkImportRowResult[] }>(url, file);
       setResults(data.results);
+      setIsPreview(dryRun);
     } catch (err) {
-      setError(err instanceof ClientApiError ? err.message : "Yükleme başarısız oldu");
+      setError(err instanceof ClientApiError ? err.message : "İşlem başarısız oldu");
     } finally {
       setBusy(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
-  async function handlePasteImport() {
+  async function runPaste(dryRun: boolean) {
     if (!pasteText.trim()) {
       setError("Lütfen tablo verisini yapıştırın");
       return;
     }
     setBusy(true);
     setError(null);
-    setResults(null);
     try {
-      const data = await mutateJson<{ results: BulkImportRowResult[] }>("/vendor/products/bulk-import/paste", "POST", { csvText: pasteText });
+      const data = await mutateJson<{ results: BulkImportRowResult[] }>("/vendor/products/bulk-import/paste", "POST", {
+        csvText: pasteText,
+        dryRun,
+      });
       setResults(data.results);
-      setPasteText("");
+      setIsPreview(dryRun);
+      if (!dryRun) setPasteText("");
     } catch (err) {
-      setError(err instanceof ClientApiError ? err.message : "İçe aktarma başarısız oldu");
+      setError(err instanceof ClientApiError ? err.message : "İşlem başarısız oldu");
     } finally {
       setBusy(false);
     }
   }
+
+  const validCount = results?.filter((r) => r.status === "valid").length ?? 0;
 
   return (
     <div>
@@ -110,43 +192,92 @@ export default function BulkImportForm() {
         </div>
         <div className="card-body">
           <p style={{ fontSize: "0.85rem", color: "var(--tx3)", marginBottom: 12 }}>
-            Sütunlar: <code>name, basePrice, categorySlug, description, brand, compareAtPrice</code> (ilk satır
-            başlık olmalı; description/brand/compareAtPrice opsiyoneldir).
+            <strong>CSV, Excel (.xlsx), JSON, JSONL</strong> kabul edilir (eski <strong>.xls</strong> desteklenmez, .xlsx olarak kaydedin).
+            Dosyanı seç → sütunlar otomatik eşlenir (gerekiyorsa elle değiştir) → <strong>Önizle</strong> → <strong>Onayla ve Yükle</strong>.
+            Sütun adların ne olursa olsun eşleyebilirsin. <strong>Stok</strong> girersen ürün hemen satılabilir; <strong>Bedenler</strong>{" "}
+            (ör. <code>S,M,L</code>) girersen her beden için varyant oluşturulur.
           </p>
 
           <div className="tab-nav" style={{ marginBottom: 16 }}>
             <button type="button" className={`tab-btn ${tab === "file" ? "active" : ""}`} onClick={() => setTab("file")}>
-              <i className="fas fa-file-csv" /> Dosya Yükle
+              <i className="fas fa-file-arrow-up" /> Dosya Yükle
             </button>
             <button type="button" className={`tab-btn ${tab === "paste" ? "active" : ""}`} onClick={() => setTab("paste")}>
-              <i className="fas fa-paste" /> Excel'den Yapıştır
+              <i className="fas fa-paste" /> Excel&apos;den Yapıştır
             </button>
           </div>
 
           {tab === "file" ? (
             <>
               <div className="file-drop">
-                <input ref={fileInputRef} type="file" accept=".csv,text/csv" />
-                <i className="fas fa-file-csv" />
-                <p>CSV dosyası</p>
-                <small>Ürün listesi (.csv)</small>
+                <input
+                  type="file"
+                  accept=".csv,.tsv,.xlsx,.xls,.json,.jsonl,text/csv,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+                />
+                <i className="fas fa-file-arrow-up" />
+                <p>{file ? file.name : "Dosya seçmek için tıklayın"}</p>
+                <small>CSV · Excel (.xlsx) · JSON · JSONL</small>
               </div>
-              <button className="btn btn-pr" style={{ marginTop: 12 }} onClick={handleUpload} disabled={busy}>
-                {busy ? "Yükleniyor..." : "Yükle"}
-              </button>
+
+              {columns && (
+                <div style={{ marginTop: 16, border: "1px solid var(--br)", borderRadius: 12, padding: 16, background: "var(--bg)" }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
+                    <i className="fas fa-diagram-project" /> Sütun Eşleme
+                    <span style={{ fontWeight: 400, color: "var(--tx3)" }}> — dosyandaki {columns.length} sütun algılandı</span>
+                  </p>
+                  {FIELDS.map(([field, label, req]) => (
+                    <div key={field} className="row2" style={{ alignItems: "center", marginBottom: 8 }}>
+                      <label style={{ fontSize: 13, fontWeight: 600 }}>
+                        {label}
+                        {req && <span style={{ color: "var(--er)" }}> *</span>}
+                      </label>
+                      <select className="fi" value={mapping[field] ?? ""} onChange={(e) => setField(field, e.target.value)}>
+                        <option value="">— seçilmedi —</option>
+                        {columns.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                <button className="btn btn-sec" onClick={() => runFile(true)} disabled={busy || !file || !mappingReady}>
+                  {busy ? "İşleniyor..." : "Önizle"}
+                </button>
+                {isPreview && validCount > 0 && (
+                  <button className="btn btn-pr" onClick={() => runFile(false)} disabled={busy}>
+                    <i className="fas fa-check" /> Onayla ve Yükle ({validCount})
+                  </button>
+                )}
+              </div>
             </>
           ) : (
             <>
               <textarea
                 className="fi"
                 rows={8}
-                placeholder={"Excel'deki hücreleri kopyalayıp buraya yapıştırın (ilk satır başlık: name, basePrice, categorySlug, ...)"}
+                placeholder={"Excel'deki hücreleri kopyalayıp buraya yapıştırın (ilk satır başlık). Sütunlar otomatik eşlenir."}
                 value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
+                onChange={(e) => {
+                  setPasteText(e.target.value);
+                  resetResults();
+                }}
               />
-              <button className="btn btn-pr" style={{ marginTop: 12 }} onClick={handlePasteImport} disabled={busy}>
-                {busy ? "İçe aktarılıyor..." : "İçe Aktar"}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                <button className="btn btn-sec" onClick={() => runPaste(true)} disabled={busy || !pasteText.trim()}>
+                  {busy ? "İşleniyor..." : "Önizle"}
+                </button>
+                {isPreview && validCount > 0 && (
+                  <button className="btn btn-pr" onClick={() => runPaste(false)} disabled={busy}>
+                    <i className="fas fa-check" /> Onayla ve İçe Aktar ({validCount})
+                  </button>
+                )}
+              </div>
             </>
           )}
 
@@ -154,7 +285,7 @@ export default function BulkImportForm() {
         </div>
       </div>
 
-      {results && <ResultsTable results={results} />}
+      {results && <ResultsTable results={results} preview={isPreview} />}
     </div>
   );
 }

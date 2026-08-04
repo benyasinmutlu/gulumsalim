@@ -10,6 +10,15 @@ export const vendors = pgTable("vendors", {
   passwordHash: text("password_hash").notNull(),
   fullName: text("full_name").notNull(),
   phone: text("phone"),
+  // Mesafeli Satış Sözleşmesi'nin satıcı bloğu için zorunlu (Vergi No/
+  // MERSİS No/TCKN ve Adres) - yeni kayıtlarda Zod şemasında zorunlu
+  // tutulur, DB'de nullable (mevcut satırlar geriye dönük bozulmasın diye).
+  taxId: text("tax_id"),
+  legalAddress: text("legal_address"),
+  // Satıcı Üyelik ve Hizmet Sözleşmesi + Komisyon Politikası + Yasaklı
+  // Ürünler Politikası + KVKK onayının verildiği an (bkz. customers.ts
+  // membershipConsentAt aynı desen).
+  vendorConsentAt: timestamp("vendor_consent_at", { withTimezone: true, precision: 3 }),
   status: vendorStatusEnum("status").notNull().default("pending"),
   // bkz. kullanıcı isteği: "bireysel olarak müşteri olarak kayıt olan
   // kişilerde satış yapabilsin 2. el ürün letgo dolap gibi" - "individual"
@@ -46,6 +55,14 @@ export const vendors = pgTable("vendors", {
   // "Şifremi Unuttum" akışı - bkz. customers.ts aynı alan çifti için yorum.
   passwordResetTokenHash: text("password_reset_token_hash"),
   passwordResetExpiresAt: timestamp("password_reset_expires_at", { withTimezone: true, precision: 3 }),
+  // bkz. kullanıcı isteği: "email doğrulamayı hem müşteri hem de satıcı için
+  // zorunlu olmalı" - customers.ts ile aynı desen.
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true, precision: 3 }),
+  emailVerificationTokenHash: text("email_verification_token_hash"),
+  emailVerificationExpiresAt: timestamp("email_verification_expires_at", { withTimezone: true, precision: 3 }),
+  // bkz. kullanıcı isteği (mockup): mağaza ziyaretçi sayacı - products.viewCount
+  // ile birebir aynı desen, GET /vendors/:slug her çağrıldığında artırılır.
+  storeViewCount: integer("store_view_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   statusIdx: index("idx_vendors_status").on(table.status),

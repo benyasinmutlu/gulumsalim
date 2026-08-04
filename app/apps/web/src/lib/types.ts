@@ -18,6 +18,7 @@ export interface CustomerOrderListItem {
   total: string;
   createdAt: string;
   itemCount: number;
+  previewImages: string[];
 }
 
 export interface PendingReviewItem {
@@ -50,6 +51,8 @@ export interface CustomerOrderDetail {
     vendorStatus: string;
     vendorStoreName: string;
     productId: number;
+    productSlug: string;
+    productImage: string | null;
     trackingCarrier: string | null;
     trackingNumber: string | null;
     shippedAt: string | null;
@@ -152,6 +155,7 @@ export interface ProductListItem {
   // bkz. kullanıcı isteği: "bireysel olarak müşteri olarak kayıt olan
   // kişilerde satış yapabilsin 2. el ürün letgo dolap gibi"
   isSecondHand?: boolean;
+  vendorIsIndividual?: boolean;
 }
 
 // gulumsalim.com'daki productUrl() helper'ının karşılığı: kategorili
@@ -192,8 +196,14 @@ export interface ProductDetail {
   vendorId: number;
   vendorStoreName: string;
   vendorSlug: string;
+  videoUrl?: string | null;
   images: ProductImage[];
   variants: ProductVariant[];
+  // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
+  // zorunlu olarak girilmeli bireysel satıcıların ise stoğu 1 olacak" -
+  // varyantı olmayan ürünlerde stok kaynağı budur (bkz.
+  // add-to-cart-button.tsx, variants.length > 0 iken variant.stock kullanılır).
+  stock: number;
 }
 
 export interface CartItem {
@@ -206,13 +216,57 @@ export interface CartItem {
   unitPrice: string;
   quantity: number;
   lineTotal: string;
+  // bkz. kullanıcı isteği: "stok durumu sürekli kontrol ettirilmeli" -
+  // varyantsız ürünlerde stok kavramı olmadığı için undefined.
+  availableStock?: number;
+}
+
+export interface CartStockNotice {
+  productName: string;
+  variantLabel?: string;
+  availableStock: number;
+}
+
+export interface CartShippingRow {
+  storeName: string;
+  fee: string;
+  free: boolean;
 }
 
 export interface CartResponse {
   items: CartItem[];
   subtotal: string;
   shippingFee: string;
+  // Satıcı-bazlı kargo kırılımı (her satıcı için ayrı ücret) - müşteriye
+  // "hangi mağazadan ne kadar kargo" göstermek için.
+  shippingBreakdown: CartShippingRow[];
   freeShippingThreshold: number;
+  couponCode: string | null;
+  discountAmount: string;
+  stockNotices: CartStockNotice[];
+}
+
+export interface FeaturedCoupon {
+  code: string;
+  type: "percent" | "fixed";
+  value: string;
+  minOrderAmount: string | null;
+}
+
+export interface AdminCoupon {
+  id: number;
+  code: string;
+  type: "percent" | "fixed";
+  value: string;
+  minOrderAmount: string | null;
+  maxUsesTotal: number | null;
+  maxUsesPerCustomer: number;
+  usedCount: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  isActive: boolean;
+  isFeatured: boolean;
+  createdAt: string;
 }
 
 export interface CustomerProfile {
@@ -223,10 +277,16 @@ export interface CustomerProfile {
   age: number | null;
   heightCm: number | null;
   weightKg: number | null;
+  // true = Google ile anında açılmış hesap, Üyelik Sözleşmesi/KVKK onayı
+  // henüz tamamlanmadı (bkz. google-signin-button.tsx, uyelik-tamamla/page.tsx).
+  needsConsent: boolean;
+  // Google ile kayıtta otomatik dolar, müşteri kendi fotoğrafını yükleyerek
+  // değiştirebilir (bkz. profile-form.tsx, POST /auth/me/avatar).
+  avatarUrl: string | null;
 }
 
 export interface ApiErrorBody {
-  error: { message: string; details?: unknown };
+  error: { message: string; code?: string; details?: unknown };
 }
 
 export interface VendorProfile {
@@ -254,6 +314,8 @@ export interface VendorProfile {
   bankName: string | null;
   bankIban: string | null;
   bankAccountHolder: string | null;
+  taxId: string | null;
+  legalAddress: string | null;
 }
 
 export interface VendorProduct {
@@ -266,35 +328,21 @@ export interface VendorProduct {
   brand: string | null;
   basePrice: string;
   compareAtPrice: string | null;
-  status: "draft" | "active" | "inactive" | "rejected";
+  status: "draft" | "pending" | "active" | "inactive" | "rejected";
   freeShipping: boolean;
   isSecondHand?: boolean;
   viewCount: number;
   favoriteCount: number;
   cartCount: number;
+  // Varyantı olan üründe variant toplamı, varyantsız üründe products.stock
+  // (bkz. kullanıcı isteği 2026-08-03: "kurumsal satıcıların stokları
+  // zorunlu ... bireysel satıcıların ise stoğu 1 olacak").
   totalStock: number;
+  hasVariants: boolean;
   primaryImageUrl: string | null;
+  videoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface VendorProductStats {
-  total: number;
-  active: number;
-  lowStock: number;
-  outOfStock: number;
-  totalViews: number;
-  totalFavorites: number;
-}
-
-export interface VendorOrderStats {
-  total: number;
-  pending: number;
-  processing: number;
-  shipped: number;
-  delivered: number;
-  cancelled: number;
-  revenue: number;
 }
 
 export interface VendorProductImage {
@@ -320,6 +368,9 @@ export interface VendorOrderItem {
   orderNumber: string;
   productId: number;
   productNameSnapshot: string;
+  productImageUrl: string | null;
+  variantSize: string | null;
+  variantColor: string | null;
   unitPrice: string;
   quantity: number;
   total: string;
@@ -370,6 +421,7 @@ export interface VendorDashboardStats {
   reviewCount: number;
   lowStockCount: number;
   followerCount: number;
+  storeViewCount: number;
 }
 
 export interface VendorDashboardRecentOrder {
@@ -382,9 +434,31 @@ export interface VendorDashboardRecentOrder {
   customerName: string;
 }
 
+export interface DailySalesPoint {
+  date: string;
+  total: string;
+}
+
+export interface OrderStatusCount {
+  status: string;
+  count: number;
+}
+
+// bkz. kullanıcı isteği (mockup): istatistik kartlarının yanında önceki
+// döneme göre değişim yüzdesi - null, ya önceki dönemde veri olmadığı
+// (bölme sıfıra) ya da (ziyaretçi sayısı gibi) hiç hesaplanamayan bir
+// metrik olduğu anlamına gelir; asla 0 ile karıştırılmamalı.
+export interface PeriodComparison {
+  revenueChangePercent: number | null;
+  orderCountChangePercent: number | null;
+}
+
 export interface VendorDashboardData {
   stats: VendorDashboardStats;
   recentOrders: VendorDashboardRecentOrder[];
+  salesTimeSeries: DailySalesPoint[];
+  orderStatusBreakdown: OrderStatusCount[];
+  periodComparison: PeriodComparison;
 }
 
 export interface VendorPayout {
@@ -413,15 +487,18 @@ export interface AdminVendorRow {
   fullName: string;
   phone: string | null;
   status: "pending" | "active" | "suspended" | "banned";
+  vendorType: "business" | "individual";
   isVerified: boolean;
   createdAt: string;
   commissionRate: string | null;
   productCount: string;
+  pendingProductCount: string;
 }
 
 export interface AdminVendorsResponse {
   vendors: AdminVendorRow[];
   counts: Record<string, number>;
+  typeCounts: Record<string, number>;
 }
 
 export interface AdminPayoutRow {
@@ -596,6 +673,7 @@ export interface PublicVendorProfile {
   storeLayout: VendorStoreLayoutSection[];
   isFollowing: boolean;
   isVerified: boolean;
+  vendorType: "business" | "individual";
   reviewSummary: { average: number | null; total: number };
   about: string | null;
   coverImage: string | null;
@@ -609,6 +687,22 @@ export interface PublicVendorProfile {
   website: string | null;
   productCount: number;
   followerCount: number;
+  createdAt: string;
+  successRate: number | null;
+}
+
+export interface VendorPromoBanner {
+  id: number;
+  title: string;
+  image: string;
+  linkUrl: string | null;
+  subtitle: string | null;
+  buttonText: string | null;
+  textColor: string | null;
+  extraImages?: string[];
+  resolvedLink?: string | null;
+  rotateSeconds?: number | null;
+  animStyle?: string | null;
 }
 
 export interface PublicVendorCollection {
@@ -758,6 +852,9 @@ export interface ResolvedHomepageSection {
   bannerLayout?: "grid" | "stack";
   showTitle?: boolean;
   seoSlug?: string | null;
+  endsAt?: string;
+  categorySlug?: string;
+  saleOnly?: boolean;
   products: ProductListItem[];
   banners?: ResolvedHomepageSectionBanner[];
 }
@@ -828,7 +925,7 @@ export interface AdminProductRow {
   slug: string;
   basePrice: string;
   compareAtPrice: string | null;
-  status: "draft" | "active" | "inactive" | "rejected";
+  status: "draft" | "pending" | "active" | "inactive" | "rejected";
   viewCount: number;
   createdAt: string;
   vendorId: number;
@@ -837,6 +934,7 @@ export interface AdminProductRow {
   categoryName: string;
   image: string | null;
   totalStock: number;
+  hasVariants: boolean;
   favoriteCount: number;
 }
 
@@ -926,6 +1024,93 @@ export interface AdminDashboardData {
   recentOrders: AdminDashboardRecentOrder[];
   lowStockProducts: AdminDashboardLowStockProduct[];
   mostViewedProducts: AdminDashboardMostViewedProduct[];
+  salesTimeSeries: DailySalesPoint[];
+  orderStatusBreakdown: OrderStatusCount[];
+  periodComparison: PeriodComparison;
+}
+
+// bkz. kullanıcı isteği: "admin panelden anlık sitede kaç kişi var
+// görebilmeliyim ve bunun gibi bir çok detayı analizi ... hangi üründe
+// nerde kaç saniye duruldu hangilerine en çok tıklanıldı" - GET
+// /admin/dashboard/live (bkz. live-analytics-panel.tsx, periyodik çekilir).
+export interface AdminLiveActivePage {
+  path: string;
+  count: number;
+}
+
+export interface AdminLiveProductStat {
+  productId: number;
+  productName: string;
+  primaryImageUrl: string | null;
+  categoryName: string;
+  categorySlug: string;
+  count?: number;
+  quantity?: number;
+  avgSeconds?: number;
+}
+
+export interface AdminLiveTopCategory {
+  categoryName: string;
+  categorySlug: string;
+  totalViews: number;
+}
+
+export interface AdminLiveTodaySummary {
+  orders: number;
+  revenue: string;
+  newCustomers: number;
+}
+
+export interface AdminDashboardLiveData {
+  onlineNow: number;
+  activePages: AdminLiveActivePage[];
+  visitorsToday: number;
+  visitorsLast7Days: { date: string; count: number }[];
+  topViewedToday: AdminLiveProductStat[];
+  topPurchasedToday: AdminLiveProductStat[];
+  topCategoriesToday: AdminLiveTopCategory[];
+  avgDwellToday: AdminLiveProductStat[];
+  todaySummary: AdminLiveTodaySummary;
+}
+
+// bkz. kullanıcı isteği (2026-08-02): "kategoriler sayfalar koleksiyonlar
+// mağazalar kampanyalar ... çok önemli bunlar ... bu datalar kaydedilsin" -
+// GET /admin/content-analytics?period=day|week|month (bkz.
+// icerik-analitigi/page.tsx). content-analytics.repository.ts'teki
+// HydratedContentStat ile birebir aynı şekil.
+export interface AdminContentStat {
+  contentId: number;
+  name: string;
+  subtitle: string | null;
+  href: string | null;
+  primaryImageUrl: string | null;
+  total: number;
+  count: number;
+}
+
+export interface AdminBannerStat {
+  id: number;
+  title: string;
+  image: string;
+  views: number;
+  clicks: number;
+}
+
+export interface AdminContentAnalyticsData {
+  period: "day" | "week" | "month";
+  products: {
+    views: AdminContentStat[];
+    purchases: AdminContentStat[];
+    favorites: AdminContentStat[];
+    cartAdds: AdminContentStat[];
+    dwell: AdminContentStat[];
+  };
+  categories: AdminContentStat[];
+  collections: AdminContentStat[];
+  vendors: AdminContentStat[];
+  homepageSections: { views: AdminContentStat[]; dwell: AdminContentStat[] };
+  banners: AdminBannerStat[];
+  searchQueries: { query: string; count: number }[];
 }
 
 export interface AdminRefundRow {
@@ -1026,6 +1211,17 @@ export interface VendorNotification {
   createdAt: string;
 }
 
+export interface CustomerNotification {
+  id: number;
+  customerId: number;
+  type: string;
+  title: string;
+  message: string | null;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface VendorCollection {
   id: number;
   vendorId: number;
@@ -1087,6 +1283,6 @@ export interface VendorReportData {
 export interface BulkImportRowResult {
   row: number;
   name: string;
-  status: "created" | "skipped";
+  status: "created" | "skipped" | "valid"; // "valid" = dryRun önizlemede eklenmeye hazır
   reason?: string;
 }

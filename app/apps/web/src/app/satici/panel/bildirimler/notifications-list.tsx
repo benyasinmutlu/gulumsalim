@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { fetchJson, mutateJson } from "@/lib/client-api";
 import type { VendorNotification } from "@/lib/types";
 
@@ -11,7 +11,15 @@ const TYPE_ICON: Record<string, string> = {
   admin_message: "fa-envelope",
 };
 
+// bkz. kullanıcı isteği: "bildirimler okunmuyor orayı da düzelt" - kök
+// neden: <Link> tıklanınca Next.js navigasyonu HEMEN başlıyordu, "okundu
+// işaretle" isteği (CSRF token alma + PATCH, iki ağ isteği) o navigasyon
+// yüzünden yarıda kesiliyordu - çoğu bildirim linke sahip olduğu için
+// (sipariş/soru bildirimleri) neredeyse hiçbiri gerçekten okundu
+// işaretlenmiyordu. Artık navigasyon router.push ile MANUEL yapılıyor,
+// "okundu" isteği tamamlanana kadar beklenip SONRA yönlendiriliyor.
 export default function NotificationsList() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<VendorNotification[] | null>(null);
 
   async function load() {
@@ -30,6 +38,11 @@ export default function NotificationsList() {
   async function markAllRead() {
     await mutateJson("/vendor/notifications/mark-all-read", "POST");
     await load();
+  }
+
+  async function handleClick(n: VendorNotification) {
+    if (!n.isRead) await markRead(n.id);
+    if (n.link) router.push(n.link);
   }
 
   return (
@@ -69,12 +82,8 @@ export default function NotificationsList() {
                 </div>
               </div>
             );
-            return n.link ? (
-              <Link key={n.id} href={n.link} onClick={() => !n.isRead && markRead(n.id)}>
-                {content}
-              </Link>
-            ) : (
-              <div key={n.id} onClick={() => !n.isRead && markRead(n.id)} style={{ cursor: "pointer" }}>
+            return (
+              <div key={n.id} onClick={() => handleClick(n)} style={{ cursor: n.link || !n.isRead ? "pointer" : "default" }}>
                 {content}
               </div>
             );

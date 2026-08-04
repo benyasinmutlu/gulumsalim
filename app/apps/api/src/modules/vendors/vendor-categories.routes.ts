@@ -1,30 +1,16 @@
 import { FastifyPluginAsync } from "fastify";
-import { eq } from "drizzle-orm";
-import { z } from "zod";
-import { db } from "../../db/client";
-import { categories } from "../../db/schema/index";
-import { slugify } from "../../lib/slugify";
 
-const createVendorCategorySchema = z.object({
-  name: z.string().min(2).max(60),
-  parentId: z.coerce.number().int().positive().nullable().optional(),
-});
-
-// bkz. kullanıcı isteği: "satıcı panelinde ürün eklemede kategori eklemede
-// olsun ve bu şekilde kategori çeşitliliğimiz artar" - satıcı, ürün ekleme
-// formundan ayrılmadan yeni bir kategori oluşturabilir. Admin/kategoriler
-// sayfasındaki tam formun aksine (ikon/görsel/SEO) burada bilinçli olarak
-// sadece isim var - hızlı ekleme akışı, ince ayar admin panelden yapılır.
+// Satıcılar artık kategori OLUŞTURAMAZ - kategoriler yalnızca yönetim (admin)
+// tarafından belirlenir; aksi halde gelen geçen her mağaza keyfine göre
+// kategori açar ve kategori ağacı bozulurdu. Uç nokta bilinçli olarak 403
+// döndürür (route kayıtlı kalır ki eski/manuel bir istemci net bir "yetkiniz
+// yok" cevabı alsın). Ürün ekleme formundaki "+Yeni kategori" UI'ı da
+// kaldırıldı (bkz. web new-product-form.tsx) - bu backend tarafı savunmadır.
 const vendorCategoriesRoutes: FastifyPluginAsync = async (app) => {
-  app.post("/vendor/categories", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
-    const { name, parentId } = createVendorCategorySchema.parse(request.body);
-    const slug = slugify(name);
-    const existing = await db.select({ id: categories.id }).from(categories).where(eq(categories.slug, slug)).limit(1);
-    if (existing.length > 0) {
-      return reply.status(409).send({ error: { message: "Bu isimde bir kategori zaten var" } });
-    }
-    const [row] = await db.insert(categories).values({ name, slug, parentId: parentId ?? null }).returning();
-    return reply.status(201).send(row);
+  app.post("/vendor/categories", { preHandler: [app.requireVendor, app.csrfProtection] }, async (_request, reply) => {
+    return reply
+      .status(403)
+      .send({ error: { message: "Kategori oluşturma yetkiniz yok. Kategoriler yönetim tarafından belirlenir." } });
   });
 };
 

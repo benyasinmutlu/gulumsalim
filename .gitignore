@@ -18,3 +18,14 @@ uploads/
 .DS_Store
 .cache/
 .local/
+
+# Yerel cache / build yedekleri / dump'lar — repoya girmemeli
+/go/
+/.pnpm-store/
+/.worktrees/
+/dumps/
+/ss/
+**/.next.bak-*/
+*.bak-*.ts
+*.bak-*.css
+*.bak-*.tsx

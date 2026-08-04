@@ -19,6 +19,10 @@ export default async function SiteFooter() {
 
   return (
     <footer className="site-footer">
+      {/* bkz. kullanıcı isteği (2026-08-02): "footer'ın üstündeki bültenimize
+          katıl ve kampanya bannerlarını kaldır" - anasayfada zaten daha
+          estetik/gezinme-içi bir bülten kartı var (bkz. newsletter-banner.tsx),
+          footer'daki bu düz şerit kaldırıldı. */}
       <div className="footer-top">
         <div className="container footer-grid">
           <div className="footer-col">
@@ -43,8 +47,8 @@ export default async function SiteFooter() {
               style={{
                 marginTop: 20,
                 padding: 14,
-                background: "rgba(224,64,160,.06)",
-                border: "1px solid rgba(224,64,160,.15)",
+                background: "rgba(204,124,148,.06)",
+                border: "1px solid rgba(204,124,148,.15)",
                 borderRadius: 12,
               }}
             >
@@ -133,12 +137,15 @@ export default async function SiteFooter() {
               <div className="payment-badges">
                 <i className="fab fa-cc-visa" />
                 <i className="fab fa-cc-mastercard" />
-                <span className="troy-badge" title="Troy">
-                  <i className="fas fa-check-circle" /> troy
-                </span>
-                <span className="iyzico-badge" title="iyzico ile ödeyin">
-                  iyzico
-                </span>
+                {/* Resmi marka görselleri - iyzico ve Troy'un kendi marka
+                    kitlerinden indirilip self-host edildi (bkz. kullanıcı
+                    isteği: "iyzico'nun ve troy'un resmi görselini ekle").
+                    Daha önce iyzico'nun kendi CDN'inden hotlink edilen görsel
+                    404 vermişti (bkz. globals.css .troy-badge/.iyzico-badge
+                    yorumu) - bu yüzden dosyalar public/'e kopyalanıp
+                    kendi sunucumuzdan servis ediliyor, dış bağımlılık yok. */}
+                <img src="/payment-badges/iyzico.svg" alt="iyzico ile öde" className="payment-badge-img" style={{ height: 20 }} />
+                <img src="/payment-badges/troy.svg" alt="Troy" className="payment-badge-img" style={{ height: 20 }} />
               </div>
             </div>
           </div>

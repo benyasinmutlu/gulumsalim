@@ -12,6 +12,24 @@ export const vendorRegisterSchema = z.object({
   password: z.string().min(8, "Şifre en az 8 karakter olmalı"),
   fullName: z.string().min(2),
   phone: z.string().optional(),
+  // Mesafeli Satış Sözleşmesi'nin satıcı bloğu için zorunlu (bkz.
+  // vendors.ts taxId/legalAddress).
+  taxId: z.string().min(5, "Vergi No/MERSİS No/TCKN giriniz"),
+  legalAddress: z.string().min(5, "Adres giriniz"),
+  consentAccepted: z.literal(true, {
+    errorMap: () => ({ message: "Satıcı Üyelik ve Hizmet Sözleşmesi'ni kabul etmelisiniz" }),
+  }),
+});
+
+// "Tek tıkla bireysel satıcı ol" akışı da (bkz. vendor-auth.routes.ts
+// /my/become-individual-seller) aynı hukuki gerekliliğe tabi - artık body
+// zorunlu.
+export const becomeIndividualSellerSchema = z.object({
+  taxId: z.string().min(5, "Vergi No/TCKN giriniz"),
+  legalAddress: z.string().min(5, "Adres giriniz"),
+  consentAccepted: z.literal(true, {
+    errorMap: () => ({ message: "Satıcı Üyelik ve Hizmet Sözleşmesi'ni kabul etmelisiniz" }),
+  }),
 });
 
 export const vendorLoginSchema = z.object({
@@ -51,10 +69,13 @@ export const updateVendorProfileSchema = z.object({
   bankName: z.string().max(120).optional(),
   bankIban: z.string().max(40).optional(),
   bankAccountHolder: z.string().max(120).optional(),
+  taxId: z.string().max(20).optional(),
+  legalAddress: z.string().max(500).optional(),
   currentPassword: z.string().optional(),
   newPassword: z.string().min(8, "Şifre en az 8 karakter olmalı").optional(),
 });
 
 export type VendorRegisterInput = z.infer<typeof vendorRegisterSchema>;
+export type BecomeIndividualSellerInput = z.infer<typeof becomeIndividualSellerSchema>;
 export type VendorLoginInput = z.infer<typeof vendorLoginSchema>;
 export type UpdateVendorProfileInput = z.infer<typeof updateVendorProfileSchema>;

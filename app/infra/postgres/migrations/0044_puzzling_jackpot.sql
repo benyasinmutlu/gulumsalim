@@ -1,0 +1,1 @@
+ALTER TYPE "public"."section_algo" ADD VALUE 'category';

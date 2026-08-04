@@ -1,11 +1,17 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { products, vendors } from "../../db/schema/index";
 import { outer } from "../../lib/sql-helpers";
 
-type VendorStatus = "pending" | "active" | "suspended" | "banned";
+type VendorStatus = "pending" | "active" | "suspended" | "banned" | "closed";
+type VendorType = "business" | "individual";
 
-export async function listVendorsByStatus(status?: VendorStatus) {
+// bkz. kullanıcı isteği (2026-08-02): "bireysel satıcıları admin panelinden
+// ayrı yönetelim ... ürünleri onaylandıktan sonra listelerken belli olsun" -
+// pendingProductCount, hangi bireysel satıcının onay bekleyen ürünü olduğunu
+// admin listede tek bakışta görebilsin diye eklendi (bkz. products.status
+// 'pending' - sadece bireysel satıcı akışında oluşur).
+export async function listVendorsByStatus(status?: VendorStatus, vendorType?: VendorType) {
   const base = db
     .select({
       id: vendors.id,
@@ -15,21 +21,31 @@ export async function listVendorsByStatus(status?: VendorStatus) {
       fullName: vendors.fullName,
       phone: vendors.phone,
       status: vendors.status,
+      vendorType: vendors.vendorType,
       isVerified: vendors.isVerified,
       createdAt: vendors.createdAt,
       commissionRate: vendors.commissionRate,
       productCount: sql<number>`(SELECT COUNT(*) FROM ${products} WHERE ${products.vendorId} = ${outer(vendors.id)})`,
+      pendingProductCount: sql<number>`(SELECT COUNT(*) FROM ${products} WHERE ${products.vendorId} = ${outer(vendors.id)} AND ${products.status} = 'pending')`,
     })
     .from(vendors)
     .orderBy(desc(vendors.createdAt));
 
-  if (status) return base.where(eq(vendors.status, status));
+  const conditions = [];
+  if (status) conditions.push(eq(vendors.status, status));
+  if (vendorType) conditions.push(eq(vendors.vendorType, vendorType));
+  if (conditions.length > 0) return base.where(and(...conditions));
   return base;
 }
 
 export async function countVendorsByStatus() {
   const rows = await db.select({ status: vendors.status, count: sql<number>`COUNT(*)` }).from(vendors).groupBy(vendors.status);
   return Object.fromEntries(rows.map((r) => [r.status, Number(r.count)]));
+}
+
+export async function countVendorsByType() {
+  const rows = await db.select({ vendorType: vendors.vendorType, count: sql<number>`COUNT(*)` }).from(vendors).groupBy(vendors.vendorType);
+  return Object.fromEntries(rows.map((r) => [r.vendorType, Number(r.count)]));
 }
 
 async function findVendorProductCount(vendorId: number) {

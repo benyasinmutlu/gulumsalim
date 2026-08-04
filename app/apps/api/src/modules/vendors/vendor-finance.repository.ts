@@ -25,7 +25,7 @@ export async function getVendorWalletSummary(vendorId: number) {
   // vendor_earnings kaydı sadece kalem "delivered" olduğunda oluşur (bkz.
   // vendor-orders.service.ts) - henüz teslim edilmemiş ödenmiş kalemlerin
   // net tutarı burada "bekleyen kazanç" olarak projekte edilir.
-  const rate = vendor?.commissionRate ? Number(vendor.commissionRate) : 10;
+  const rate = vendor?.commissionRate ? Number(vendor.commissionRate) : 5;
   const [pendingRow] = await db
     .select({ totalGross: sql<string>`COALESCE(SUM(${orderItems.total}), 0)` })
     .from(orderItems)

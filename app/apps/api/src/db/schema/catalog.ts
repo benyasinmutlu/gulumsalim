@@ -38,6 +38,9 @@ export const products = pgTable("products", {
   brand: text("brand"),
   basePrice: numeric("base_price", { precision: 10, scale: 2 }).notNull(),
   compareAtPrice: numeric("compare_at_price", { precision: 10, scale: 2 }),
+  // Ürün tanıtım videosu (opsiyonel) - satıcı panelinden yüklenir, S3'e gider,
+  // ürün detay sayfasında oynatılır. Nullable: çoğu üründe olmayacak.
+  videoUrl: text("video_url"),
   // bkz. kullanıcı isteği: "admin paneli ve satıcı paneli üzerinden her
   // ürüne ... kargo ... düzenleyeceğimiz alanlar olsun". Site genelinde tek
   // bir kargo ücreti/ücretsiz kargo eşiği zaten settings'te var (bkz.
@@ -52,6 +55,17 @@ export const products = pgTable("products", {
   // kişilerde satış yapabilsin 2. el ürün letgo dolap gibi" - ürün
   // listelemede/kartlarda "2. El" rozeti ve ayrı filtre için.
   isSecondHand: boolean("is_second_hand").notNull().default(false),
+  // bkz. kullanıcı isteği: "kurumsal satıcıların stokları zorunlu olarak
+  // girilmeli bireysel satıcıların ise sattığı ürünün stoğu 1 olacak sadece
+  // satılınca kaldırılacak websitesinden" - önceden varyantsız ürünlerde hiç
+  // stok kavramı yoktu (sadece product_variants.stock vardı). Bu alan SADECE
+  // varyantsız ürünlerde anlamlıdır (bkz. vendor-products.repository.ts
+  // listVendorProducts totalStock hesaplaması) - varyantı olan bir üründe
+  // stok gerçek kaynağı hâlâ product_variants'tır, bu sütun kullanılmaz.
+  // Bireysel satıcıda oluşturulurken sunucu tarafında hep 1'e zorlanır (bkz.
+  // vendor-products.routes.ts POST); satılınca order.repository.ts
+  // decrementOrderItemStock 0'a indirir ve ürünü otomatik "inactive" yapar.
+  stock: integer("stock").notNull().default(0),
   status: productStatusEnum("status").notNull().default("draft"),
   // gulumsalim.com'daki products.views'in karşılığı - admin dashboard'daki
   // "Müşterilerin En Çok Baktığı Ürünler" için basit bir sayaç. Detaylı
@@ -59,6 +73,10 @@ export const products = pgTable("products", {
   // (bkz. events.client.ts) - bu, ondan bağımsız, doğrudan sorgulanabilir
   // bir toplam sayaç.
   viewCount: integer("view_count").notNull().default(0),
+  // Ürün-zeka yakın-kopya parmak izi (bkz. product-intelligence/dedupe).
+  // Aynı satıcının aynı ürünü 2. kez girmesini yakalamak için. Nullable:
+  // mevcut ürünlerde boş kalır, dup-kontrolü sadece dolu olanları karşılaştırır.
+  fingerprint: text("fingerprint"),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
@@ -69,6 +87,8 @@ export const products = pgTable("products", {
     .where(sql`${table.status} = 'active'`),
   keysetIdx: index("idx_products_keyset").on(table.status, table.createdAt, table.id),
   vendorIdx: index("idx_products_vendor").on(table.vendorId, table.status),
+  // Satıcı-içi kopya tespiti için (vendorId + fingerprint eşleşmesi).
+  fingerprintIdx: index("idx_products_fingerprint").on(table.vendorId, table.fingerprint),
 }));
 
 export const productVariants = pgTable("product_variants", {

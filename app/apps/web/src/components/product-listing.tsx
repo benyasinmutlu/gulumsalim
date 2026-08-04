@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import type { Category, ProductListResponse, PublicVendorListItem } from "@/lib/types";
-import ProductListingGrid from "@/components/product-listing-grid";
+import ProductCard from "@/components/product-card";
 import ProductToolbar from "@/app/(site)/urunler/product-toolbar";
 import { CategoryNavSync } from "@/components/category-nav-context";
 import TitleBackgroundIcons from "@/components/title-background-icons";
@@ -11,6 +12,8 @@ export interface ProductListingParams {
   cursor?: string;
   search?: string;
   saleOnly?: string;
+  secondHand?: string;
+  minDiscountPercent?: string;
   size?: string;
   color?: string;
   vendor?: string;
@@ -79,12 +82,26 @@ export default async function ProductListing({
       ? `"${params.search}" için sonuçlar`
       : params.saleOnly
         ? "İndirimli Ürünler"
-        : (matchedCategory?.name ?? "Tüm Koleksiyon"));
+        : params.secondHand
+          ? "Dolap - 2. El Ürünler"
+          : (matchedCategory?.name ?? "Tüm Koleksiyon"));
 
   // bkz. kullanıcı isteği: "tümünü gör sayfalarının arka planında başlığa
   // özel hareketli ikonlar olsun" - kategori sayfasındaysa o kategorinin
   // ikonu, indirim filtresindeyse etiket ikonu, aksi halde genel bir ikon.
-  const headingIcon = matchedCategory ? categoryIcon(matchedCategory) : params.saleOnly ? "fa-tag" : "fa-bag-shopping";
+  const headingIcon = matchedCategory
+    ? categoryIcon(matchedCategory)
+    : params.saleOnly
+      ? "fa-tag"
+      : params.secondHand
+        ? "fa-recycle"
+        : "fa-bag-shopping";
+
+  const nextPageParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value && key !== "cursor") nextPageParams.set(key, value);
+  }
+  if (nextCursor) nextPageParams.set("cursor", nextCursor);
 
   // bkz. kullanıcı isteği: "Tümünü Gör dediğimde headerın kategorileri
   // gözükmeyecek sadece listelenen ürünlerden hangi kategoriler
@@ -110,7 +127,23 @@ export default async function ProductListing({
           lockedCategorySlug={lockedCategorySlug}
         />
 
-        <ProductListingGrid initialItems={items} initialCursor={nextCursor} params={params} />
+        <div className="products-count">{items.length} adet ürün bulundu.</div>
+
+        {items.length === 0 ? (
+          <p className="empty-state">Bu filtrede ürün bulunamadı.</p>
+        ) : (
+          <div className="product-grid" id="productGrid">
+            {items.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        )}
+
+        {nextCursor && (
+          <Link href={`${basePath}?${nextPageParams.toString()}`} className="btn btn-secondary">
+            Sonraki sayfa
+          </Link>
+        )}
       </div>
     </main>
   );

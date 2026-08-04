@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import type { AdminDashboardData, AdminProfile } from "@/lib/types";
+import { OrderStatusPieChart, SalesLineChart } from "@/components/dashboard-charts";
+import PeriodChangeBadge from "@/components/period-change-badge";
+import LiveAnalyticsPanel from "@/components/live-analytics-panel";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Beklemede",
@@ -36,11 +39,13 @@ export default async function AdminPanelIndexPage() {
     apiFetchJson<AdminProfile>("/admin/auth/me"),
     apiFetchJson<AdminDashboardData>("/admin/dashboard"),
   ]);
-  const { stats, recentOrders, lowStockProducts, mostViewedProducts } = dashboard;
+  const { stats, recentOrders, lowStockProducts, mostViewedProducts, salesTimeSeries, orderStatusBreakdown, periodComparison } = dashboard;
 
   return (
     <>
       <h2 style={{ marginBottom: 24, fontSize: 20, fontWeight: 600 }}>Hoş geldin, {admin.fullName} 👋</h2>
+
+      <LiveAnalyticsPanel />
 
       <div className="admin-fin-stats">
         <div className="admin-fin-stat">
@@ -49,7 +54,12 @@ export default async function AdminPanelIndexPage() {
           </div>
           <div className="admin-fin-stat-body">
             <div className="val">{formatPrice(stats.totalRevenue)}</div>
-            <div className="lbl">Toplam Gelir</div>
+            <div className="lbl">
+              Toplam Gelir
+              {periodComparison.revenueChangePercent !== null && (
+                <span style={{ marginLeft: 8 }}><PeriodChangeBadge value={periodComparison.revenueChangePercent} /></span>
+              )}
+            </div>
           </div>
         </div>
         <div className="admin-fin-stat">
@@ -58,7 +68,12 @@ export default async function AdminPanelIndexPage() {
           </div>
           <div className="admin-fin-stat-body">
             <div className="val">{stats.totalOrders}</div>
-            <div className="lbl">Toplam Sipariş</div>
+            <div className="lbl">
+              Toplam Sipariş
+              {periodComparison.orderCountChangePercent !== null && (
+                <span style={{ marginLeft: 8 }}><PeriodChangeBadge value={periodComparison.orderCountChangePercent} /></span>
+              )}
+            </div>
           </div>
         </div>
         <div className="admin-fin-stat">
@@ -122,6 +137,25 @@ export default async function AdminPanelIndexPage() {
         <Link href="/admin/panel/ayarlar" className="admin-btn">
           <i className="fas fa-cog" /> Ayarlar
         </Link>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 24 }}>
+        <div className="admin-card" style={{ minWidth: 0 }}>
+          <div className="admin-card-header">
+            <h2><i className="fas fa-chart-line" /> Son 30 Gün Satış (Site Geneli)</h2>
+          </div>
+          <div className="admin-card-body">
+            <SalesLineChart data={salesTimeSeries} color="#d4308f" />
+          </div>
+        </div>
+        <div className="admin-card" style={{ minWidth: 0 }}>
+          <div className="admin-card-header">
+            <h2><i className="fas fa-chart-pie" /> Sipariş Durumu Dağılımı</h2>
+          </div>
+          <div className="admin-card-body">
+            <OrderStatusPieChart data={orderStatusBreakdown} statusLabels={STATUS_LABEL} />
+          </div>
+        </div>
       </div>
 
       <div className="admin-card">

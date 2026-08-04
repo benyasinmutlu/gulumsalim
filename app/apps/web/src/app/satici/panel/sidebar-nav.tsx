@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import UnreadBadge from "./unread-badge";
+import { useIsIndividualVendor } from "./vendor-type-context";
 
 // vendor/boot.php'deki sidebar aktif-link vurgusunun karşılığı - önceki
 // halde hiçbir Link'e koşullu class uygulanmıyordu.
 export default function VendorSidebarNav() {
   const pathname = usePathname();
   const active = (href: string) => (pathname === href ? "active" : undefined);
+  // bkz. kullanıcı isteği: "bireysel satıcıları ... yerleri daha basit ve
+  // kullanımı kolay olsun" - toplu yükleme/koleksiyon/kampanya/mağaza
+  // düzeni/raporlar tek tük ürün satan bireysel satıcı için gereksiz
+  // karmaşıklık; işletme satıcılarda değişiklik yok. Route'lar hâlâ
+  // çalışıyor, sadece menüden kaldırılıyor - büyümek isteyen bir bireysel
+  // satıcı erişimini kaybetmiyor.
+  const isIndividual = useIsIndividualVendor();
 
   return (
     <nav className="sidebar-nav">
@@ -21,15 +29,21 @@ export default function VendorSidebarNav() {
       <Link href="/satici/panel/urunler/yeni" className={active("/satici/panel/urunler/yeni")}>
         <i className="fas fa-plus-circle nav-icon" /> Ürün Ekle
       </Link>
-      <Link href="/satici/panel/toplu-yukleme" className={active("/satici/panel/toplu-yukleme")}>
-        <i className="fas fa-file-csv nav-icon" /> Toplu Ürün Yükle
-      </Link>
-      <Link href="/satici/panel/koleksiyonlar" className={active("/satici/panel/koleksiyonlar")}>
-        <i className="fas fa-layer-group nav-icon" /> Koleksiyonlar
-      </Link>
-      <Link href="/satici/panel/kampanyalar" className={active("/satici/panel/kampanyalar")}>
-        <i className="fas fa-bullhorn nav-icon" /> Kampanyalar
-      </Link>
+      {!isIndividual && (
+        <Link href="/satici/panel/toplu-yukleme" className={active("/satici/panel/toplu-yukleme")}>
+          <i className="fas fa-file-csv nav-icon" /> Toplu Ürün Yükle
+        </Link>
+      )}
+      {!isIndividual && (
+        <Link href="/satici/panel/koleksiyonlar" className={active("/satici/panel/koleksiyonlar")}>
+          <i className="fas fa-layer-group nav-icon" /> Koleksiyonlar
+        </Link>
+      )}
+      {!isIndividual && (
+        <Link href="/satici/panel/kampanyalar" className={active("/satici/panel/kampanyalar")}>
+          <i className="fas fa-bullhorn nav-icon" /> Kampanyalar
+        </Link>
+      )}
       <Link href="/satici/panel/siparisler" className={active("/satici/panel/siparisler")}>
         <i className="fas fa-shopping-bag nav-icon" /> Siparişler
         <UnreadBadge kind="pendingOrders" />
@@ -47,15 +61,19 @@ export default function VendorSidebarNav() {
       <Link href="/satici/panel/magaza" className={active("/satici/panel/magaza")}>
         <i className="fas fa-store nav-icon" /> Mağaza Profili
       </Link>
-      <Link href="/satici/panel/magaza-duzeni" className={active("/satici/panel/magaza-duzeni")}>
-        <i className="fas fa-swatchbook nav-icon" /> Mağaza Düzeni
-      </Link>
+      {!isIndividual && (
+        <Link href="/satici/panel/magaza-duzeni" className={active("/satici/panel/magaza-duzeni")}>
+          <i className="fas fa-swatchbook nav-icon" /> Mağaza Düzeni
+        </Link>
+      )}
       <Link href="/satici/panel/finans" className={active("/satici/panel/finans")}>
         <i className="fas fa-wallet nav-icon" /> Finans
       </Link>
-      <Link href="/satici/panel/raporlar" className={active("/satici/panel/raporlar")}>
-        <i className="fas fa-chart-bar nav-icon" /> Raporlar
-      </Link>
+      {!isIndividual && (
+        <Link href="/satici/panel/raporlar" className={active("/satici/panel/raporlar")}>
+          <i className="fas fa-chart-bar nav-icon" /> Raporlar
+        </Link>
+      )}
       <Link href="/satici/panel/bildirimler" className={active("/satici/panel/bildirimler")}>
         <i className="fas fa-bell nav-icon" /> Bildirimler
         <UnreadBadge kind="notifications" />

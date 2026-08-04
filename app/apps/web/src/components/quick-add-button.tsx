@@ -40,7 +40,7 @@ export default function QuickAddButton({
         return;
       }
       const variant = product.variants[0];
-      if (variant && variant.stock <= 0) {
+      if (variant ? variant.stock <= 0 : product.stock <= 0) {
         return;
       }
       await mutateJson<CartResponse>("/cart/items", "POST", { productId, variantId: variant?.id, quantity: 1 });

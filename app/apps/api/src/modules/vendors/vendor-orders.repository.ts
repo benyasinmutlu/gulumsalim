@@ -1,8 +1,8 @@
-import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/client";
-import { customers, orderItems, orderRefunds, orders } from "../../db/schema/index";
+import { customers, orderItems, orderRefunds, orders, productImages, products, productVariants } from "../../db/schema/index";
 import { recomputeOrderStatus, restoreOrderItemStockSingle } from "../orders/order.repository";
-import type { OrderListQuery } from "./vendor-orders.schemas";
+import { createCustomerNotification } from "../notifications/customer-notifications.repository";
 
 // Sidebar'daki "Siparişler" rozeti için - eski sitede bu sayaç vardı,
 // yeni panelde hiç kullanılmıyordu (bkz. re-audit bulgusu). Aşağıdaki
@@ -24,31 +24,23 @@ export async function countPendingVendorOrders(vendorId: number) {
 // vendor/order-detail.php'nin karşılığı - ayrı bir sayfa yerine, satıcı
 // paneli listesindeki her satırın açılıp kapanan detay bölümünde
 // gösterilecek teslimat adresi/müşteri iletişim/sipariş notu bilgileri.
-export type VendorOrderItemRow = Awaited<ReturnType<typeof listVendorOrderItems>>[number];
-
-// bkz. kullanıcı isteği: "filtreleme ve analiz" - liste artık durum + arama
-// (sipariş no / ürün / müşteri e-postası) ile filtrelenip tarihe göre
-// sıralanabilir. Filtre verilmezse eski davranış (en yeni, tüm paid kalemler).
-export async function listVendorOrderItems(vendorId: number, filter: OrderListQuery = { sort: "newest" }) {
-  const conditions: SQL[] = [eq(orderItems.vendorId, vendorId), eq(orders.paymentStatus, "paid")];
-  if (filter.status) conditions.push(eq(orderItems.vendorStatus, filter.status));
-  if (filter.search) {
-    const q = `%${filter.search}%`;
-    const searchMatch = or(
-      ilike(orders.orderNumber, q),
-      ilike(orderItems.productNameSnapshot, q),
-      ilike(customers.email, q),
-    );
-    if (searchMatch) conditions.push(searchMatch);
-  }
-
-  return db
+// bkz. kullanıcı isteği: "ürün resmi ve daha çok detay ekle satıcı ne
+// hazırlayacağını direkt görsün" - satıcının hangi ürünü/bedeni/rengi
+// hazırlaması gerektiğini listede AÇMADAN görebilmesi için varyant
+// (beden/renk) ve ürün görseli eklendi. Görsel N+1 alt sorgu yerine
+// catalog.repository.ts attachPrimaryImages ile AYNI toplu-sorgu deseniyle
+// çekiliyor (o yardımcı productId'yi "id" bekliyor, burada satır id'si
+// sipariş kalemi olduğu için doğrudan kullanılamıyor, aynı desen elle tekrarlanır).
+export async function listVendorOrderItems(vendorId: number) {
+  const rows = await db
     .select({
       id: orderItems.id,
       orderId: orderItems.orderId,
       orderNumber: orders.orderNumber,
       productId: orderItems.productId,
       productNameSnapshot: orderItems.productNameSnapshot,
+      variantSize: productVariants.size,
+      variantColor: productVariants.color,
       unitPrice: orderItems.unitPrice,
       quantity: orderItems.quantity,
       total: orderItems.total,
@@ -64,8 +56,22 @@ export async function listVendorOrderItems(vendorId: number, filter: OrderListQu
     .from(orderItems)
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .innerJoin(customers, eq(orders.customerId, customers.id))
-    .where(and(...conditions))
-    .orderBy(filter.sort === "oldest" ? asc(orders.createdAt) : desc(orders.createdAt));
+    .leftJoin(productVariants, eq(orderItems.variantId, productVariants.id))
+    .where(and(eq(orderItems.vendorId, vendorId), eq(orders.paymentStatus, "paid")))
+    .orderBy(desc(orders.createdAt));
+
+  if (rows.length === 0) return [];
+  const productIds = [...new Set(rows.map((r) => r.productId))];
+  const images = await db
+    .select({ productId: productImages.productId, url: productImages.url })
+    .from(productImages)
+    .where(inArray(productImages.productId, productIds))
+    .orderBy(desc(productImages.isPrimary), asc(productImages.sortOrder));
+  const imageByProductId = new Map<number, string>();
+  for (const img of images) {
+    if (!imageByProductId.has(img.productId)) imageByProductId.set(img.productId, img.url);
+  }
+  return rows.map((row) => ({ ...row, productImageUrl: imageByProductId.get(row.productId) ?? null }));
 }
 
 // listVendorOrderItems ile AYNI paymentStatus='paid' şartı - önceki
@@ -80,6 +86,8 @@ export async function findVendorOrderItem(vendorId: number, orderItemId: number)
     .select({
       id: orderItems.id,
       orderId: orderItems.orderId,
+      orderNumber: orders.orderNumber,
+      customerId: orders.customerId,
       vendorId: orderItems.vendorId,
       productId: orderItems.productId,
       variantId: orderItems.variantId,
@@ -91,32 +99,16 @@ export async function findVendorOrderItem(vendorId: number, orderItemId: number)
       trackingCarrier: orderItems.trackingCarrier,
       trackingNumber: orderItems.trackingNumber,
       shippedAt: orderItems.shippedAt,
+      // bkz. kullanıcı isteği: "ürünlerin resimleri de olsun" - kargo
+      // durumu e-postalarında da ürün görseli gösterilir.
+      productSlug: products.slug,
+      productImage: productImages.url,
     })
     .from(orderItems)
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .leftJoin(products, eq(orderItems.productId, products.id))
+    .leftJoin(productImages, and(eq(productImages.productId, orderItems.productId), eq(productImages.isPrimary, true)))
     .where(and(eq(orderItems.id, orderItemId), eq(orderItems.vendorId, vendorId), eq(orders.paymentStatus, "paid")))
-    .limit(1);
-  return row ?? null;
-}
-
-// Kargo takip e-postası (bkz. lib/emails/shipping-notification.ts) için
-// gereken minimum veri. Kalem "shipped"a geçtikten SONRA route katmanında
-// best-effort çağrılır. orders.customerId NOT NULL (misafir siparişi de bir
-// müşteri kaydı oluşturur) - bu yüzden customers.email tüm siparişleri kapsar.
-export async function getShippedItemNotificationData(orderItemId: number) {
-  const [row] = await db
-    .select({
-      customerEmail: customers.email,
-      orderNumber: orders.orderNumber,
-      productNameSnapshot: orderItems.productNameSnapshot,
-      quantity: orderItems.quantity,
-      trackingCarrier: orderItems.trackingCarrier,
-      trackingNumber: orderItems.trackingNumber,
-    })
-    .from(orderItems)
-    .innerJoin(orders, eq(orderItems.orderId, orders.id))
-    .innerJoin(customers, eq(orders.customerId, customers.id))
-    .where(eq(orderItems.id, orderItemId))
     .limit(1);
   return row ?? null;
 }
@@ -173,6 +165,17 @@ export async function decideVendorRefund(
     .set({ status: decision, vendorNote, processedAt: new Date() })
     .where(eq(orderRefunds.id, refundId))
     .returning();
+  if (row) {
+    await createCustomerNotification(
+      row.customerId,
+      decision === "approved" ? "refund_approved" : "refund_rejected",
+      decision === "approved" ? "İade Talebiniz Onaylandı" : "İade Talebiniz Reddedildi",
+      decision === "approved"
+        ? "Satıcı iade talebinizi onayladı. Ürünü kargolayıp takip numarasını girmeyi unutmayın."
+        : vendorNote || "Satıcı iade talebinizi reddetti.",
+      "/hesabim/siparisler",
+    );
+  }
   return row ?? null;
 }
 

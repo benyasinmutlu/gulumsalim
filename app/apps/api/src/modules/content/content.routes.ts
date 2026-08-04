@@ -12,12 +12,25 @@ import {
 import { insertContactMessage } from "./contact.repository";
 import { createContactMessageSchema } from "./contact.schemas";
 import { insertSiteFeedback } from "./site-feedback.repository";
+import { insertCookieConsent } from "./cookie-consent.repository";
+import { insertNewsletterSubscriber } from "./newsletter.repository";
+import { findFeaturedActiveCoupon } from "../orders/coupon.repository";
 
 const siteFeedbackSchema = z.object({
   rating: z.number().int().min(1).max(5).optional(),
   category: z.enum(["elestiri", "oneri", "sikayet", "diger"]).optional(),
   message: z.string().min(5).max(2000),
   pageUrl: z.string().max(500).optional(),
+});
+
+const cookieConsentSchema = z.object({
+  performance: z.boolean(),
+  functionality: z.boolean(),
+  advertising: z.boolean(),
+});
+
+const newsletterSignupSchema = z.object({
+  email: z.string().email(),
 });
 
 // Footer'da gösterilen site iletişim/sosyal medya bilgisi - hepsi
@@ -101,6 +114,21 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(await listActiveHomepageCollections());
   });
 
+  // Anasayfadaki "İlk Alışverişine Özel İndirim" kartı için - admin'in
+  // isFeatured işaretlediği tek aktif kupon (bkz. coupon.repository.ts).
+  // Yoksa null döner, kart hiç gösterilmez (sahte/sabit bir kod asla
+  // gösterilmez).
+  app.get("/coupons/featured", async (_request, reply) => {
+    const coupon = await findFeaturedActiveCoupon();
+    if (!coupon) return reply.send(null);
+    return reply.send({
+      code: coupon.code,
+      type: coupon.type,
+      value: coupon.value,
+      minOrderAmount: coupon.minOrderAmount,
+    });
+  });
+
   // Herkese açık iletişim formu - eski sitedeki contact.php'nin karşılığı.
   // csrfProtection eklenmedi çünkü ziyaretçi henüz hiçbir oturuma sahip
   // olmayabilir (misafir); spam riskine karşı admin panelde moderasyon var.
@@ -119,6 +147,29 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
     const input = siteFeedbackSchema.parse(request.body);
     const row = await insertSiteFeedback({ ...input, customerId: request.session.customerId });
     return reply.status(201).send(row);
+  });
+
+  // Çerez tercih paneli (bkz. cookie-consent-banner.tsx) - contact/
+  // site-feedback ile aynı gerekçeyle CSRF yok: banner ilk sayfa
+  // yüklemesinde çıkabilir, ziyaretçi henüz CSRF token almamış olabilir.
+  app.post("/cookie-consent", async (request, reply) => {
+    const input = cookieConsentSchema.parse(request.body);
+    const row = await insertCookieConsent({
+      ...input,
+      sessionId: request.session.sessionId,
+      customerId: request.session.customerId,
+      ipAddress: request.ip,
+      userAgent: request.headers["user-agent"],
+    });
+    return reply.status(201).send({ id: row.id });
+  });
+
+  // Footer bülten kayıt bandı - contact/site-feedback ile aynı gerekçeyle
+  // CSRF yok (misafir formu).
+  app.post("/newsletter-signup", async (request, reply) => {
+    const { email } = newsletterSignupSchema.parse(request.body);
+    const row = await insertNewsletterSubscriber(email);
+    return reply.status(201).send({ id: row.id });
   });
 };
 

@@ -3,6 +3,7 @@ import { productUrl, type ProductListItem } from "../lib/types";
 import QuickAddButton from "./quick-add-button";
 import FavoriteButton from "./favorite-button";
 import ProductCardImage from "./product-card-image";
+import StarRating from "./star-rating";
 
 const NEW_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -34,7 +35,9 @@ export default function ProductCard({
           </Link>
         )}
         <div className="product-badges">
-          {discountPercent !== null && discountPercent > 0 && <span className="badge badge-sale">%{discountPercent} İNDİRİM</span>}
+          {discountPercent !== null && discountPercent > 0 && (
+            <span className="badge badge-sale badge-sale-pulse">%{discountPercent} İNDİRİM</span>
+          )}
           {isNew && <span className="badge badge-new">YENİ</span>}
           {product.isSecondHand && <span className="badge badge-secondhand">2. EL</span>}
         </div>
@@ -49,10 +52,22 @@ export default function ProductCard({
       <div className="product-info">
         <div className="product-category">
           <span>{product.vendorStoreName}</span>
+          {product.vendorIsIndividual && <span className="badge-individual-tag">Bireysel Satıcı</span>}
         </div>
         <h3 className="product-name">
           <Link href={detailHref}>{product.name}</Link>
         </h3>
+        {/* bkz. kullanıcı isteği (tasarım brief'i, 2026-08-02): "Ürün kartı:
+            görsel, başlık, fiyat, yıldızlı rating, indirim etiketi" -
+            veri zaten API'den geliyordu (avgRating/reviewCount), sadece
+            kartta hiç gösterilmiyordu. Değerlendirmesi olmayan ürünlerde
+            hiç render edilmiyor (0 yıldız yanıltıcı olurdu). */}
+        {product.avgRating !== null && product.reviewCount > 0 && (
+          <div className="product-rating">
+            <StarRating value={product.avgRating} size={12} />
+            <span className="product-rating-count">({product.reviewCount})</span>
+          </div>
+        )}
         <div className="product-price">
           <span className="price-current">
             {Number(product.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺

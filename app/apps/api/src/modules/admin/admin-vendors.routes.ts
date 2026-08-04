@@ -1,13 +1,17 @@
 import { FastifyPluginAsync } from "fastify";
-import { countVendorsByStatus, listVendorsByStatus, updateVendorCommission } from "./admin-vendors.repository";
+import { countVendorsByStatus, countVendorsByType, listVendorsByStatus, updateVendorCommission } from "./admin-vendors.repository";
 import { updateVendorCommissionSchema, updateVendorStatusSchema, vendorIdParamsSchema, vendorStatusFilterSchema } from "./admin-vendors.schemas";
-import { applyVendorAction, removeVendor, VendorHasProductsError, VendorNotFoundError } from "./admin-vendors.service";
+import { applyVendorAction, removeVendor, VendorHasProductsError, VendorNotFoundError, VendorProfileIncompleteError } from "./admin-vendors.service";
 
 const adminVendorsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/admin/vendors", { preHandler: app.requireAdmin }, async (request, reply) => {
-    const { status } = vendorStatusFilterSchema.parse(request.query);
-    const [vendorsList, counts] = await Promise.all([listVendorsByStatus(status), countVendorsByStatus()]);
-    return reply.send({ vendors: vendorsList, counts });
+    const { status, vendorType } = vendorStatusFilterSchema.parse(request.query);
+    const [vendorsList, counts, typeCounts] = await Promise.all([
+      listVendorsByStatus(status, vendorType),
+      countVendorsByStatus(),
+      countVendorsByType(),
+    ]);
+    return reply.send({ vendors: vendorsList, counts, typeCounts });
   });
 
   app.patch("/admin/vendors/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
@@ -19,6 +23,11 @@ const adminVendorsRoutes: FastifyPluginAsync = async (app) => {
     } catch (err) {
       if (err instanceof VendorNotFoundError) {
         return reply.status(404).send({ error: { message: "Satıcı bulunamadı" } });
+      }
+      if (err instanceof VendorProfileIncompleteError) {
+        return reply
+          .status(400)
+          .send({ error: { message: "Satıcı vergi/TCKN no, telefon, adres ve e-posta doğrulamasını tamamlamadan aktif edilemez" } });
       }
       throw err;
     }

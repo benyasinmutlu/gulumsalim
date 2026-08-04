@@ -2,7 +2,7 @@ import { meiliClient, PRODUCTS_INDEX } from "../../lib/meilisearch";
 
 export interface SearchProductsParams {
   search?: string;
-  categoryId?: number;
+  categoryIds?: number[];
   vendorId?: number;
   size?: string;
   color?: string;
@@ -11,6 +11,7 @@ export interface SearchProductsParams {
   minPrice?: number;
   maxPrice?: number;
   saleOnly?: boolean;
+  secondHand?: boolean;
   sort?: "price-asc" | "price-desc" | "newest" | "popular";
   page: number;
   limit: number;
@@ -22,7 +23,14 @@ export interface SearchProductsParams {
 // (bkz. catalog.schemas.ts) ile aynı alan isimlerini kullanır.
 export function needsSearchIndex(params: Omit<SearchProductsParams, "page" | "limit">): boolean {
   return Boolean(
-    params.search || params.size || params.color || params.brand || params.vendorId || params.minRating || params.sort,
+    params.search ||
+      params.size ||
+      params.color ||
+      params.brand ||
+      params.vendorId ||
+      params.minRating ||
+      params.sort ||
+      params.secondHand,
   );
 }
 
@@ -33,9 +41,43 @@ const SORT_MAP: Record<NonNullable<SearchProductsParams["sort"]>, string[]> = {
   popular: ["avgRating:desc"],
 };
 
+// bkz. kullanıcı isteği: "filtrelerde renk ve marka gibi şeyleri
+// listelenenlere göre değişsin, listelende x markası varsa filtrede de x
+// markası olsun" - sabit bir renk/marka listesi göstermek yerine, Meilisearch
+// facetDistribution ile MEVCUT filtrelere (kategori/fiyat/beden/puan/mağaza/
+// arama) göre GERÇEKTEN sonuç döndürecek renk/marka değerleri hesaplanır.
+// Renk/marka'nın KENDİSİ bu filtreye dahil edilmez - aksi halde bir renk
+// seçildiğinde diğer renkler facet'ten düşerdi (tek seçim aynı anda birini
+// göstermesi gerekirken sıfırlanmış gibi görünürdü).
+export async function getProductFacets(params: Omit<SearchProductsParams, "page" | "limit" | "color" | "brand" | "sort">) {
+  const filters: string[] = ["visible = true"];
+  if (params.categoryIds?.length) filters.push(`categoryId IN [${params.categoryIds.join(",")}]`);
+  if (params.vendorId !== undefined) filters.push(`vendorId = ${params.vendorId}`);
+  if (params.size) filters.push(`sizes = ${JSON.stringify(params.size)}`);
+  if (params.minRating !== undefined) filters.push(`avgRating >= ${params.minRating}`);
+  if (params.minPrice !== undefined) filters.push(`basePrice >= ${params.minPrice}`);
+  if (params.maxPrice !== undefined) filters.push(`basePrice <= ${params.maxPrice}`);
+  if (params.saleOnly) filters.push("onSale = true");
+  if (params.secondHand) filters.push("isSecondHand = true");
+
+  const result = await meiliClient.index(PRODUCTS_INDEX).search(params.search ?? "", {
+    filter: filters.join(" AND "),
+    facets: ["brand", "colors"],
+    limit: 0,
+  });
+
+  const dist = result.facetDistribution ?? {};
+  const brands = Object.keys(dist.brand ?? {}).sort((a, b) => a.localeCompare(b, "tr"));
+  const colors = Object.keys(dist.colors ?? {}).sort((a, b) => a.localeCompare(b, "tr"));
+  return { brands, colors };
+}
+
 export async function searchProducts(params: SearchProductsParams) {
   const filters: string[] = ["visible = true"];
-  if (params.categoryId !== undefined) filters.push(`categoryId = ${params.categoryId}`);
+  // bkz. catalog.repository.ts getCategoryIdWithDescendants - üst kategori
+  // seçilince kendi id'si + alt kategorilerinin id'leri birlikte gelir,
+  // Meilisearch'ün "IN" söz dizimiyle tek filtrede eşleştirilir.
+  if (params.categoryIds?.length) filters.push(`categoryId IN [${params.categoryIds.join(",")}]`);
   if (params.vendorId !== undefined) filters.push(`vendorId = ${params.vendorId}`);
   if (params.size) filters.push(`sizes = ${JSON.stringify(params.size)}`);
   if (params.color) filters.push(`colors = ${JSON.stringify(params.color)}`);
@@ -44,6 +86,7 @@ export async function searchProducts(params: SearchProductsParams) {
   if (params.minPrice !== undefined) filters.push(`basePrice >= ${params.minPrice}`);
   if (params.maxPrice !== undefined) filters.push(`basePrice <= ${params.maxPrice}`);
   if (params.saleOnly) filters.push("onSale = true");
+  if (params.secondHand) filters.push("isSecondHand = true");
 
   const result = await meiliClient.index(PRODUCTS_INDEX).search(params.search ?? "", {
     filter: filters.join(" AND "),
@@ -69,6 +112,13 @@ export async function searchProducts(params: SearchProductsParams) {
     primaryImageUrl: doc.primaryImageUrl,
     avgRating: doc.avgRating || null,
     reviewCount: doc.reviewCount,
+    // bkz. olay: 2026-08-02 - bu ikisi (isSecondHand zaten var olan bir
+    // alandı) daha önce bu normalize edilmiş şekle hiç kopyalanmıyordu,
+    // yani filtrelenmiş/sıralanmış arama sonuçlarında "2. El" rozeti hiç
+    // çıkmıyordu - fark edilip aynı anda düzeltildi. vendorIsIndividual
+    // "Bireysel Satıcı" rozeti için (bkz. product-card.tsx).
+    isSecondHand: doc.isSecondHand,
+    vendorIsIndividual: doc.vendorIsIndividual,
   }));
 
   return {
@@ -90,4 +140,6 @@ interface MeiliProductDoc {
   primaryImageUrl: string | null;
   avgRating: number;
   reviewCount: number;
+  isSecondHand: boolean;
+  vendorIsIndividual: boolean;
 }

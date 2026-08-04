@@ -1,0 +1,4 @@
+# Her satıra bir işletme sitesi veya alan adı (http olmasa da olur)
+# '#' ile başlayan satırlar yorumdur
+example.com
+gnu.org

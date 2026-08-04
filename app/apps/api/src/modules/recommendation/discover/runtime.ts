@@ -32,6 +32,13 @@ export interface ExperimentAdapter {
   variant(experimentId: string, stableId: string): "control" | "treatment";
 }
 
+// Açık Rıza Metni onayının (customers.analyticsConsentAt) kaynağı - port/
+// adapter ayrımına uyar ki route handler DB'ye doğrudan bağlanmasın (bkz.
+// discover.v1.routes.test.ts, gerçek DB bağlantısı olmayan izole testler).
+export interface ConsentAdapter {
+  hasAnalyticsConsent(customerId: number | undefined): Promise<boolean>;
+}
+
 export interface DiscoverRuntime {
   catalog: ProductCatalogAdapter;
   collaborative: CollaborativePort;
@@ -39,6 +46,7 @@ export interface DiscoverRuntime {
   profile: CustomerProfileAdapter;
   seen: SeenHistoryAdapter;
   experiment: ExperimentAdapter;
+  consent: ConsentAdapter;
   generateRequestId(): string;
   nowMs?: number;
 }

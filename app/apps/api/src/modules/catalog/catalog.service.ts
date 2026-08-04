@@ -1,10 +1,11 @@
 import { decodeCursor, encodeCursor } from "../../lib/pagination";
 import { findActiveVendorBySlugPublic } from "../vendors/vendor.repository";
-import { needsSearchIndex, searchProducts } from "./catalog.search";
+import { getProductFacets as getProductFacetsFromIndex, needsSearchIndex, searchProducts } from "./catalog.search";
 import {
   fetchSocialProofByIds,
   findCategoryBySlug,
   findProductBySlug,
+  getCategoryIdWithDescendants,
   listActiveCategories,
   listActiveProducts,
 } from "./catalog.repository";
@@ -15,11 +16,13 @@ export async function getCategories() {
 }
 
 export async function getProducts(query: ListProductsQuery) {
-  let categoryId: number | undefined;
+  let categoryIds: number[] | undefined;
   if (query.category) {
     const category = await findCategoryBySlug(query.category);
     if (!category) return { items: [], nextCursor: null };
-    categoryId = category.id;
+    // Üst kategori (ör. "Giyim") ziyaret edilince alt kategorilerinin
+    // ürünleri de gelsin diye (bkz. getCategoryIdWithDescendants yorumu).
+    categoryIds = await getCategoryIdWithDescendants(category.id);
   }
 
   let vendorId: number | undefined;
@@ -31,7 +34,7 @@ export async function getProducts(query: ListProductsQuery) {
 
   const filterParams = {
     search: query.search,
-    categoryId,
+    categoryIds,
     vendorId,
     size: query.size,
     color: query.color,
@@ -40,6 +43,7 @@ export async function getProducts(query: ListProductsQuery) {
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
     saleOnly: query.saleOnly,
+    secondHand: query.secondHand,
     sort: query.sort,
   };
 
@@ -67,10 +71,12 @@ export async function getProducts(query: ListProductsQuery) {
   const cursor = query.cursor ? decodeCursor(query.cursor) : null;
 
   const rows = await listActiveProducts({
-    categoryId,
+    categoryIds,
     minPrice: query.minPrice,
     maxPrice: query.maxPrice,
     saleOnly: query.saleOnly,
+    minDiscountPercent: query.minDiscountPercent,
+    secondHand: query.secondHand,
     cursor,
     limit: query.limit,
   });
@@ -81,6 +87,39 @@ export async function getProducts(query: ListProductsQuery) {
   const nextCursor = hasMore && last ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id }) : null;
 
   return { items, nextCursor };
+}
+
+// bkz. kullanıcı isteği: "filtrelerde renk ve marka gibi şeyleri
+// listelenenlere göre değişsin" - /urunler sayfasındaki filtre kenar
+// çubuğu artık sabit bir renk/marka listesi değil, bu uçtan aldığı GERÇEK
+// (mevcut kategori/fiyat/beden/puan/mağaza/arama filtrelerine göre sonuç
+// döndürecek) değerleri gösterir.
+export async function getProductFacets(query: ListProductsQuery) {
+  let categoryIds: number[] | undefined;
+  if (query.category) {
+    const category = await findCategoryBySlug(query.category);
+    if (!category) return { brands: [], colors: [] };
+    categoryIds = await getCategoryIdWithDescendants(category.id);
+  }
+
+  let vendorId: number | undefined;
+  if (query.vendor) {
+    const vendor = await findActiveVendorBySlugPublic(query.vendor);
+    if (!vendor) return { brands: [], colors: [] };
+    vendorId = vendor.id;
+  }
+
+  return getProductFacetsFromIndex({
+    search: query.search,
+    categoryIds,
+    vendorId,
+    size: query.size,
+    minRating: query.minRating,
+    minPrice: query.minPrice,
+    maxPrice: query.maxPrice,
+    saleOnly: query.saleOnly,
+    secondHand: query.secondHand,
+  });
 }
 
 export async function getProductBySlug(slug: string) {

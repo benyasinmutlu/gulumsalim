@@ -1,16 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
-import { AuthAlert, AuthField, AuthSubmit } from "@/components/auth/auth-controls";
 
 export default function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -34,43 +33,69 @@ export default function ResetPasswordForm() {
   }
 
   if (!token) {
-    return <AuthAlert>Geçersiz bağlantı. Lütfen e-postanızdaki bağlantıyı tekrar açın.</AuthAlert>;
+    return (
+      <div className="ga-alert">
+        <i className="fas fa-exclamation-circle" /> Geçersiz bağlantı. Lütfen e-postanızdaki bağlantıyı tekrar açın.
+      </div>
+    );
   }
 
   if (done) {
     return (
-      <AuthAlert variant="success">
-        Şifreniz güncellendi. Artık yeni şifrenizle <Link href="/giris">giriş yapabilirsiniz</Link>.
-      </AuthAlert>
+      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+        <i className="fas fa-check-circle" /> Şifreniz güncellendi. Artık yeni şifrenizle{" "}
+        <a href="/giris" style={{ textDecoration: "underline" }}>
+          giriş yapabilirsiniz
+        </a>
+        .
+      </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
-      {error && <AuthAlert>{error}</AuthAlert>}
-      <AuthField
-        label="Yeni Şifre"
-        icon="fas fa-lock"
-        type="password"
-        required
-        minLength={8}
-        value={password}
-        onValueChange={setPassword}
-        autoComplete="new-password"
-      />
-      <AuthField
-        label="Yeni Şifre (Tekrar)"
-        icon="fas fa-lock"
-        type="password"
-        required
-        minLength={8}
-        value={confirmPassword}
-        onValueChange={setConfirmPassword}
-        autoComplete="new-password"
-      />
-      <AuthSubmit loading={loading} loadingLabel="Kaydediliyor...">
-        Şifreyi Güncelle
-      </AuthSubmit>
+    <form onSubmit={handleSubmit}>
+      {error && (
+        <div className="ga-alert">
+          <i className="fas fa-exclamation-circle" /> {error}
+        </div>
+      )}
+
+      <div className="ga-fg">
+        <label>Yeni Şifre</label>
+        <div className="ga-input-wrap">
+          <i className="fas fa-lock ga-ic" />
+          <input
+            className="ga-input"
+            type={showPassword ? "text" : "password"}
+            required
+            minLength={8}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button type="button" className="ga-pw-toggle" onClick={() => setShowPassword((v) => !v)} aria-label="Şifreyi göster/gizle">
+            <i className={showPassword ? "fas fa-eye-slash" : "fas fa-eye"} />
+          </button>
+        </div>
+      </div>
+
+      <div className="ga-fg">
+        <label>Yeni Şifre (Tekrar)</label>
+        <div className="ga-input-wrap">
+          <i className="fas fa-lock ga-ic" />
+          <input
+            className="ga-input"
+            type={showPassword ? "text" : "password"}
+            required
+            minLength={8}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <button className="ga-submit" type="submit" disabled={loading} style={{ marginTop: 8 }}>
+        {loading ? "Kaydediliyor..." : "Şifreyi Güncelle"}
+      </button>
     </form>
   );
 }

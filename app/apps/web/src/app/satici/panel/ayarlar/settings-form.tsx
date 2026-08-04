@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { VendorProfile } from "@/lib/types";
+import CloseAccountButton from "./close-account-button";
 
 export default function SettingsForm() {
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
@@ -11,6 +12,8 @@ export default function SettingsForm() {
   const [bankName, setBankName] = useState("");
   const [bankIban, setBankIban] = useState("");
   const [bankAccountHolder, setBankAccountHolder] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [legalAddress, setLegalAddress] = useState("");
   const [savingBank, setSavingBank] = useState(false);
   const [bankMessage, setBankMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -27,6 +30,8 @@ export default function SettingsForm() {
       setBankName(v.bankName ?? "");
       setBankIban(v.bankIban ?? "");
       setBankAccountHolder(v.bankAccountHolder ?? "");
+      setTaxId(v.taxId ?? "");
+      setLegalAddress(v.legalAddress ?? "");
     });
   }, []);
 
@@ -35,7 +40,7 @@ export default function SettingsForm() {
     setSavingBank(true);
     setBankMessage(null);
     try {
-      await mutateJson<VendorProfile>("/vendor/auth/me", "PATCH", { phone, bankName, bankIban, bankAccountHolder });
+      await mutateJson<VendorProfile>("/vendor/auth/me", "PATCH", { phone, bankName, bankIban, bankAccountHolder, taxId, legalAddress });
       setBankMessage({ type: "ok", text: "Hesap bilgileri kaydedildi" });
     } catch (err) {
       setBankMessage({ type: "err", text: err instanceof ClientApiError ? err.message : "Kaydedilemedi" });
@@ -88,6 +93,14 @@ export default function SettingsForm() {
             <div className="fg">
               <label>Telefon</label>
               <input className="fi" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx xxx xx xx" />
+            </div>
+            <div className="fg">
+              <label>Vergi Numarası / TC Kimlik No</label>
+              <input className="fi" value={taxId} onChange={(e) => setTaxId(e.target.value)} placeholder="Fatura ve sözleşmelerde kullanılır" />
+            </div>
+            <div className="fg">
+              <label>Adres</label>
+              <textarea className="fi" rows={2} value={legalAddress} onChange={(e) => setLegalAddress(e.target.value)} placeholder="Fatura ve sözleşmelerde kullanılan yasal adresiniz" />
             </div>
             <div className="fg">
               <label>Banka Adı</label>
@@ -145,6 +158,9 @@ export default function SettingsForm() {
             <Link href="/satici/panel/magaza" className="btn btn-sec btn-sm">
               <i className="fas fa-store" /> Mağaza Profili
             </Link>
+          </div>
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--br)" }}>
+            <CloseAccountButton />
           </div>
         </div>
       </div>

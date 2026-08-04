@@ -1,8 +1,9 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../../../db/client";
-import { products, vendors } from "../../../db/schema/index";
+import { customers, products, vendors } from "../../../db/schema/index";
 import { fetchDiscoverFeed } from "../../discovery/discovery.client";
 import type { CatalogProduct } from "./candidates";
+import type { ConsentAdapter } from "./runtime";
 import {
   deterministicExperiment,
   inMemoryProfileAdapter,
@@ -33,8 +34,8 @@ interface Row {
   brand: string | null;
   price: string;
   viewCount: number;
-  status: "draft" | "active" | "inactive" | "rejected";
-  vendorStatus: "pending" | "active" | "suspended" | "banned";
+  status: "draft" | "pending" | "active" | "inactive" | "rejected";
+  vendorStatus: "pending" | "active" | "suspended" | "banned" | "closed";
   createdAt: Date;
 }
 
@@ -131,6 +132,20 @@ function generateRequestId(): string {
   return `disc-${Date.now().toString(36)}-${counter.toString(36)}`;
 }
 
+function productionConsentAdapter(): ConsentAdapter {
+  return {
+    async hasAnalyticsConsent(customerId) {
+      if (customerId == null) return false;
+      const [row] = await db
+        .select({ analyticsConsentAt: customers.analyticsConsentAt })
+        .from(customers)
+        .where(eq(customers.id, customerId))
+        .limit(1);
+      return row?.analyticsConsentAt != null;
+    },
+  };
+}
+
 // Production runtime: gerçek katalog + Go legacy + (henüz) in-memory profil/seen.
 // Profil persist ve collaborative aggregate bağlanınca ilgili adapter'lar değişir.
 export function buildProductionDiscoverRuntime(): DiscoverRuntime {
@@ -141,6 +156,7 @@ export function buildProductionDiscoverRuntime(): DiscoverRuntime {
     profile: inMemoryProfileAdapter(),
     seen: inMemorySeenAdapter(),
     experiment: deterministicExperiment(),
+    consent: productionConsentAdapter(),
     generateRequestId,
   };
 }

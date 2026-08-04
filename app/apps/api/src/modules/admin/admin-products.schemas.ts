@@ -5,7 +5,7 @@ export const productIdParamsSchema = z.object({
 });
 
 export const productListQuerySchema = z.object({
-  status: z.enum(["draft", "active", "inactive", "rejected"]).optional(),
+  status: z.enum(["draft", "pending", "active", "inactive", "rejected"]).optional(),
   search: z.string().optional(),
   vendorId: z.coerce.number().int().positive().optional(),
   categoryId: z.coerce.number().int().positive().optional(),
@@ -13,5 +13,5 @@ export const productListQuerySchema = z.object({
 });
 
 export const updateProductStatusSchema = z.object({
-  status: z.enum(["draft", "active", "inactive", "rejected"]),
+  status: z.enum(["draft", "pending", "active", "inactive", "rejected"]),
 });

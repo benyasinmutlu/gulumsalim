@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, Playfair_Display } from "next/font/google";
 import { publicFetchJson } from "@/lib/api";
 import type { SiteSettings } from "@/lib/types";
+import PresenceHeartbeat from "@/components/presence-heartbeat";
 import "./globals.css";
 
 async function getSiteSettings(): Promise<SiteSettings> {
@@ -28,7 +29,7 @@ const playfair = Playfair_Display({
   style: ["italic", "normal"],
 });
 
-const SITE_URL = "https://ylina.life";
+const SITE_URL = "https://gulumsalim.com";
 
 // gulumsalim.com'daki admin/settings.php > SEO sekmesinin karşılığı -
 // admin panelden meta başlık/açıklama girilmişse onlar kullanılır. Open
@@ -123,6 +124,7 @@ export default async function RootLayout({
             />
           </noscript>
         )}
+        <PresenceHeartbeat />
         {children}
       </body>
     </html>

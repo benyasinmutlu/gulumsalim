@@ -5,6 +5,7 @@ import type {
   ProductListItem,
   PublicVendorCollection,
   PublicVendorReview,
+  VendorPromoBanner,
   VendorSocialPost,
   VendorStorefront,
   VendorStoreSlide,
@@ -17,6 +18,9 @@ import VendorReviewForm from "@/components/vendor-review-form";
 import StarRating from "@/components/star-rating";
 import VendorStoreSlider from "@/components/vendor-store-slider";
 import VendorStoreTabs from "@/components/vendor-store-tabs";
+import PromoBannerImage from "@/components/promo-banner-image";
+import PromoBannerLink from "@/components/promo-banner-link";
+import PromoBannerImpression from "@/components/promo-banner-impression";
 
 async function getStorefront(slug: string, cursor?: string): Promise<VendorStorefront | null> {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
@@ -88,6 +92,14 @@ async function getRecentlyViewedProducts(slug: string): Promise<ProductListItem[
   }
 }
 
+async function getVendorPromoBanners(slug: string): Promise<VendorPromoBanner[]> {
+  try {
+    return await apiFetchJson<VendorPromoBanner[]>(`/vendors/${slug}/promo-banners`);
+  } catch {
+    return [];
+  }
+}
+
 export async function getVendorMetaTitle(slug: string): Promise<string | null> {
   const storefront = await getStorefront(slug);
   return storefront ? storefront.vendor.storeName : null;
@@ -131,12 +143,13 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
   const aboutSection = vendor.storeLayout?.find((s) => s.type === "about");
   const showAboutTab = aboutSection?.visible ?? true;
 
-  const [slides, socialPosts, saleProducts, favoriteProducts, recentlyViewedProducts] = await Promise.all([
+  const [slides, socialPosts, saleProducts, favoriteProducts, recentlyViewedProducts, promoBanners] = await Promise.all([
     showSlider ? getStoreSlides(slug) : Promise.resolve([]),
     showSocial ? getSocialPosts(slug) : Promise.resolve([]),
     showDiscount ? getSaleProducts(slug) : Promise.resolve([]),
     showFavorites ? getFavoriteProducts(slug) : Promise.resolve([]),
     showRecentlyViewed ? getRecentlyViewedProducts(slug) : Promise.resolve([]),
+    getVendorPromoBanners(slug),
   ]);
 
   const socialLinks: { key: string; label: string; icon: string; href: string }[] = [
@@ -149,6 +162,10 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
   ].filter((v): v is { key: string; label: string; icon: string; href: string } => Boolean(v));
 
   const showAbout = Boolean(vendor.about || vendor.city || socialLinks.length > 0);
+
+  // bkz. kullanıcı isteği (mockup): mağaza istatistik satırında "Mağaza
+  // Açık X Yıl" - vendors.createdAt zaten var, yeni bir alan gerekmedi.
+  const vendorYears = Math.floor((Date.now() - new Date(vendor.createdAt).getTime()) / (365 * 24 * 60 * 60 * 1000));
 
   const reviewsBlock = (
     <div className="vstore-section">
@@ -271,8 +288,6 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
           </div>
         </div>
       )}
-
-      {reviewsBlock}
     </>
   );
 
@@ -299,6 +314,48 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
   const collectionsContent =
     collections.length === 0 ? <p className="empty-state">Bu mağazanın henüz koleksiyonu yok.</p> : collectionsGrid;
 
+  // bkz. kullanıcı isteği (mockup): mağaza sayfasında ayrı bir "Kampanyalar"
+  // sekmesi - satıcının onaylanmış/aktif banner'ları (bkz.
+  // vendor-promo-banners.repository.ts listActiveVendorPromoBanners).
+  const campaignsContent = (
+    <div className="promo-grid">
+      {promoBanners.map((b) => (
+        <PromoBannerImpression key={b.id} bannerId={b.id}>
+          <PromoBannerLink bannerId={b.id} href={b.resolvedLink ?? "/urunler"} className="promo-card">
+            <PromoBannerImage className="promo-card-img" images={[b.image, ...(b.extraImages ?? [])]} rotateSeconds={b.rotateSeconds} alt={b.title} />
+            <div className="promo-card-overlay" />
+            <div className="promo-content" style={{ color: b.textColor ?? undefined }}>
+              <h3 style={{ color: b.textColor ?? undefined }}>{b.title}</h3>
+              {b.subtitle && <p>{b.subtitle}</p>}
+              {b.buttonText && <span className="btn btn-sm btn-primary promo-cta">{b.buttonText}</span>}
+            </div>
+          </PromoBannerLink>
+        </PromoBannerImpression>
+      ))}
+    </div>
+  );
+
+  // bkz. kullanıcı isteği (mockup): "Mağaza Hakkında" altında Hızlı Kargo/
+  // Güvenli Ödeme/Kolay İade rozetleri - ürün detay sayfasındaki
+  // (.detail-features) aynı sitesel güven rozetleri. Mağazaya özgü bir veri
+  // değil (tüm satıcılar aynı platform garantilerine tabi), bu yüzden
+  // showAbout (bio/şehir/sosyal medya doluluğu) şartından BAĞIMSIZ olarak
+  // her zaman gösterilir - bio yazmamış bir satıcının sayfası bu rozetler
+  // olmadan kalmasın diye.
+  const trustBadges = (
+    <div className="detail-features" style={{ marginTop: 16 }}>
+      <div className="feature-item">
+        <i className="fas fa-shipping-fast" /> Hızlı Kargo
+      </div>
+      <div className="feature-item">
+        <i className="fas fa-shield-alt" /> Güvenli Ödeme
+      </div>
+      <div className="feature-item">
+        <i className="fas fa-undo" /> Kolay İade
+      </div>
+    </div>
+  );
+
   const aboutContent = showAbout ? (
     <div className="vstore-about-grid">
       <div className="vstore-about-card">
@@ -310,6 +367,7 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
         ) : (
           <p className="empty-state" style={{ padding: 0 }}>Bu mağaza henüz bir tanıtım yazısı eklemedi.</p>
         )}
+        {trustBadges}
       </div>
       <div className="vstore-about-card">
         <h3>İletişim &amp; Sosyal Medya</h3>
@@ -341,67 +399,85 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
       </div>
     </div>
   ) : (
-    <p className="empty-state">Bu mağaza henüz bir tanıtım yazısı eklemedi.</p>
+    <div>
+      <p className="empty-state">Bu mağaza henüz bir tanıtım yazısı eklemedi.</p>
+      {trustBadges}
+    </div>
   );
 
   return (
     <main className="main-content">
-      <div className="vendor-hero">
-        {vendor.coverImage && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={vendor.coverImage} alt="" className="vendor-hero-bg" />
-        )}
-        <div className="vendor-hero-content">
-          <div className="vendor-avatar">
-            {vendor.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={vendor.logo} alt={vendor.storeName} />
-            ) : (
-              vendor.storeName.charAt(0)
-            )}
-          </div>
-          <div className="vendor-hero-info">
-            {vendor.isVerified && (
-              <span className="vendor-badge">
-                <i className="fas fa-badge-check" /> Doğrulanmış Mağaza
-              </span>
-            )}
-            <h1>{vendor.storeName}</h1>
-            <div className="vendor-stats">
-              <div className="vendor-stat-item">
-                <div className="val">{vendor.productCount}</div>
-                <div className="lbl">Ürün</div>
-              </div>
-              <div className="vendor-stat-item">
-                <FollowerCountStat initialCount={vendor.followerCount} />
-                <div className="lbl">Takipçi</div>
-              </div>
-              {vendor.reviewSummary.total > 0 && (
-                <div className="vendor-stat-item">
-                  <div className="val">★ {vendor.reviewSummary.average?.toFixed(1)}</div>
-                  <div className="lbl">{vendor.reviewSummary.total} Değerlendirme</div>
-                </div>
+      {/* bkz. kullanıcı isteği (mockup): "mağaza sayfasını mockup'taki gibi
+          sade yap" - önceki gradyanlı/glassmorphism "hero" banner yerine,
+          mockup'ın MODA&CO örneğindeki gibi düz beyaz zeminli, sade bir
+          başlık satırı (avatar + isim + satır içi istatistikler + Takip Et). */}
+      <div className="vendor-header">
+        <div className="container">
+          <div className="vendor-header-row">
+            <div className="vendor-avatar-flat">
+              {vendor.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={vendor.logo} alt={vendor.storeName} />
+              ) : (
+                vendor.storeName.charAt(0)
               )}
             </div>
-          </div>
-          <div className="vendor-hero-actions">
-            <FollowButton vendorSlug={vendor.storeSlug} initialFollowing={vendor.isFollowing} />
-            <Link href={`/hesabim/mesajlarim?vendorId=${vendor.id}`} className="btn btn-secondary">
-              <i className="fas fa-envelope" /> Mesaj Gönder
-            </Link>
-            <VendorComplaintButton vendorSlug={vendor.storeSlug} loggedIn={!!customer} />
+            <div className="vendor-header-info">
+              <div className="vendor-header-name-row">
+                <h1>{vendor.storeName}</h1>
+                {vendor.isVerified && (
+                  <i className="fas fa-circle-check vendor-verified-check" title="Doğrulanmış Mağaza" />
+                )}
+                {vendor.vendorType === "individual" && (
+                  <span className="badge-individual-tag" title="Bireysel Satıcı">
+                    Bireysel Satıcı
+                  </span>
+                )}
+              </div>
+              <div className="vendor-header-stats">
+                {/* bkz. kullanıcı isteği (tasarım brief'i, 2026-08-02):
+                    "4'lü performans göstergesi (Toplam Ürün, Değerlendirme,
+                    Hızlı Gönderim, Mağaza Yaşı)" - "Toplam Ürün" eksikti,
+                    eklendi. Diğer üç mevcut istatistik (Takipçi, Başarılı
+                    Satıcı) gerçek/anlamlı veri olduğu için kaldırılmadı. */}
+                <span>
+                  <i className="fas fa-box" /> {vendor.productCount} Ürün
+                </span>
+                {vendor.reviewSummary.total > 0 && (
+                  <span>
+                    <i className="fas fa-star" /> {vendor.reviewSummary.average?.toFixed(1)} Ortalama Puan
+                  </span>
+                )}
+                <span>
+                  <FollowerCountStat initialCount={vendor.followerCount} /> Takipçi
+                </span>
+                <span>{vendorYears > 0 ? `${vendorYears} Yıl` : "Yeni"} Mağaza</span>
+                {vendor.successRate !== null && <span>%{vendor.successRate} Başarılı Satıcı</span>}
+              </div>
+            </div>
+            <div className="vendor-header-actions">
+              <FollowButton vendorSlug={vendor.storeSlug} initialFollowing={vendor.isFollowing} />
+              <Link href={`/hesabim/mesajlarim?vendorId=${vendor.id}`} className="btn btn-secondary btn-sm" title="Mesaj Gönder">
+                <i className="fas fa-envelope" />
+              </Link>
+              <VendorComplaintButton vendorSlug={vendor.storeSlug} loggedIn={!!customer} />
+            </div>
           </div>
         </div>
       </div>
 
       <VendorStoreTabs
         productCount={products.items.length}
+        reviewCount={vendor.reviewSummary.total}
         vitrin={vitrinContent}
         products={productsContent}
         collections={collectionsContent}
+        campaigns={campaignsContent}
+        reviews={reviewsBlock}
         about={aboutContent}
         showProducts={showProductsTab}
         showAbout={showAboutTab}
+        showCampaigns={promoBanners.length > 0}
       />
     </main>
   );

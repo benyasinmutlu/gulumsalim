@@ -19,29 +19,48 @@ const FILTERS: { value: string; label: string }[] = [
   { value: "banned", label: "Yasaklı" },
 ];
 
-const DEFAULT_COMMISSION_RATE = 10;
+// bkz. kullanıcı isteği (2026-08-02): "bireysel satıcıları admin panelinden
+// ayrı yönetelim" - iki ayrı sayfa/route yerine (durum filtresiyle aynı
+// desende) bir tür filtresi eklendi, admin istediğinde sadece bireysel
+// satıcıları görebiliyor.
+const TYPE_FILTERS: { value: string; label: string }[] = [
+  { value: "", label: "Tümü" },
+  { value: "business", label: "Kurumsal" },
+  { value: "individual", label: "Bireysel" },
+];
+
+const TYPE_LABEL: Record<AdminVendorRow["vendorType"], string> = {
+  business: "Kurumsal",
+  individual: "Bireysel",
+};
+
+const DEFAULT_COMMISSION_RATE = 5;
 
 export default function VendorsTable() {
   const [data, setData] = useState<AdminVendorsResponse | null>(null);
   const [filter, setFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [editingCommissionId, setEditingCommissionId] = useState<number | null>(null);
   const [commissionDraft, setCommissionDraft] = useState("");
 
-  async function load(status: string) {
-    const qs = status ? `?status=${status}` : "";
-    setData(await fetchJson<AdminVendorsResponse>(`/admin/vendors${qs}`));
+  async function load(status: string, vendorType: string) {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (vendorType) params.set("vendorType", vendorType);
+    const qs = params.toString();
+    setData(await fetchJson<AdminVendorsResponse>(`/admin/vendors${qs ? `?${qs}` : ""}`));
   }
 
   useEffect(() => {
-    load(filter);
-  }, [filter]);
+    load(filter, typeFilter);
+  }, [filter, typeFilter]);
 
   async function applyAction(id: number, action: string) {
     setBusyId(id);
     try {
       await mutateJson(`/admin/vendors/${id}`, "PATCH", { action });
-      await load(filter);
+      await load(filter, typeFilter);
     } finally {
       setBusyId(null);
     }
@@ -52,7 +71,7 @@ export default function VendorsTable() {
     setBusyId(id);
     try {
       await mutateJson(`/admin/vendors/${id}`, "DELETE");
-      await load(filter);
+      await load(filter, typeFilter);
     } finally {
       setBusyId(null);
     }
@@ -77,7 +96,7 @@ export default function VendorsTable() {
     try {
       await mutateJson(`/admin/vendors/${id}/commission`, "PATCH", { commissionRate: rate });
       setEditingCommissionId(null);
-      await load(filter);
+      await load(filter, typeFilter);
     } finally {
       setBusyId(null);
     }
@@ -100,6 +119,9 @@ export default function VendorsTable() {
         <a href="#" onClick={(e) => { e.preventDefault(); setFilter("suspended"); }} style={{ textDecoration: "none", color: "inherit" }}>
           <div className="admin-order-stat"><strong style={{ color: "var(--admin-error)" }}>{data?.counts.suspended ?? 0}</strong> <span style={{ color: "var(--admin-text-muted)" }}>Askıda</span></div>
         </a>
+        <a href="#" onClick={(e) => { e.preventDefault(); setTypeFilter("individual"); }} style={{ textDecoration: "none", color: "inherit" }}>
+          <div className="admin-order-stat"><strong>{data?.typeCounts.individual ?? 0}</strong> <span style={{ color: "var(--admin-text-muted)" }}>Bireysel Satıcı</span></div>
+        </a>
       </div>
 
       <div className="admin-card">
@@ -117,6 +139,20 @@ export default function VendorsTable() {
           ))}
         </div>
       </div>
+      {/* bkz. kullanıcı isteği: "bireysel satıcıları admin panelinden ayrı
+          yönetelim" - durum filtresinden bağımsız, ikinci bir tür filtresi. */}
+      <div className="admin-card-body" style={{ paddingTop: 0, paddingBottom: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: "0.8rem", color: "var(--admin-text-muted)" }}>Tür:</span>
+        {TYPE_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            className={typeFilter === f.value ? "admin-btn admin-btn-primary admin-btn-sm" : "admin-btn admin-btn-secondary admin-btn-sm"}
+            onClick={() => setTypeFilter(f.value)}
+          >
+            {f.label} {f.value && data?.typeCounts[f.value] ? `(${data.typeCounts[f.value]})` : ""}
+          </button>
+        ))}
+      </div>
 
       {data === null ? (
         <div className="admin-card-body">Yükleniyor...</div>
@@ -131,6 +167,7 @@ export default function VendorsTable() {
             <thead>
               <tr>
                 <th>Mağaza</th>
+                <th>Tür</th>
                 <th>Yetkili / İletişim</th>
                 <th>Ürün</th>
                 <th>Komisyon</th>
@@ -149,6 +186,11 @@ export default function VendorsTable() {
                     </div>
                     <div style={{ fontSize: "0.75rem", color: "var(--admin-text-muted)" }}>/{v.storeSlug}</div>
                   </td>
+                  <td>
+                    <span className={`admin-badge ${v.vendorType === "individual" ? "admin-badge-draft" : "admin-badge-active"}`}>
+                      {TYPE_LABEL[v.vendorType]}
+                    </span>
+                  </td>
                   <td style={{ fontSize: "0.85rem" }}>
                     <div>{v.fullName}</div>
                     <div style={{ color: "var(--admin-text-muted)" }}>
@@ -156,7 +198,14 @@ export default function VendorsTable() {
                       {v.phone && ` · ${v.phone}`}
                     </div>
                   </td>
-                  <td>{v.productCount}</td>
+                  <td>
+                    {v.productCount}
+                    {Number(v.pendingProductCount) > 0 && (
+                      <div style={{ fontSize: "0.72rem", color: "var(--admin-warning)", fontWeight: 600 }}>
+                        {v.pendingProductCount} onay bekliyor
+                      </div>
+                    )}
+                  </td>
                   <td>
                     {editingCommissionId === v.id ? (
                       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>

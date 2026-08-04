@@ -72,51 +72,72 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
 
   return (
     <div className="form-card">
-      <p style={{ marginBottom: 12 }}>
-        <Link href="/hesabim/siparisler">&larr; Siparişlerim</Link>
-      </p>
-      <h3>Sipariş #{order.orderNumber}</h3>
-      <p style={{ margin: "8px 0" }}>
+      <Link href="/hesabim/siparisler" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 16 }}>
+        <i className="fas fa-arrow-left" /> Siparişlerim
+      </Link>
+
+      <div className="order-card-header" style={{ borderRadius: "var(--radius-md)", border: "1px solid var(--color-border-light)", marginBottom: 16 }}>
+        <div className="order-card-header-left">
+          <span className="order-number">Sipariş #{order.orderNumber}</span>
+          <span className="order-date">{new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}</span>
+        </div>
         <span className={`status-badge ${badge.className}`}>{badge.label}</span>
-      </p>
-      <p style={{ marginBottom: 8 }}>
-        <strong>Teslimat Adresi:</strong> {addressLine || "—"}
-      </p>
+      </div>
+
+      <div className="order-info-block">
+        <i className="fas fa-location-dot" />
+        <div>
+          <strong>Teslimat Adresi</strong>
+          <div>{addressLine || "—"}</div>
+        </div>
+      </div>
+
       {order.orderNote && (
-        <p style={{ marginBottom: 8 }}>
-          <strong>Sipariş Notu:</strong> {order.orderNote}
-        </p>
+        <div className="order-info-block">
+          <i className="fas fa-note-sticky" />
+          <div>
+            <strong>Sipariş Notu</strong>
+            <div>{order.orderNote}</div>
+          </div>
+        </div>
       )}
-      <div style={{ overflowX: "auto", marginTop: 16 }}>
-        <table className="orders-table">
-          <thead>
-            <tr>
-              <th>Ürün</th>
-              <th>Satıcı</th>
-              <th>Adet</th>
-              <th>Tutar</th>
-              <th>Durum</th>
-              <th>Kargo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.items.map((item) => (
-              <tr key={item.id}>
-                <td>{item.productNameSnapshot}</td>
-                <td style={{ fontSize: "0.85rem" }}>{item.vendorStoreName}</td>
-                <td>{item.quantity}</td>
-                <td>{Number(item.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</td>
-                <td>{ITEM_STATUS_LABEL[item.vendorStatus] ?? item.vendorStatus}</td>
-                <td style={{ fontSize: "0.8rem" }}>{item.trackingNumber ? `${item.trackingCarrier} — ${item.trackingNumber}` : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <h4 style={{ fontSize: 15, margin: "20px 0 4px" }}>Ürünler</h4>
+      <div>
+        {order.items.map((item) => (
+          <div className="order-item-row" key={item.id}>
+            {item.productImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="order-item-image" src={item.productImage} alt="" />
+            ) : (
+              <div className="order-item-image-placeholder">
+                <i className="fas fa-shirt" />
+              </div>
+            )}
+            <div className="order-item-info">
+              <Link href={`/urun/${item.productSlug}`} className="order-item-name" style={{ color: "inherit", textDecoration: "none" }}>
+                {item.productNameSnapshot}
+              </Link>
+              <div className="order-item-meta">
+                {item.vendorStoreName} · {item.quantity} adet ·{" "}
+                <span className={`status-badge status-${item.vendorStatus}`} style={{ padding: "2px 10px", fontSize: 11 }}>
+                  {ITEM_STATUS_LABEL[item.vendorStatus] ?? item.vendorStatus}
+                </span>
+              </div>
+              {item.trackingNumber && (
+                <div className="order-item-tracking">
+                  <i className="fas fa-truck" /> {item.trackingCarrier} — {item.trackingNumber}
+                </div>
+              )}
+            </div>
+            <div className="order-item-price">{Number(item.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</div>
+          </div>
+        ))}
       </div>
 
       {order.items.some((item) => item.vendorStatus === "delivered") && (
-        <div style={{ marginTop: 20 }}>
-          <h4 style={{ fontSize: "1rem", marginBottom: 10 }}>İade İşlemleri</h4>
+        <div style={{ marginTop: 24 }}>
+          <h4 style={{ fontSize: 15, marginBottom: 10 }}>İade İşlemleri</h4>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {order.items
               .filter((item) => item.vendorStatus === "delivered")
@@ -130,10 +151,19 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: "0.9rem" }}>
-        <p>Ara Toplam: {Number(order.subtotal).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</p>
-        <p>Kargo: {Number(order.shippingFee).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</p>
-        <p style={{ fontWeight: 600 }}>Toplam: {Number(order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</p>
+      <div style={{ marginTop: 20, maxWidth: 320, marginLeft: "auto" }}>
+        <div className="order-summary-row">
+          <span>Ara Toplam</span>
+          <span>{Number(order.subtotal).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+        </div>
+        <div className="order-summary-row">
+          <span>Kargo</span>
+          <span>{Number(order.shippingFee).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+        </div>
+        <div className="order-summary-row total">
+          <span>Toplam</span>
+          <span>{Number(order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+        </div>
       </div>
     </div>
   );

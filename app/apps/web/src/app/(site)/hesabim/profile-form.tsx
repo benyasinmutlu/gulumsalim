@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { ClientApiError, mutateJson, uploadFile } from "@/lib/client-api";
 import type { CustomerProfile } from "@/lib/types";
 
 export default function ProfileForm({ customer }: { customer: CustomerProfile }) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState(customer.avatarUrl);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
   const [fullName, setFullName] = useState(customer.fullName);
   const [phone, setPhone] = useState(customer.phone ?? "");
   const [age, setAge] = useState(customer.age?.toString() ?? "");
@@ -17,6 +21,23 @@ export default function ProfileForm({ customer }: { customer: CustomerProfile })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const updated = await uploadFile<CustomerProfile>("/auth/me/avatar", file);
+      setAvatarUrl(updated.avatarUrl);
+      router.refresh();
+    } catch (err) {
+      setAvatarError(err instanceof ClientApiError ? err.message : "Fotoğraf yüklenemedi");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,6 +68,25 @@ export default function ProfileForm({ customer }: { customer: CustomerProfile })
   return (
     <form className="form-card" onSubmit={handleSubmit}>
       <h3>Profil Bilgilerim</h3>
+
+      <div className="avatar-upload">
+        <div className="avatar-upload-preview">
+          {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{fullName.trim().charAt(0).toUpperCase() || "?"}</span>}
+        </div>
+        <div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={avatarUploading}
+          >
+            {avatarUploading ? "Yükleniyor..." : "Fotoğrafı Değiştir"}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarChange} />
+          {avatarError && <p className="error-text" style={{ marginTop: 6 }}>{avatarError}</p>}
+        </div>
+      </div>
+
       <div className="form-group">
         <label>Ad Soyad</label>
         <input className="form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} required />

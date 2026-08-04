@@ -7,33 +7,17 @@ import {
   markRefundReceivedByVendor,
   RefundNotFoundError,
 } from "./vendor-orders.repository";
-import {
-  orderItemIdParamsSchema,
-  orderListQuerySchema,
-  refundIdParamsSchema,
-  updateOrderItemStatusSchema,
-  vendorRefundDecisionSchema,
-} from "./vendor-orders.schemas";
-import { computeOrderStats } from "./vendor-orders.stats";
+import { orderItemIdParamsSchema, refundIdParamsSchema, updateOrderItemStatusSchema, vendorRefundDecisionSchema } from "./vendor-orders.schemas";
 import {
   InvalidStatusTransitionError,
   MissingTrackingInfoError,
   OrderItemNotFoundError,
   transitionOrderItemStatus,
 } from "./vendor-orders.service";
-import { sendShippingNotification } from "./shipping-notification.service";
 
 const vendorOrdersRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vendor/orders", { preHandler: app.requireVendor }, async (request, reply) => {
-    const filter = orderListQuerySchema.parse(request.query);
-    return reply.send(await listVendorOrderItems(request.session.vendorId!, filter));
-  });
-
-  // bkz. kullanıcı isteği: "analiz" - özet her zaman filtrelenmemiş tüm paid
-  // kalemler üzerinden. Statik yol, dinamik rotalardan önce eşleşir.
-  app.get("/vendor/orders/stats", { preHandler: app.requireVendor }, async (request, reply) => {
-    const rows = await listVendorOrderItems(request.session.vendorId!);
-    return reply.send(computeOrderStats(rows));
+    return reply.send(await listVendorOrderItems(request.session.vendorId!));
   });
 
   app.get("/vendor/refunds", { preHandler: app.requireVendor }, async (request, reply) => {
@@ -93,13 +77,6 @@ const vendorOrdersRoutes: FastifyPluginAsync = async (app) => {
     try {
       const tracking = trackingCarrier && trackingNumber ? { carrier: trackingCarrier, number: trackingNumber } : undefined;
       const updated = await transitionOrderItemStatus(request.session.vendorId!, id, status, tracking);
-      // Kargoya verildiyse müşteriye takip e-postası gönder - best-effort:
-      // yanıtı bloklamaz, gönderim hatası kargolamayı/HTTP'yi bozmaz.
-      if (status === "shipped" && updated) {
-        void sendShippingNotification(updated.id).catch((err) =>
-          request.log.warn({ err, orderItemId: updated.id }, "kargo takip e-postası gönderilemedi"),
-        );
-      }
       return reply.send(updated);
     } catch (err) {
       if (err instanceof OrderItemNotFoundError) {

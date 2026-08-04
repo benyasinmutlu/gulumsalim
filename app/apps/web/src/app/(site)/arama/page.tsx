@@ -13,7 +13,7 @@ async function getMatches(q: string): Promise<SearchMatches> {
 }
 
 interface Props {
-  searchParams: Promise<{ search?: string }>;
+  searchParams: Promise<{ search?: string; category?: string }>;
 }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
@@ -27,7 +27,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 // basınca gelinen sayfa: ürün sonuçlarının üstünde eşleşen mağaza ve
 // kategori özeti, altında da /urunler ile aynı filtre/sayfalama deneyimi.
 export default async function SearchPage({ searchParams }: Props) {
-  const { search } = await searchParams;
+  const { search, category } = await searchParams;
   const q = (search ?? "").trim();
 
   if (!q) {
@@ -46,7 +46,7 @@ export default async function SearchPage({ searchParams }: Props) {
 
   return (
     <ProductListing
-      params={{ search: q }}
+      params={{ search: q, category: category || undefined }}
       basePath="/arama"
       heading={`"${q}" için arama sonuçları`}
       beforeToolbar={

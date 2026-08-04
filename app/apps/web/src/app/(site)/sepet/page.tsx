@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchJson, mutateJson } from "@/lib/client-api";
+import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { CartResponse } from "@/lib/types";
 
 function lineId(productId: number, variantId?: number) {
@@ -11,20 +11,58 @@ function lineId(productId: number, variantId?: number) {
 
 const DEFAULT_FREE_SHIPPING_THRESHOLD = 500;
 
+function formatMoney(n: number) {
+  return n.toLocaleString("tr-TR", { minimumFractionDigits: 2 });
+}
+
 // gulumsalim.com'daki .cart-section / .cart-grid / .cart-item yapısının
 // birebir karşılığı.
 export default function CartPage() {
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [busyLine, setBusyLine] = useState<string | null>(null);
+  // bkz. kullanıcı isteği (mockup): her ürünün yanında checkbox + "Tümünü
+  // Seç" - sadece işaretli kalemler ödemeye gider, diğerleri sepette kalır
+  // (bkz. checkout.routes.ts filterCartBySelection). Yeni yüklenen/eklenen
+  // kalemler varsayılan olarak seçili sayılır.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [couponInput, setCouponInput] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [stockNotices, setStockNotices] = useState<CartResponse["stockNotices"]>([]);
 
   async function load() {
     const data = await fetchJson<CartResponse>("/cart");
     setCart(data);
+    setStockNotices(data.stockNotices);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const currentIds = new Set(data.items.map((i) => lineId(i.productId, i.variantId)));
+      for (const id of currentIds) if (!prev.has(id)) next.add(id);
+      // Sepetten çıkan kalemleri seçimden de temizle.
+      for (const id of next) if (!currentIds.has(id)) next.delete(id);
+      return next;
+    });
   }
 
   useEffect(() => {
     load();
   }, []);
+
+  function toggleLine(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (!cart) return;
+    const allIds = cart.items.map((i) => lineId(i.productId, i.variantId));
+    const allSelected = allIds.every((id) => selected.has(id));
+    setSelected(allSelected ? new Set() : new Set(allIds));
+  }
 
   // bkz. kullanıcı isteği: "kargo ücreti ne ise o yazsın" - artık
   // checkout ile birebir aynı hesaplamayı yapan GET /cart'ın döndürdüğü
@@ -38,6 +76,7 @@ export default function CartPage() {
     try {
       const updated = await mutateJson<CartResponse>("/cart/items", "PATCH", { productId, variantId, quantity });
       setCart(updated);
+      setStockNotices(updated.stockNotices);
     } finally {
       setBusyLine(null);
     }
@@ -48,15 +87,51 @@ export default function CartPage() {
     try {
       const updated = await mutateJson<CartResponse>("/cart/items", "DELETE", { productId, variantId });
       setCart(updated);
+      setStockNotices(updated.stockNotices);
     } finally {
       setBusyLine(null);
     }
   }
 
+  async function applyCoupon(e: React.FormEvent) {
+    e.preventDefault();
+    if (!couponInput.trim() || couponLoading) return;
+    setCouponLoading(true);
+    setCouponError(null);
+    try {
+      const updated = await mutateJson<CartResponse>("/cart/coupon", "POST", { code: couponInput.trim() });
+      setCart(updated);
+      setCouponInput("");
+    } catch (err) {
+      setCouponError(err instanceof ClientApiError ? err.message : "Kupon uygulanamadı");
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  async function removeCoupon() {
+    setCouponLoading(true);
+    try {
+      const updated = await mutateJson<CartResponse>("/cart/coupon", "DELETE");
+      setCart(updated);
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
   const subtotal = cart ? Number(cart.subtotal) : 0;
+  const discountAmount = cart ? Number(cart.discountAmount) : 0;
   const remaining = Math.max(0, freeShippingThreshold - subtotal);
   const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-  const total = subtotal + shippingFee;
+  const total = subtotal - discountAmount + shippingFee;
+
+  const selectedItems = cart?.items.filter((i) => selected.has(lineId(i.productId, i.variantId))) ?? [];
+  const selectedSubtotal = selectedItems.reduce((sum, i) => sum + Number(i.lineTotal), 0);
+  const allSelected = cart !== null && cart.items.length > 0 && cart.items.every((i) => selected.has(lineId(i.productId, i.variantId)));
+  const checkoutHref =
+    selectedItems.length > 0 && cart && selectedItems.length < cart.items.length
+      ? `/odeme?selected=${selectedItems.map((i) => lineId(i.productId, i.variantId)).join(",")}`
+      : "/odeme";
 
   return (
     <main className="main-content">
@@ -72,6 +147,22 @@ export default function CartPage() {
         <div className="container">
           <h1 className="page-title">Alışveriş Sepetim</h1>
 
+          {/* bkz. kullanıcı isteği: "stok durumu sürekli kontrol ettirilmeli
+              ... 14 tane şort etek var 30 tane alabiliyorum bu olmamalı" -
+              backend sepeti gerçek stoğa göre otomatik düzelttiğinde
+              (bkz. cart.service.ts hydrateCart) müşteri neden azaldığını
+              sessizce merak etmesin diye açık bir uyarı gösterilir. */}
+          {stockNotices.length > 0 && (
+            <div className="cart-stock-notice" style={{ marginBottom: 16 }}>
+              {stockNotices.map((n, i) => (
+                <p key={i}>
+                  <i className="fas fa-exclamation-triangle" /> <strong>{n.productName}{n.variantLabel ? ` (${n.variantLabel})` : ""}</strong>{" "}
+                  için stok yetersiz, sepetinizdeki miktar {n.availableStock} adete güncellendi.
+                </p>
+              ))}
+            </div>
+          )}
+
           {cart === null ? (
             <p>Sepet yükleniyor...</p>
           ) : cart.items.length === 0 ? (
@@ -86,11 +177,22 @@ export default function CartPage() {
           ) : (
             <div className="cart-grid">
               <div className="cart-items">
+                <label className="cart-select-all">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+                  <span>Tümünü Seç ({cart.items.length} ürün)</span>
+                </label>
                 {cart.items.map((item) => {
                   const id = lineId(item.productId, item.variantId);
                   const isBusy = busyLine === id;
                   return (
                     <div key={id} className="cart-item">
+                      <input
+                        type="checkbox"
+                        className="cart-item-check"
+                        checked={selected.has(id)}
+                        onChange={() => toggleLine(id)}
+                        aria-label="Bu ürünü seç"
+                      />
                       <div className="cart-item-image">
                         {item.image && (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -115,12 +217,15 @@ export default function CartPage() {
                           <button
                             type="button"
                             className="qty-btn"
-                            disabled={isBusy}
+                            disabled={isBusy || (item.availableStock !== undefined && item.quantity >= item.availableStock)}
                             onClick={() => updateQuantity(item.productId, item.variantId, item.quantity + 1)}
                           >
                             +
                           </button>
                         </div>
+                        {item.availableStock !== undefined && item.availableStock <= 5 && (
+                          <div className="cart-item-stock-hint">Stokta {item.availableStock} adet kaldı</div>
+                        )}
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div className="cart-item-price">
@@ -152,22 +257,81 @@ export default function CartPage() {
                     : "Ücretsiz kargo kazandınız!"}
                 </div>
 
+                {cart.couponCode ? (
+                  <div className="coupon-applied">
+                    <span>
+                      <i className="fas fa-tag" /> Kupon: <strong>{cart.couponCode}</strong>
+                    </span>
+                    <button type="button" onClick={removeCoupon} disabled={couponLoading}>
+                      Kaldır
+                    </button>
+                  </div>
+                ) : (
+                  <form className="coupon-form" onSubmit={applyCoupon}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Kupon kodu"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-secondary btn-sm" disabled={couponLoading}>
+                      Uygula
+                    </button>
+                  </form>
+                )}
+                {couponError && <p className="coupon-error">{couponError}</p>}
+
                 <div className="summary-row">
                   <span>Ara Toplam</span>
                   <span>{subtotal.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="summary-row coupon-discount-row">
+                    <span>İndirim</span>
+                    <span>-{discountAmount.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+                  </div>
+                )}
                 <div className="summary-row">
-                  <span>Kargo</span>
+                  <span>Kargo{cart && cart.shippingBreakdown.length > 1 ? ` (${cart.shippingBreakdown.length} satıcı)` : ""}</span>
                   <span>{shippingFee === 0 ? "Ücretsiz" : `${shippingFee.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}</span>
                 </div>
+                {cart && cart.shippingBreakdown.length > 1 &&
+                  cart.shippingBreakdown.map((b, i) => (
+                    <div
+                      key={i}
+                      className="summary-row"
+                      style={{ fontSize: "0.8rem", color: "var(--color-text-light)", paddingLeft: 14, marginTop: -4 }}
+                    >
+                      <span>
+                        <i className="fas fa-store" style={{ fontSize: 10, opacity: 0.6 }} /> {b.storeName}
+                      </span>
+                      <span>{b.free ? "Ücretsiz" : `${Number(b.fee).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}</span>
+                    </div>
+                  ))}
                 <div className="summary-row total">
                   <span>Toplam</span>
                   <span>{total.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
                 </div>
 
-                <Link href="/odeme" className="btn btn-primary btn-block">
-                  Ödemeye Geç
-                </Link>
+                {selectedItems.length > 0 && selectedItems.length < cart.items.length && (
+                  <div className="summary-row cart-selected-note">
+                    <span>Seçilenler ({selectedItems.length} ürün)</span>
+                    <span>{formatMoney(selectedSubtotal)} ₺</span>
+                  </div>
+                )}
+
+                {selectedItems.length === 0 ? (
+                  <button type="button" className="btn btn-primary btn-block" disabled>
+                    Ödeme İçin Ürün Seçin
+                  </button>
+                ) : (
+                  <Link href={checkoutHref} className="btn btn-primary btn-block">
+                    {selectedItems.length < cart.items.length
+                      ? `Seçilenleri Öde (${selectedItems.length})`
+                      : "Ödemeye Geç"}
+                  </Link>
+                )}
               </div>
             </div>
           )}

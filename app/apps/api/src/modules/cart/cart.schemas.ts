@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+// "productId:variantId" formatında virgülle ayrılmış kalem anahtarları
+// (bkz. cart.service.ts lineKey) - GET /cart?selected= için.
+export const cartQuerySchema = z.object({
+  selected: z.string().optional(),
+});
+
 export const addToCartSchema = z.object({
   productId: z.number().int().positive(),
   variantId: z.number().int().positive().optional(),
@@ -15,4 +21,8 @@ export const updateCartItemSchema = z.object({
 export const removeCartItemSchema = z.object({
   productId: z.number().int().positive(),
   variantId: z.number().int().positive().optional(),
+});
+
+export const applyCouponSchema = z.object({
+  code: z.string().trim().min(3).max(30),
 });

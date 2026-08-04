@@ -1,9 +1,18 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, ilike, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { productFavorites, productImages, products, productVariants } from "../../db/schema/index";
+import {
+  collectionProducts,
+  homepageCollectionProducts,
+  orderItems,
+  productFavorites,
+  productImages,
+  productQuestions,
+  productReviews,
+  products,
+  productVariants,
+} from "../../db/schema/index";
 import { outer } from "../../lib/sql-helpers";
-import type { ProductListQuery } from "./vendor-products.schemas";
 
 // bkz. kullanıcı isteği: "satıcı panelinde ... ürünlerine kaç kişi baktı
 // ... favorideyse de göster" - viewCount zaten products tablosunda vardı
@@ -11,47 +20,7 @@ import type { ProductListQuery } from "./vendor-products.schemas";
 // ama satıcı panelinde hiç gösterilmiyordu; favoriteCount burada eklendi.
 // Sepet sayısı (cartCount) Redis'te tutulduğu için burada değil, route
 // katmanında ayrıca eklenir (bkz. vendor-products.routes.ts).
-// Alt sorgu ifadeleri hem SELECT'te hem WHERE/ORDER BY'da kullanılabilsin
-// diye tek yerde tanımlanır (favori sayısı + toplam stok, ürüne göre
-// ilişkili korelasyonlu alt sorgular).
-const favoriteCountExpr = sql`(SELECT COUNT(*) FROM ${productFavorites} WHERE ${productFavorites.productId} = ${outer(products.id)})`;
-const totalStockExpr = sql`(SELECT COALESCE(SUM(${productVariants.stock}), 0) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)})`;
-
-export type VendorProductListRow = Awaited<ReturnType<typeof listVendorProducts>>[number];
-
-// bkz. kullanıcı isteği: "filtreleme ve analiz" - liste artık sunucu
-// tarafında arama (ad), durum, stok seviyesi ile filtrelenip çok sayıda
-// ölçüte göre sıralanabilir. Filtre verilmezse eski davranış (en yeni).
-export async function listVendorProducts(vendorId: number, filter: ProductListQuery = { sort: "newest" }) {
-  const conditions: SQL[] = [eq(products.vendorId, vendorId)];
-  if (filter.search) conditions.push(ilike(products.name, `%${filter.search}%`));
-  if (filter.status) conditions.push(eq(products.status, filter.status));
-  if (filter.stock === "out") conditions.push(sql`${totalStockExpr} = 0`);
-  else if (filter.stock === "low") conditions.push(sql`${totalStockExpr} > 0 AND ${totalStockExpr} <= 5`);
-  else if (filter.stock === "in") conditions.push(sql`${totalStockExpr} > 5`);
-
-  const orderBy: SQL = ((): SQL => {
-    switch (filter.sort) {
-      case "oldest":
-        return asc(products.createdAt);
-      case "price_asc":
-        return asc(products.basePrice);
-      case "price_desc":
-        return desc(products.basePrice);
-      case "stock_asc":
-        return sql`${totalStockExpr} ASC`;
-      case "stock_desc":
-        return sql`${totalStockExpr} DESC`;
-      case "most_viewed":
-        return desc(products.viewCount);
-      case "most_favorited":
-        return sql`${favoriteCountExpr} DESC`;
-      case "newest":
-      default:
-        return desc(products.createdAt);
-    }
-  })();
-
+export async function listVendorProducts(vendorId: number) {
   return db
     .select({
       id: products.id,
@@ -63,22 +32,33 @@ export async function listVendorProducts(vendorId: number, filter: ProductListQu
       brand: products.brand,
       basePrice: products.basePrice,
       compareAtPrice: products.compareAtPrice,
+      videoUrl: products.videoUrl,
       freeShipping: products.freeShipping,
       isSecondHand: products.isSecondHand,
       status: products.status,
       viewCount: products.viewCount,
       createdAt: products.createdAt,
       updatedAt: products.updatedAt,
-      favoriteCount: sql<number>`${favoriteCountExpr}`.mapWith(Number),
+      favoriteCount: sql<number>`(SELECT COUNT(*) FROM ${productFavorites} WHERE ${productFavorites.productId} = ${outer(products.id)})`.mapWith(
+        Number,
+      ),
       // bkz. kullanıcı isteği: "ürünleri düzenleyebilmeli stok durumunu
       // görsel başlık vs vs" - liste ekranında hiç stok/görsel yoktu, her
       // ürünü tek tek açmadan durumu görmek imkansızdı.
-      totalStock: sql<number>`${totalStockExpr}`.mapWith(Number),
+      // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
+      // zorunlu olarak girilmeli bireysel satıcıların ise ... stoğu 1
+      // olacak" - varyantı olan üründe stok hâlâ variant toplamı, varyantsız
+      // üründe artık products.stock (eskiden bu durumda stok kavramı hiç
+      // yoktu, bkz. eski yorum aşağıda).
+      totalStock: sql<number>`(CASE WHEN EXISTS (SELECT 1 FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)}) THEN (SELECT COALESCE(SUM(${productVariants.stock}), 0) FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)}) ELSE ${outer(products.stock)} END)`.mapWith(
+        Number,
+      ),
+      hasVariants: sql<boolean>`EXISTS (SELECT 1 FROM ${productVariants} WHERE ${productVariants.productId} = ${outer(products.id)})`,
       primaryImageUrl: sql<string | null>`(SELECT ${productImages.url} FROM ${productImages} WHERE ${productImages.productId} = ${outer(products.id)} ORDER BY ${productImages.isPrimary} DESC, ${productImages.sortOrder} ASC LIMIT 1)`,
     })
     .from(products)
-    .where(and(...conditions))
-    .orderBy(orderBy);
+    .where(eq(products.vendorId, vendorId))
+    .orderBy(desc(products.createdAt));
 }
 
 export async function findVendorProduct(vendorId: number, productId: number) {
@@ -95,6 +75,16 @@ export async function findProductBySlugAnyVendor(slug: string) {
   return row ?? null;
 }
 
+// Bir satıcının (dolu) ürün parmak izlerini set olarak döndürür - toplu/tekli
+// girişte kopya tespiti için O(1) kontrol sağlar (satır başına DB sorgusu yok).
+export async function findVendorProductFingerprints(vendorId: number): Promise<Set<string>> {
+  const rows = await db
+    .select({ fingerprint: products.fingerprint })
+    .from(products)
+    .where(and(eq(products.vendorId, vendorId), isNotNull(products.fingerprint)));
+  return new Set(rows.map((r) => r.fingerprint).filter((f): f is string => !!f));
+}
+
 interface ProductWriteInput {
   categoryId?: number;
   name?: string;
@@ -103,9 +93,11 @@ interface ProductWriteInput {
   brand?: string;
   basePrice?: string;
   compareAtPrice?: string;
-  status?: "draft" | "active" | "inactive";
+  status?: "draft" | "pending" | "active" | "inactive";
   freeShipping?: boolean;
   isSecondHand?: boolean;
+  videoUrl?: string | null;
+  stock?: number;
 }
 
 interface ProductCreateInput {
@@ -117,6 +109,14 @@ interface ProductCreateInput {
   basePrice: string;
   compareAtPrice?: string;
   isSecondHand?: boolean;
+  // bkz. olay: 2026-08-02 - bireysel satıcı ürünleri "pending" olarak
+  // oluşturulur (bkz. vendor-products.routes.ts POST), kurumsal satıcılarda
+  // belirtilmezse şema varsayılanı "draft" kalır.
+  status?: "draft" | "pending";
+  stock?: number;
+  // Ürün-zeka yakın-kopya parmak izi (product-intelligence/dedupe). Kopya
+  // tespiti için insert'te saklanır; opsiyonel (eski akışlar boş bırakabilir).
+  fingerprint?: string;
 }
 
 export async function insertVendorProduct(vendorId: number, data: ProductCreateInput) {
@@ -137,12 +137,48 @@ export async function updateVendorProduct(vendorId: number, productId: number, d
   return row ?? null;
 }
 
-export async function deleteVendorProduct(vendorId: number, productId: number) {
-  const result = await db
-    .delete(products)
+// bkz. olay: 2026-08-02 "ürün sil diyorum silmiyor" - önceki halde bu sadece
+// düz bir DELETE'ti; product_images/product_variants/product_reviews/
+// product_questions/product_favorites/collection_products/
+// homepage_collection_products tablolarının HİÇBİRİ cascade değildi (bkz.
+// db/schema), yani en az bir görseli olan (yani HER GERÇEK ürün) bir foreign
+// key ihlaliyle sessizce başarısız oluyordu - route'ta try/catch olmadığı
+// için 500 dönüyordu, satıcı panelindeki removeProduct() de hatayı
+// yakalamadığı için kullanıcıya hiçbir şey göstermiyordu (bkz.
+// products-table.tsx). Şimdi: ürünün gerçek sipariş geçmişi (order_items)
+// varsa silme engellenir (finansal/sipariş kaydı bozulmasın, satıcı bunun
+// yerine pasife alabilir) - yoksa bağımlı satırlar bir transaction içinde
+// temizlenip ürün silinir, silinen görsellerin URL'leri döner ki route S3/
+// yerel depodaki dosyaları da best-effort temizleyebilsin (bkz. tekil görsel
+// silme route'undaki aynı desen).
+export async function deleteVendorProduct(
+  vendorId: number,
+  productId: number,
+): Promise<{ deleted: boolean; blockedByOrders?: boolean; imageUrls?: string[] }> {
+  const [owned] = await db
+    .select({ id: products.id })
+    .from(products)
     .where(and(eq(products.id, productId), eq(products.vendorId, vendorId)))
-    .returning({ id: products.id });
-  return result.length > 0;
+    .limit(1);
+  if (!owned) return { deleted: false };
+
+  const [hasOrder] = await db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.productId, productId)).limit(1);
+  if (hasOrder) return { deleted: false, blockedByOrders: true };
+
+  const images = await db.select({ url: productImages.url }).from(productImages).where(eq(productImages.productId, productId));
+
+  await db.transaction(async (tx) => {
+    await tx.delete(productImages).where(eq(productImages.productId, productId));
+    await tx.delete(productVariants).where(eq(productVariants.productId, productId));
+    await tx.delete(productReviews).where(eq(productReviews.productId, productId));
+    await tx.delete(productQuestions).where(eq(productQuestions.productId, productId));
+    await tx.delete(productFavorites).where(eq(productFavorites.productId, productId));
+    await tx.delete(collectionProducts).where(eq(collectionProducts.productId, productId));
+    await tx.delete(homepageCollectionProducts).where(eq(homepageCollectionProducts.productId, productId));
+    await tx.delete(products).where(and(eq(products.id, productId), eq(products.vendorId, vendorId)));
+  });
+
+  return { deleted: true, imageUrls: images.map((i) => i.url) };
 }
 
 export async function listProductImages(productId: number) {

@@ -12,11 +12,23 @@ async function getCustomer(): Promise<CustomerProfile | null> {
   }
 }
 
+// bkz. olay: 2026-08-01 "vergi nosu ve diğer bilgileri girdiğinde tekrar
+// tekrar ürünleri satışa çıkar demesin" - menüdeki linkin zaten satıcı olan
+// müşteride farklı görünmesi için (bkz. account-nav.tsx hasStore).
+async function getHasStore(): Promise<boolean> {
+  try {
+    await apiFetchJson("/my/vendor");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // gulumsalim.com'daki account.php'nin (.account-section/.account-grid)
 // karşılığı - sipariş geçmişi, favoriler ve adres defteri artık gerçek
 // API uçlarına sahip, bu yüzden hepsi ayrı sekme/sayfa olarak eklendi.
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
-  const customer = await getCustomer();
+  const [customer, hasStore] = await Promise.all([getCustomer(), getHasStore()]);
   if (!customer) redirect("/giris?redirect=/hesabim");
 
   return (
@@ -36,7 +48,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
           <div className="account-grid">
             <aside className="account-sidebar">
-              <AccountNav />
+              <AccountNav hasStore={hasStore} />
             </aside>
 
             <div>{children}</div>

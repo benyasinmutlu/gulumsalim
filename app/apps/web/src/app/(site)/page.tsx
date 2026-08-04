@@ -4,20 +4,28 @@ import type {
   AdminSlider,
   Category,
   CustomerProfile,
+  FeaturedCoupon,
   ProductListItem,
+  PublicVendorListItem,
   ResolvedHomepageCollection,
   ResolvedHomepageSection,
   SiteSettings,
 } from "@/lib/types";
+import PopularVendorsSection from "@/components/popular-vendors-section";
 import HeroSlider from "@/components/hero-slider";
-import TrustStrip from "@/components/trust-strip";
-import Advantages from "@/components/advantages";
+import CategorySidebar from "@/components/category-sidebar";
+import HomeHeroCards from "@/components/home-hero-cards";
+import CountdownTimer from "@/components/countdown-timer";
 import ProductCard from "@/components/product-card";
 import HscrollArrows from "@/components/hscroll-arrows";
 import ScrollReveal from "@/components/scroll-reveal";
 import PromoBannerImage from "@/components/promo-banner-image";
 import PromoBannerLink from "@/components/promo-banner-link";
 import PromoBannerImpression from "@/components/promo-banner-impression";
+import QuickLinksRow from "@/components/quick-links-row";
+import DiscountTiers from "@/components/discount-tiers";
+import NewsletterBanner from "@/components/newsletter-banner";
+import SectionAnalyticsTracker from "@/components/section-analytics-tracker";
 
 async function getCategories(): Promise<Category[]> {
   try {
@@ -117,6 +125,7 @@ function ProductRow({
   bgColor,
   ctaHref,
   products,
+  endsAt,
 }: {
   title: string;
   subtitle?: string | null;
@@ -127,34 +136,43 @@ function ProductRow({
   bgColor?: string;
   ctaHref?: string | null;
   products: ProductListItem[];
+  endsAt?: string;
 }) {
   if (products.length === 0) return null;
+  // bkz. kullanıcı isteği (2026-08-02): "sana özel, bu haftanın en iyileri,
+  // en yeni ürünler, çok satanlar, son baktıklarınız bunlarda aynı olsun" -
+  // kategori vitrini için kurulan .deal-shelf görsel dili (başlık dikdörtgenin
+  // üstünde sol tarafta, altında ürün şeridi, sonunda "Tümünü Gör" kartı)
+  // artık TÜM algoritmik anasayfa satırlarında ortak (bkz. category-deal-
+  // shelf.tsx aynı deseni /kampanyalar sayfasında kullanır).
   return (
     <section className={`products-section${bgStyle === "alt" ? " section-bg-alt" : ""}`} style={{ background: bgColor ?? undefined }}>
       <div className="container">
-        <div className="section-scroll-shell">
-          <div className="section-header section-header-flex">
+        <div className="deal-shelf">
+          <div className="deal-shelf-header">
             <div>
-              <h2 className={`section-title ${TITLE_FONT_CLASS[titleFont ?? ""] ?? ""}`} style={{ color: titleColor ?? undefined }}>
+              <span className={`deal-shelf-title ${TITLE_FONT_CLASS[titleFont ?? ""] ?? ""}`} style={{ color: titleColor ?? undefined }}>
                 {title}
-              </h2>
+              </span>
               {subtitle && (
                 <p className="section-subtitle" style={{ color: subtitleColor ?? undefined }}>
                   {subtitle}
                 </p>
               )}
             </div>
-            {ctaHref && (
-              <Link href={ctaHref} className="section-cta">
-                Tümünü Gör
-              </Link>
-            )}
+            {endsAt && <CountdownTimer endsAt={endsAt} />}
           </div>
           <HscrollArrows>
-            <div className="product-grid hscroll">
+            <div className="product-grid hscroll deal-shelf-products">
               {products.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
+              {ctaHref && (
+                <Link href={ctaHref} className="deal-shelf-more-card">
+                  <span>Tümünü Gör</span>
+                  <i className="fas fa-arrow-right" />
+                </Link>
+              )}
             </div>
           </HscrollArrows>
         </div>
@@ -227,18 +245,57 @@ async function getSiteSettings(): Promise<SiteSettings> {
   }
 }
 
+async function getFeaturedCoupon(): Promise<FeaturedCoupon | null> {
+  try {
+    return await publicFetchJson<FeaturedCoupon | null>("/coupons/featured");
+  } catch {
+    return null;
+  }
+}
+
+async function getVendors(): Promise<PublicVendorListItem[]> {
+  try {
+    return await apiFetchJson<PublicVendorListItem[]>("/vendors");
+  } catch {
+    return [];
+  }
+}
+
 export default async function Home() {
-  const [categories, sliders, discover, sections, saleProducts, homepageCollections, settings, customer] = await Promise.all([
-    getCategories(),
-    getSliders(),
-    getDiscoverFeed(),
-    getHomepageSections(),
-    getSaleProducts(),
-    getHomepageCollections(),
-    getSiteSettings(),
-    getCurrentCustomer(),
-  ]);
+  const [categories, sliders, discover, sections, saleProducts, homepageCollections, settings, customer, featuredCoupon, vendors] =
+    await Promise.all([
+      getCategories(),
+      getSliders(),
+      getDiscoverFeed(),
+      getHomepageSections(),
+      getSaleProducts(),
+      getHomepageCollections(),
+      getSiteSettings(),
+      getCurrentCustomer(),
+      getFeaturedCoupon(),
+      getVendors(),
+    ]);
   const heroIntervalMs = settings.hero_interval_ms ? Number(settings.hero_interval_ms) : undefined;
+
+  // bkz. kullanıcı isteği (2026-08-02): "siteye giren müşteriyi tanıyıp ona
+  // göre düzenlenmeli sayfanın şekli" - kişiselleştirme artık sadece "Sana
+  // Özel" ürün satırıyla sınırlı değil, "Kategorilere Göre Alışveriş"
+  // satırının SIRASI da kullanıcının kişiselleştirilmiş akışında (discover)
+  // en çok karşılaştığı kategorilere göre yeniden düzenleniyor (yeni bir
+  // backend uç noktası gerekmedi - zaten sayfa yüklenirken çekilen discover
+  // verisinden türetildi). cold-start/giriş yapmamış kullanıcıda değişiklik
+  // yok, orijinal admin sıralaması korunur - yanlış/rastgele bir "kişisel"
+  // sıralama göstermek yanıltıcı olurdu.
+  const categoryAffinity = new Map<string, number>();
+  if (discover.strategy === "personalized") {
+    for (const p of discover.items) {
+      categoryAffinity.set(p.categorySlug, (categoryAffinity.get(p.categorySlug) ?? 0) + 1);
+    }
+  }
+  const personalizedCategories =
+    categoryAffinity.size > 0
+      ? [...categories].sort((a, b) => (categoryAffinity.get(b.slug) ?? 0) - (categoryAffinity.get(a.slug) ?? 0))
+      : categories;
 
   type LayoutItem =
     | { kind: "section"; sortOrder: number; section: ResolvedHomepageSection }
@@ -251,40 +308,97 @@ export default async function Home() {
 
   return (
     <main className="main-content">
-      {sliders.length > 0 ? (
-        <HeroSlider slides={sliders} intervalMs={heroIntervalMs} />
-      ) : (
-        <section className="hero-section">
-          <div className="hero-content">
-            <h1 className="hero-title">Hoş Geldiniz</h1>
-            <p className="hero-subtitle">
-              Kadın giyimde şıklığı tamamlayan seçkiler — özenle seçilmiş satıcılardan, tek bir adreste.
-            </p>
-            <div className="hero-actions">
-              <Link href="/urunler" className="btn btn-primary btn-lg">
-                Keşfetmeye Başla
-              </Link>
-            </div>
-          </div>
-        </section>
+      <div className="container home-hero-row">
+        <CategorySidebar categories={categories} />
+        <div className="home-hero-main">
+          {sliders.length > 0 ? (
+            <HeroSlider slides={sliders} intervalMs={heroIntervalMs} />
+          ) : (
+            <section className="hero-section">
+              <div className="hero-content">
+                <h1 className="hero-title">Hoş Geldiniz</h1>
+                <p className="hero-subtitle">
+                  Kadın giyimde şıklığı tamamlayan seçkiler — özenle seçilmiş satıcılardan, tek bir adreste.
+                </p>
+                <div className="hero-actions">
+                  <Link href="/urunler" className="btn btn-primary btn-lg">
+                    Keşfetmeye Başla
+                  </Link>
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+        <HomeHeroCards featuredCoupon={featuredCoupon} />
+      </div>
+
+      <div className="container">
+        <QuickLinksRow />
+      </div>
+
+      {/* bkz. kullanıcı isteği (mockup): "Fırsatları Kaçırma! 🔥" hero'nun
+          hemen altındaki İLK ürün satırı olmalı - önceki halde burada
+          kişiselleştirilmiş "keşfet" satırı vardı (mockup'ta hiç yok),
+          bu satır (ve kategoriler bölümü) daha aşağıya taşındı.
+          bkz. kullanıcı isteği (2026-08-02): "timer'ı kaldır" - önceki
+          gece-yarısına-kadar geri sayım kaldırıldı. */}
+      <ScrollReveal anim="fade-up">
+        <ProductRow title="Fırsatları Kaçırma! 🔥" ctaHref="/urunler?saleOnly=true" products={saleProducts} />
+      </ScrollReveal>
+
+      {saleProducts.length > 0 && (
+        <ScrollReveal anim="fade-up">
+          <DiscountTiers />
+        </ScrollReveal>
       )}
 
-      <TrustStrip />
+      {/* bkz. kullanıcı isteği (2026-08-02): kampanyalar/kategoriler için
+          burada ayrı, sabit kodlanmış bir önizleme bloğu vardı - hem admin
+          panelinden yönetilemiyordu hem de aşağıdaki layoutItems döngüsüyle
+          AYNI promo_banners bölümlerini TEKRAR gösteriyordu ("aynıların 2
+          defa gösteriyor" bildirimi). Kaldırıldı - artık kampanya
+          banner'ları VE kategori vitrinleri (yeni algoType="category",
+          bkz. admin panel "Anasayfa Bölümleri") SADECE aşağıdaki tek,
+          admin-sıralı layoutItems akışından geliyor, tekrar yok. */}
+
+      {/* Yuvarlak "Popüler Kategoriler" satırı kaldırıldı - aşağıdaki fotoğraflı
+          "Kategorilere Göre Alışveriş" ile duplicate + görsel olarak daha zayıftı. */}
+      <ScrollReveal anim="fade-up">
+        <PopularVendorsSection vendors={vendors} />
+      </ScrollReveal>
+
+      <ScrollReveal anim="fade-up">
+        <NewsletterBanner />
+      </ScrollReveal>
 
       {/* bkz. kullanıcı isteği: "müşteri giriş yapmışsa yasin, sana özel
           ürünler olsun" - kişiselleştirilmiş akış varsa başlıkta müşterinin
-          adı geçer. */}
-      <ProductRow
-        title={
-          customer && discover.strategy === "personalized"
-            ? `${customer.fullName.split(" ")[0]}, Sana Özel`
-            : discover.strategy === "personalized"
-              ? "Senin İçin"
-              : "Beğenebileceğin Ürünler"
-        }
-        ctaHref="/sana-ozel"
-        products={discover.items}
-      />
+          adı geçer. Mockup'ta bu satır yok, bu yüzden yukarıdaki mockup
+          sıralı bölümlerin ALTINA taşındı (özellik korunuyor, sadece
+          öncelik/konum değişti). */}
+      {/* bkz. kullanıcı isteği (2026-08-02): "backendinde akıllı algoritmalar
+          olup kullanıcıyı tanımalı ... ona göre göstermeli" - bu satır zaten
+          kişiselleştirilmiş algoritmayla (discover pipeline) besleniyordu,
+          sadece görsel olarak diğer satırlardan ayrışmıyordu. Artık tonlu
+          arkaplan (bgStyle="alt") + "algoritma bunu neden seçti" açıklayan
+          bir alt başlıkla kişiselleştirmenin gerçek/görünür olduğu
+          vurgulanıyor - fallback (cold-start) durumunda algoritma iddiası
+          yapan bir alt başlık YOK, yanıltıcı olmasın diye. */}
+      <ScrollReveal anim="fade-up">
+        <ProductRow
+          title={
+            customer && discover.strategy === "personalized"
+              ? `${customer.fullName.split(" ")[0]}, Sana Özel`
+              : discover.strategy === "personalized"
+                ? "Senin İçin"
+                : "Beğenebileceğin Ürünler"
+          }
+          subtitle={discover.strategy === "personalized" ? "Gezinme ve beğenilerine göre senin için seçildi" : undefined}
+          bgStyle="alt"
+          ctaHref="/sana-ozel"
+          products={discover.items}
+        />
+      </ScrollReveal>
 
       {categories.length > 0 && (
         <section className="categories-section">
@@ -292,18 +406,25 @@ export default async function Home() {
             <div className="section-header">
               <span className="section-tag">Koleksiyonlarımız</span>
               <h2 className="section-title">Kategorilere Göre Alışveriş</h2>
-              <p className="section-subtitle">Stilinize en uygun parçaları keşfetmek için kategorileri inceleyin</p>
+              <p className="section-subtitle">
+                {categoryAffinity.size > 0
+                  ? "Sana göre sıralandı - en çok ilgilendiğin kategoriler önde"
+                  : "Stilinize en uygun parçaları keşfetmek için kategorileri inceleyin"}
+              </p>
             </div>
             <HscrollArrows>
               <div className="category-grid hcat-grid">
-                {categories.map((c) => (
-                  <Link key={c.id} href={`/${c.slug}`} className="hcat-card">
+                {personalizedCategories.map((c, i) => (
+                  <Link key={c.id} href={`/${c.slug}`} className={`hcat-card hcat-tint-${i % 4}`}>
                     <div className="hcat-img-wrap">
                       {c.image && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={c.image} alt={c.name} className="hcat-img" />
                       )}
                       <div className="hcat-overlay" />
+                      <span className="hcat-icon-badge">
+                        <i className={c.icon || "fas fa-tag"} />
+                      </span>
                       <span className="hcat-name">{c.name}</span>
                     </div>
                   </Link>
@@ -313,8 +434,6 @@ export default async function Home() {
           </div>
         </section>
       )}
-
-      <ProductRow title="İndirimli Ürünler" ctaHref="/urunler?saleOnly=true" products={saleProducts} />
 
       {/* bkz. kullanıcı isteği: "buradaki düzen tam olarak anasayfanın
           sıralama olarak birebir aynısı olmalı" - anasayfa bölümleri
@@ -326,21 +445,30 @@ export default async function Home() {
       {layoutItems.map((item) =>
         item.kind === "section" ? (
           <ScrollReveal key={`s-${item.section.id}`} anim={item.section.animStyle}>
-            {item.section.algoType === "promo_banners" ? (
-              <BannerRow section={item.section} />
-            ) : (
-              <ProductRow
-                title={item.section.title}
-                subtitle={item.section.subtitle}
-                titleColor={item.section.titleColor}
-                titleFont={item.section.titleFont}
-                subtitleColor={item.section.subtitleColor}
-                bgStyle={item.section.bgStyle}
-                bgColor={item.section.bgColor}
-                ctaHref={item.section.seoSlug ? `/${item.section.seoSlug}` : sectionHref(item.section.algoType)}
-                products={item.section.products}
-              />
-            )}
+            <SectionAnalyticsTracker sectionId={item.section.id}>
+              {item.section.algoType === "promo_banners" ? (
+                <BannerRow section={item.section} />
+              ) : (
+                <ProductRow
+                  title={item.section.title}
+                  subtitle={item.section.subtitle}
+                  titleColor={item.section.titleColor}
+                  titleFont={item.section.titleFont}
+                  subtitleColor={item.section.subtitleColor}
+                  bgStyle={item.section.bgStyle}
+                  bgColor={item.section.bgColor}
+                  ctaHref={
+                    item.section.seoSlug
+                      ? `/${item.section.seoSlug}`
+                      : item.section.algoType === "category" && item.section.categorySlug
+                        ? `/${item.section.categorySlug}${item.section.saleOnly ? "?saleOnly=true" : ""}`
+                        : sectionHref(item.section.algoType)
+                  }
+                  products={item.section.products}
+                  endsAt={item.section.algoType === "flash_sale" ? item.section.endsAt : undefined}
+                />
+              )}
+            </SectionAnalyticsTracker>
           </ScrollReveal>
         ) : (
           <ProductRow
@@ -359,50 +487,7 @@ export default async function Home() {
           Tüm Koleksiyonu Gör
         </Link>
       </div>
-
-      <JoinCtaSection loggedIn={!!customer} />
-      <Advantages />
     </main>
   );
 }
 
-// bkz. kullanıcı isteği: "üye ol ayrıcalıkları kaçırma ve sende satıcı ol
-// bölümlerini kaldır daha farklı ve daha profesyonel olsun" - "Satıcı Ol"
-// kartı kaldırıldı (bu teşvik zaten üst menüde/top-bar'da her sayfada
-// kalıcı olarak duruyor, bkz. site-nav.tsx/top-bar.tsx), bölüm tek bir
-// "Üye Ol" kartına odaklanıp somut ayrıcalıkları madde madde listeleyen,
-// daha zengin bir tasarıma kavuştu. Zaten üye olan bir müşteriye bu bölüm
-// hiç gösterilmez.
-const MEMBER_PERKS = [
-  { icon: "fa-heart", text: "Favori ürünlerini kaydet, istediğin an geri dön" },
-  { icon: "fa-truck-fast", text: "Siparişlerini adım adım takip et" },
-  { icon: "fa-wand-magic-sparkles", text: "Zevkine göre kişiselleştirilmiş öneriler al" },
-  { icon: "fa-tags", text: "Kendi dolabındaki ürünleri satışa çıkar" },
-];
-
-function JoinCtaSection({ loggedIn }: { loggedIn: boolean }) {
-  if (loggedIn) return null;
-  return (
-    <section className="join-cta-section">
-      <div className="container">
-        <div className="join-cta-card-wide">
-          <div className="join-cta-wide-text">
-            <span className="join-cta-eyebrow">Ücretsiz Üyelik</span>
-            <h3>Üye Ol, Ayrıcalıkları Kaçırma</h3>
-            <ul className="join-cta-perks">
-              {MEMBER_PERKS.map((perk) => (
-                <li key={perk.text}>
-                  <i className={`fas ${perk.icon}`} />
-                  <span>{perk.text}</span>
-                </li>
-              ))}
-            </ul>
-            <Link href="/kayit" className="btn btn-lg join-cta-btn-light">
-              Ücretsiz Üye Ol
-            </Link>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}

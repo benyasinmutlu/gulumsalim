@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { orderItems, orders, productVariants, products, vendors } from "../../db/schema/index";
+import { orderItems, orders, productImages, productVariants, products, vendors } from "../../db/schema/index";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -14,18 +14,71 @@ export class InsufficientStockError extends Error {
 // karşılığı - eski sistemde eksikti (bkz. re-audit), aşırı satışı önlemek
 // için WHERE stock >= quantity koşuluyla tek sorguda hem kontrol hem
 // düşürme yapılır; 0 satır dönerse stok yetersiz demektir ve transaction
-// rollback olur. Varyantsız kalemler (variantId null) atlanır - yeni
-// şemada stok yalnızca varyant seviyesinde tutuluyor.
+// rollback olur.
+//
+// bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
+// zorunlu olarak girilmeli bireysel satıcıların ise sattığı ürünün stoğu 1
+// olacak sadece satılınca kaldırılacak websitesinden" - varyantsız kalemler
+// (variantId null) artık ürün seviyesinde tutulan stoktan (products.stock)
+// düşürülür. Bireysel satıcıda stok 0'a inince ürün otomatik "inactive"
+// olur (siteden kalkar); kurumsal satıcıda sadece "Tükendi" gösterilir,
+// ürün aktif kalır (satıcı yeniden stok girip devam edebilir).
 async function decrementOrderItemStock(tx: Tx, items: CreateOrderItemInput[]) {
   for (const item of items) {
-    if (!item.variantId) continue;
+    if (item.variantId) {
+      const updated = await tx
+        .update(productVariants)
+        .set({ stock: sql`${productVariants.stock} - ${item.quantity}` })
+        .where(and(eq(productVariants.id, item.variantId), gte(productVariants.stock, item.quantity)))
+        .returning({ id: productVariants.id });
+      if (updated.length === 0) throw new InsufficientStockError(item.productId);
+      continue;
+    }
+
+    const [vendorRow] = await tx
+      .select({ vendorType: vendors.vendorType })
+      .from(products)
+      .innerJoin(vendors, eq(vendors.id, products.vendorId))
+      .where(eq(products.id, item.productId))
+      .limit(1);
+
     const updated = await tx
-      .update(productVariants)
-      .set({ stock: sql`${productVariants.stock} - ${item.quantity}` })
-      .where(and(eq(productVariants.id, item.variantId), gte(productVariants.stock, item.quantity)))
-      .returning({ id: productVariants.id });
+      .update(products)
+      .set({
+        stock: sql`${products.stock} - ${item.quantity}`,
+        ...(vendorRow?.vendorType === "individual"
+          ? { status: sql`CASE WHEN ${products.stock} - ${item.quantity} <= 0 THEN 'inactive' ELSE ${products.status} END` }
+          : {}),
+      })
+      .where(and(eq(products.id, item.productId), gte(products.stock, item.quantity)))
+      .returning({ id: products.id });
     if (updated.length === 0) throw new InsufficientStockError(item.productId);
   }
+}
+
+// Bireysel satıcının tek parça ürünü satılınca otomatik "inactive" olduğu
+// için (bkz. decrementOrderItemStock), stok geri yüklenirken (ödeme
+// başarısız/iptal - satış gerçekleşmedi demektir) ürün de "active"e geri
+// döndürülür. Sadece bireysel satıcı ürünlerine uygulanır - kurumsal
+// satıcının ürünü zaten stok yüzünden hiç "inactive" olmuyordu, bu yüzden
+// kendi başka bir sebeple pasife aldığı bir ürünü burada yanlışlıkla aktife
+// çekmiş olmuyoruz.
+async function restoreProductStock(tx: Tx, productId: number, quantity: number) {
+  const [vendorRow] = await tx
+    .select({ vendorType: vendors.vendorType })
+    .from(products)
+    .innerJoin(vendors, eq(vendors.id, products.vendorId))
+    .where(eq(products.id, productId))
+    .limit(1);
+  await tx
+    .update(products)
+    .set({
+      stock: sql`${products.stock} + ${quantity}`,
+      ...(vendorRow?.vendorType === "individual"
+        ? { status: sql`CASE WHEN ${products.status} = 'inactive' THEN 'active' ELSE ${products.status} END` }
+        : {}),
+    })
+    .where(eq(products.id, productId));
 }
 
 // Ödeme başarısız olduğunda (bkz. checkout.service markOrderPaymentFailed)
@@ -33,15 +86,18 @@ async function decrementOrderItemStock(tx: Tx, items: CreateOrderItemInput[]) {
 // updateOrderStatus) düşürülen stoğun geri yüklenmesi için ortak fonksiyon.
 export async function restoreOrderItemStock(tx: Tx, orderId: number) {
   const items = await tx
-    .select({ variantId: orderItems.variantId, quantity: orderItems.quantity })
+    .select({ variantId: orderItems.variantId, productId: orderItems.productId, quantity: orderItems.quantity })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
   for (const item of items) {
-    if (!item.variantId) continue;
-    await tx
-      .update(productVariants)
-      .set({ stock: sql`${productVariants.stock} + ${item.quantity}` })
-      .where(eq(productVariants.id, item.variantId));
+    if (item.variantId) {
+      await tx
+        .update(productVariants)
+        .set({ stock: sql`${productVariants.stock} + ${item.quantity}` })
+        .where(eq(productVariants.id, item.variantId));
+      continue;
+    }
+    await restoreProductStock(tx, item.productId, item.quantity);
   }
 }
 
@@ -52,15 +108,19 @@ export async function restoreOrderItemStock(tx: Tx, orderId: number) {
 // aynı siparişteki diğer (iptal edilmeyen) kalemler etkilenmemeli.
 export async function restoreOrderItemStockSingle(tx: Tx, orderItemId: number) {
   const [item] = await tx
-    .select({ variantId: orderItems.variantId, quantity: orderItems.quantity })
+    .select({ variantId: orderItems.variantId, productId: orderItems.productId, quantity: orderItems.quantity })
     .from(orderItems)
     .where(eq(orderItems.id, orderItemId))
     .limit(1);
-  if (!item?.variantId) return;
-  await tx
-    .update(productVariants)
-    .set({ stock: sql`${productVariants.stock} + ${item.quantity}` })
-    .where(eq(productVariants.id, item.variantId));
+  if (!item) return;
+  if (item.variantId) {
+    await tx
+      .update(productVariants)
+      .set({ stock: sql`${productVariants.stock} + ${item.quantity}` })
+      .where(eq(productVariants.id, item.variantId));
+    return;
+  }
+  await restoreProductStock(tx, item.productId, item.quantity);
 }
 
 export async function fetchProductsForCheckout(productIds: number[]) {
@@ -94,10 +154,25 @@ interface CreateOrderInput {
   orderNumber: string;
   subtotal: string;
   shippingFee: string;
+  couponId?: number;
+  discountAmount?: string;
   total: string;
   shippingAddress: unknown;
   orderNote?: string;
   items: CreateOrderItemInput[];
+  contractSnapshot?: string;
+  contractAcceptedAt?: Date;
+}
+
+// Mesafeli Satış Sözleşmesi'nin satıcı bloklarını doldurmak için - hem
+// checkout önizlemesi hem gerçek sipariş anında sepetteki (tekilleştirilmiş)
+// vendorId'ler için çağrılır (bkz. contract-template.ts).
+export async function fetchVendorsForCheckout(vendorIds: number[]) {
+  if (vendorIds.length === 0) return [];
+  return db
+    .select({ id: vendors.id, storeName: vendors.storeName, taxId: vendors.taxId, legalAddress: vendors.legalAddress })
+    .from(vendors)
+    .where(inArray(vendors.id, vendorIds));
 }
 
 // Sipariş + kalemleri tek transaction'da yazılır: ya hepsi ya hiçbiri -
@@ -111,9 +186,13 @@ export async function createOrder(data: CreateOrderInput) {
         orderNumber: data.orderNumber,
         subtotal: data.subtotal,
         shippingFee: data.shippingFee,
+        couponId: data.couponId,
+        discountAmount: data.discountAmount ?? "0.00",
         total: data.total,
         shippingAddress: data.shippingAddress,
         orderNote: data.orderNote,
+        contractSnapshot: data.contractSnapshot,
+        contractAcceptedAt: data.contractAcceptedAt,
       })
       .returning();
     if (!order) throw new Error("Sipariş oluşturulamadı");
@@ -197,8 +276,10 @@ export async function findOrderItemsWithProductInfo(orderId: number) {
   return db
     .select({
       productId: orderItems.productId,
+      variantId: orderItems.variantId,
       vendorId: orderItems.vendorId,
       categoryId: products.categoryId,
+      quantity: orderItems.quantity,
     })
     .from(orderItems)
     .innerJoin(products, eq(orderItems.productId, products.id))
@@ -207,7 +288,7 @@ export async function findOrderItemsWithProductInfo(orderId: number) {
 
 // Sipariş detay ekranı (hesabim/siparisler/[orderNumber]) için kalemleri de
 // döner - admin-orders.repository.ts findOrderDetail ile aynı şekil.
-async function findOrderItemsForDetail(orderId: number) {
+export async function findOrderItemsForDetail(orderId: number) {
   return db
     .select({
       id: orderItems.id,
@@ -218,6 +299,11 @@ async function findOrderItemsForDetail(orderId: number) {
       vendorStatus: orderItems.vendorStatus,
       vendorStoreName: vendors.storeName,
       productId: products.id,
+      productSlug: products.slug,
+      // bkz. kullanıcı isteği: "ürünlerin resimleri de olsun" (sipariş
+      // onayı e-postası) - ürünün birincil görseli, yoksa e-postada nötr
+      // bir ikon kutusuna düşülür (bkz. lib/mailer.ts emailProductRow).
+      productImage: productImages.url,
       // bkz. kullanıcı isteği: "satıcı takip kodunu sisteme girecek hem
       // müşteri hem de admin görebilecek" - müşteri sipariş detayında
       // görebilmeli.
@@ -228,6 +314,7 @@ async function findOrderItemsForDetail(orderId: number) {
     .from(orderItems)
     .innerJoin(vendors, eq(orderItems.vendorId, vendors.id))
     .innerJoin(products, eq(orderItems.productId, products.id))
+    .leftJoin(productImages, and(eq(productImages.productId, products.id), eq(productImages.isPrimary, true)))
     .where(eq(orderItems.orderId, orderId));
 }
 
@@ -257,8 +344,10 @@ export async function findOrderByNumberPublic(orderNumber: string) {
 // gulumsalim.com'daki account.php'nin sipariş geçmişi listesinin karşılığı
 // - müşteri başına sipariş sayısı sınırlı olduğundan (binlerce değil) keyset
 // pagination yerine basit bir DESC liste yeterli.
+const ORDER_PREVIEW_IMAGE_LIMIT = 4;
+
 export async function findOrdersByCustomer(customerId: number) {
-  return db
+  const rows = await db
     .select({
       id: orders.id,
       orderNumber: orders.orderNumber,
@@ -273,4 +362,28 @@ export async function findOrdersByCustomer(customerId: number) {
     .where(eq(orders.customerId, customerId))
     .groupBy(orders.id)
     .orderBy(desc(orders.createdAt));
+
+  if (rows.length === 0) return [];
+
+  // bkz. kullanıcı isteği: "hesabım sayfasındaki tasarım ... siparişler
+  // çok kötü" - liste ekranında her sipariş kartında birkaç ürün küçük
+  // resmi gösterilir. GROUP BY'lı özet sorgusuna image eklemek karmaşık
+  // bir array_agg alt sorgusu gerektireceğinden, görselleri AYRI (ama tek)
+  // bir sorguyla çekip JS tarafında sipariş başına ilk birkaçına indirgemek
+  // daha basit ve doğruluğu kolay denetlenebilir.
+  const orderIds = rows.map((r) => r.id);
+  const imageRows = await db
+    .select({ orderId: orderItems.orderId, url: productImages.url })
+    .from(orderItems)
+    .innerJoin(productImages, and(eq(productImages.productId, orderItems.productId), eq(productImages.isPrimary, true)))
+    .where(inArray(orderItems.orderId, orderIds));
+
+  const imagesByOrder = new Map<number, string[]>();
+  for (const { orderId, url } of imageRows) {
+    const list = imagesByOrder.get(orderId) ?? [];
+    if (list.length < ORDER_PREVIEW_IMAGE_LIMIT && !list.includes(url)) list.push(url);
+    imagesByOrder.set(orderId, list);
+  }
+
+  return rows.map((r) => ({ ...r, previewImages: imagesByOrder.get(r.id) ?? [] }));
 }

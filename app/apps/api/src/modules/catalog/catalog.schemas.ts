@@ -8,6 +8,12 @@ export const listProductsQuerySchema = z.object({
   maxPrice: z.coerce.number().nonnegative().optional(),
   search: z.string().trim().min(1).max(120).optional(),
   saleOnly: z.coerce.boolean().optional(),
+  // bkz. kullanıcı isteği (2026-08-02): "İndirim Oranlarına Göre Keşfet"
+  // (Trendyol'dan ilham) - "%X ve üzeri indirim" kartları için, saleOnly'nin
+  // dar bir uzantısı (Meilisearch'e yönlendirmiyor, bkz. catalog.search.ts
+  // needsSearchIndex - direkt Postgres'te hesaplanan gerçek indirim yüzdesi).
+  minDiscountPercent: z.coerce.number().min(0).max(100).optional(),
+  secondHand: z.coerce.boolean().optional(),
   // Meilisearch tabanlı facet filtreleri/sıralama (bkz. catalog.search.ts) -
   // bunlardan biri verilirse sorgu Postgres keyset yerine Meilisearch'e gider.
   size: z.string().optional(),

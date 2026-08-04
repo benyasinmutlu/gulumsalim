@@ -1,8 +1,23 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { orderItems, vendorEarnings, vendors } from "../../db/schema/index";
+import { env } from "../../config/env";
+import { emailButton, emailHeading, emailProductRow, renderEmailLayout, sendMail } from "../../lib/mailer";
 import { recomputeOrderStatus } from "../orders/order.repository";
+import { findCustomerById } from "../auth/auth.repository";
+import { createCustomerNotification } from "../notifications/customer-notifications.repository";
 import { findVendorOrderItem, updateVendorOrderItemStatus } from "./vendor-orders.repository";
+
+// bkz. kullanıcı isteği: "kargo ... gibi mailler gönderelim" - uygulama içi
+// bildirime (createCustomerNotification) ek olarak e-posta da gider.
+// E-posta başarısız olursa durum güncellemesini asla bozmaz, sadece
+// sessizce loglanır (yutulur) - kargo durumu değişikliği e-postadan daha
+// önemli, bir Resend hatası yüzünden geri alınmamalı.
+async function sendOrderStatusEmail(customerId: number, subject: string, preheader: string, bodyHtml: string) {
+  const customer = await findCustomerById(customerId);
+  if (!customer) return;
+  await sendMail(customer.email, subject, renderEmailLayout(preheader, bodyHtml)).catch(() => {});
+}
 
 export type OrderItemStatus = "pending" | "processing" | "shipped" | "delivered" | "cancelled";
 type Status = OrderItemStatus;
@@ -24,7 +39,7 @@ export function isTransitionAllowed(current: OrderItemStatus, next: OrderItemSta
 
 // vendors.commissionRate ayarlanmamışsa (null) kullanılan platform
 // varsayılan komisyon oranı (%).
-const DEFAULT_COMMISSION_RATE = 10;
+const DEFAULT_COMMISSION_RATE = 5;
 
 export function calculateEarning(total: string, commissionRatePercent: number | null) {
   const rate = commissionRatePercent ?? DEFAULT_COMMISSION_RATE;
@@ -65,10 +80,62 @@ export async function transitionOrderItemStatus(
   }
 
   if (nextStatus === "delivered") {
-    return markDeliveredAndCreditEarning(vendorId, item.id, item.orderId, item.total);
+    const updated = await markDeliveredAndCreditEarning(vendorId, item.id, item.orderId, item.total);
+    await createCustomerNotification(
+      item.customerId,
+      "order_delivered",
+      "Siparişiniz Teslim Edildi",
+      `#${item.orderNumber} numaralı siparişinizdeki "${item.productNameSnapshot}" teslim edildi olarak işaretlendi.`,
+      `/hesabim/siparisler/${item.orderNumber}`,
+    );
+    const trackHref = `${env.SITE_URL}/hesabim/siparisler/${item.orderNumber}`;
+    await sendOrderStatusEmail(
+      item.customerId,
+      `Siparişiniz Teslim Edildi - #${item.orderNumber}`,
+      `Siparişiniz teslim edildi - #${item.orderNumber}`,
+      emailHeading("Siparişiniz Teslim Edildi ✅") +
+        `<p>#${item.orderNumber} numaralı siparişinizdeki ürün teslim edildi olarak işaretlendi:</p>` +
+        emailProductRow({
+          image: item.productImage,
+          name: item.productNameSnapshot,
+          meta: `${item.quantity} adet`,
+          priceHtml: `<strong>${Number(item.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</strong>`,
+          href: item.productSlug ? `/urun/${item.productSlug}` : undefined,
+        }) +
+        `<p>Bir sorun varsa sipariş sayfanızdan iade talebi oluşturabilirsiniz.</p>` +
+        emailButton(trackHref, "Siparişimi Görüntüle"),
+    );
+    return updated;
   }
 
-  return updateVendorOrderItemStatus(vendorId, orderItemId, nextStatus as Exclude<Status, "pending">, tracking);
+  const updated = await updateVendorOrderItemStatus(vendorId, orderItemId, nextStatus as Exclude<Status, "pending">, tracking);
+  if (updated && nextStatus === "shipped") {
+    await createCustomerNotification(
+      item.customerId,
+      "order_shipped",
+      "Siparişiniz Kargoya Verildi",
+      `#${item.orderNumber} numaralı siparişinizdeki "${item.productNameSnapshot}" kargoya verildi.${tracking ? ` Takip no: ${tracking.number}` : ""}`,
+      `/hesabim/siparisler/${item.orderNumber}`,
+    );
+    const trackHref = `${env.SITE_URL}/hesabim/siparisler/${item.orderNumber}`;
+    await sendOrderStatusEmail(
+      item.customerId,
+      `Siparişiniz Kargoya Verildi - #${item.orderNumber}`,
+      `Siparişiniz kargoya verildi - #${item.orderNumber}`,
+      emailHeading("Siparişiniz Kargoya Verildi 📦") +
+        `<p>#${item.orderNumber} numaralı siparişinizdeki ürün kargoya verildi:</p>` +
+        emailProductRow({
+          image: item.productImage,
+          name: item.productNameSnapshot,
+          meta: `${item.quantity} adet`,
+          priceHtml: `<strong>${Number(item.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</strong>`,
+          href: item.productSlug ? `/urun/${item.productSlug}` : undefined,
+        }) +
+        (tracking ? `<p>Kargo Firması: <strong>${tracking.carrier}</strong><br>Takip No: <strong>${tracking.number}</strong></p>` : "") +
+        emailButton(trackHref, "Siparişimi Takip Et"),
+    );
+  }
+  return updated;
 }
 
 // Kazanç, teslimat onaylandığı anda cüzdana geçer (iade/anlaşmazlık riskini

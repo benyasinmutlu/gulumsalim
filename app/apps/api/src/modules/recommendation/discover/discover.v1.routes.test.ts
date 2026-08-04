@@ -65,6 +65,7 @@ function buildRuntime(over: Partial<DiscoverRuntime> = {}): DiscoverRuntime {
     profile: inMemoryProfileAdapter(),
     seen: inMemorySeenAdapter(),
     experiment: deterministicExperiment(),
+    consent: { hasAnalyticsConsent: async (customerId) => customerId != null },
     generateRequestId: () => "req-test",
     nowMs: NOW,
     ...over,

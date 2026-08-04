@@ -60,16 +60,18 @@ const discoverV1Routes: FastifyPluginAsync<DiscoverV1Options> = async (app, opts
       });
     }
 
+    // Consent: Açık Rıza Metni'nde onay verilmiş mi (customers.analyticsConsentAt,
+    // bkz. auth.schemas.ts registerSchema.analyticsConsent) - runtime.consent
+    // port'u üzerinden okunur (route handler'ın DB'ye doğrudan bağlanmaması
+    // için, bkz. discover.repository.ts productionConsentAdapter).
+    const analyticsConsent = await runtime.consent.hasAnalyticsConsent(customerId);
     const req: DiscoverRequest = {
       customerId,
       sessionId,
       surface: q.surface as DiscoverSurface,
       limit: q.limit,
       cursor: q.cursor ?? null,
-      // Consent: gerçek rıza UI'ı bağlanana kadar privacy-safe varsayılan —
-      // giriş yapmış kullanıcı için açık, anonim için kapalı.
-      // TODO(consent): oturum/DB consent alanına bağla (KVKK).
-      consent: { personalization: customerId != null, analytics: true },
+      consent: { personalization: customerId != null, analytics: analyticsConsent },
     };
 
     try {

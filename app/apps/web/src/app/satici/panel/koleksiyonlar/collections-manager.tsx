@@ -158,7 +158,10 @@ export default function CollectionsManager() {
           <h3>Yeni Koleksiyon</h3>
         </div>
         <form className="fc" style={{ padding: "20px" }} onSubmit={handleSubmit}>
-          <div className="row3" style={{ alignItems: "flex-end" }}>
+          {/* Ad + Adres yan yana (row2), Açıklama tam genişlik altta - eski
+              row3+flex-end düzeninde textarea tek-satır inputları aşağı itip
+              "Açıklama havada" görünümüne yol açıyordu (UI bug fix). */}
+          <div className="row2">
             <div className="fg">
               <label>Ad</label>
               <input className="fi" required value={name} onChange={(e) => handleNameChange(e.target.value)} />
@@ -175,10 +178,10 @@ export default function CollectionsManager() {
                 }}
               />
             </div>
-            <div className="fg">
-              <label>Açıklama</label>
-              <textarea className="fi" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Kısa açıklama (isteğe bağlı)" />
-            </div>
+          </div>
+          <div className="fg">
+            <label>Açıklama</label>
+            <textarea className="fi" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Kısa açıklama (isteğe bağlı)" />
           </div>
           {error && <p style={{ color: "var(--er)", fontSize: "0.85rem" }}>{error}</p>}
           <button className="btn btn-pr" type="submit" disabled={loading} style={{ alignSelf: "flex-start" }}>
@@ -233,7 +236,10 @@ export default function CollectionsManager() {
                       </span>
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        <button className="btn btn-pr btn-sm" onClick={() => openCollection(c)} title="Koleksiyona ürün ekle / çıkar">
+                          <i className="fas fa-box-open" /> Ürünler
+                        </button>
                         {storeSlug && (
                           <a
                             href={`/${storeSlug}/koleksiyon/${c.slug}`}
@@ -326,19 +332,29 @@ export default function CollectionsManager() {
             <h3>&quot;{selected.name}&quot; Ürünleri</h3>
           </div>
           <div className="card-body">
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <select className="fi" value={addProductId} onChange={(e) => setAddProductId(Number(e.target.value))}>
-                <option value="">Ürün seç...</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <button className="btn btn-pr btn-sm" onClick={addProduct}>
-                Ekle
-              </button>
-            </div>
+            {products.length === 0 ? (
+              <div className="alert alert-wa" style={{ marginBottom: 16 }}>
+                <i className="fas fa-circle-info" /> Koleksiyona ürün ekleyebilmek için önce{" "}
+                <a href="/satici/panel/urunler/yeni" style={{ color: "var(--pr)", fontWeight: 600 }}>
+                  ürün eklemelisiniz
+                </a>
+                .
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <select className="fi" value={addProductId} onChange={(e) => setAddProductId(Number(e.target.value))}>
+                  <option value="">Ürün seç...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <button className="btn btn-pr btn-sm" onClick={addProduct}>
+                  Ekle
+                </button>
+              </div>
+            )}
             {collectionProducts.length === 0 ? (
               <p style={{ fontSize: "0.85rem", color: "var(--tx3)" }}>Bu koleksiyonda henüz ürün yok.</p>
             ) : (

@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
-import type { AdminHomepageCollection, AdminHomepageSection } from "@/lib/types";
+import type { AdminCategory, AdminHomepageCollection, AdminHomepageSection } from "@/lib/types";
 import ProductPicker from "./product-picker";
 import SectionBannersManager from "./section-banners-manager";
 
-const ALGO_OPTIONS: { value: string; label: string; usesProductIds?: boolean; usesLimit?: boolean; usesVendor?: boolean; usesPinExclude?: boolean; usesBanners?: boolean }[] = [
+const ALGO_OPTIONS: { value: string; label: string; usesProductIds?: boolean; usesLimit?: boolean; usesVendor?: boolean; usesPinExclude?: boolean; usesBanners?: boolean; usesEndsAt?: boolean; usesCategory?: boolean }[] = [
   { value: "manual", label: "Elle Seçilmiş", usesProductIds: true },
   { value: "featured", label: "Öne Çıkanlar", usesProductIds: true },
+  { value: "flash_sale", label: "Flaş İndirim (Geri Sayımlı)", usesProductIds: true, usesEndsAt: true },
   { value: "new_arrivals", label: "Yeni Gelenler", usesLimit: true, usesPinExclude: true },
   { value: "best_sellers", label: "Çok Satanlar", usesLimit: true, usesPinExclude: true },
   { value: "weekly_best", label: "Bu Haftanın En İyileri", usesLimit: true, usesPinExclude: true },
+  { value: "category", label: "Kategori Vitrini", usesLimit: true, usesCategory: true },
   { value: "vendor_carousel", label: "Mağaza Vitrini (Kayan Kartlar)", usesLimit: true, usesVendor: true, usesPinExclude: true },
   { value: "vendor_products", label: "Seçili Mağazanın Ürünleri", usesLimit: true, usesVendor: true },
   { value: "promo_banners", label: "Kampanya Bannerları", usesBanners: true },
@@ -38,6 +40,15 @@ const BG_OPTIONS = [
   { value: "plain", label: "Düz Arkaplan" },
   { value: "alt", label: "Alternatif (Gri) Arkaplan" },
 ];
+
+// ISO timestamp'ı <input type="datetime-local"> için "YYYY-MM-DDTHH:mm"
+// biçimine çevirir (yerel saat dilimiyle) - tersi (toIso) handleSubmit'te.
+function isoToDatetimeLocal(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function algoMeta(value: string) {
   return ALGO_OPTIONS.find((o) => o.value === value) ?? ALGO_OPTIONS[0]!;
@@ -71,6 +82,9 @@ interface SectionConfig {
   bgColor?: string;
   bannerLayout?: string;
   showTitle?: boolean;
+  endsAt?: string;
+  categoryId?: number;
+  saleOnly?: boolean;
 }
 
 // bkz. kullanıcı isteği: "kampanyaları ve koleksiyonları anasayfa
@@ -91,6 +105,7 @@ type MergedItem =
 export default function SectionsManager() {
   const [sections, setSections] = useState<AdminHomepageSection[] | null>(null);
   const [collections, setCollections] = useState<AdminHomepageCollection[] | null>(null);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [editing, setEditing] = useState<AdminHomepageSection | null>(null);
@@ -101,6 +116,8 @@ export default function SectionsManager() {
   const [excludedProductIds, setExcludedProductIds] = useState<number[]>([]);
   const [limit, setLimit] = useState(8);
   const [vendorId, setVendorId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [saleOnly, setSaleOnly] = useState(false);
   const [subtitle, setSubtitle] = useState("");
   const [titleColor, setTitleColor] = useState("");
   const [titleFont, setTitleFont] = useState("display");
@@ -112,17 +129,20 @@ export default function SectionsManager() {
   const [showTitle, setShowTitle] = useState(false);
   const [seoSlug, setSeoSlug] = useState("");
   const [seoSlugTouched, setSeoSlugTouched] = useState(false);
+  const [endsAt, setEndsAt] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    const [sectionRows, collectionRows] = await Promise.all([
+    const [sectionRows, collectionRows, categoryRows] = await Promise.all([
       fetchJson<AdminHomepageSection[]>("/admin/homepage-sections"),
       fetchJson<AdminHomepageCollection[]>("/admin/homepage-collections"),
+      fetchJson<AdminCategory[]>("/admin/categories"),
     ]);
     setSections(sectionRows);
     setCollections(collectionRows);
+    setCategories(categoryRows);
   }
 
   useEffect(() => {
@@ -138,6 +158,8 @@ export default function SectionsManager() {
     setExcludedProductIds([]);
     setLimit(8);
     setVendorId("");
+    setCategoryId("");
+    setSaleOnly(false);
     setSubtitle("");
     setTitleColor("");
     setTitleFont("display");
@@ -149,6 +171,7 @@ export default function SectionsManager() {
     setShowTitle(false);
     setSeoSlug("");
     setSeoSlugTouched(false);
+    setEndsAt("");
     setSortOrder((sections?.length ?? 0) * 10);
     setError(null);
   }
@@ -163,6 +186,8 @@ export default function SectionsManager() {
     setExcludedProductIds(config.excludedProductIds ?? []);
     setLimit(config.limit ?? 8);
     setVendorId(config.vendorId ? String(config.vendorId) : "");
+    setCategoryId(config.categoryId ? String(config.categoryId) : "");
+    setSaleOnly(config.saleOnly ?? false);
     setSubtitle(config.subtitle ?? "");
     setTitleColor(config.titleColor ?? "");
     setTitleFont(config.titleFont ?? "display");
@@ -174,6 +199,7 @@ export default function SectionsManager() {
     setShowTitle(config.showTitle ?? false);
     setSeoSlug(section.seoSlug ?? "");
     setSeoSlugTouched(true);
+    setEndsAt(isoToDatetimeLocal(config.endsAt));
     setSortOrder(section.sortOrder);
     setError(null);
   }
@@ -187,6 +213,10 @@ export default function SectionsManager() {
     if (meta.usesProductIds) config.productIds = productIds;
     if (meta.usesLimit) config.limit = limit;
     if (meta.usesVendor && vendorId) config.vendorId = Number(vendorId);
+    if (meta.usesCategory && categoryId) {
+      config.categoryId = Number(categoryId);
+      if (saleOnly) config.saleOnly = true;
+    }
     if (meta.usesPinExclude) {
       if (pinnedProductIds.length) config.pinnedProductIds = pinnedProductIds;
       if (excludedProductIds.length) config.excludedProductIds = excludedProductIds;
@@ -200,6 +230,7 @@ export default function SectionsManager() {
     if (bgColor) config.bgColor = bgColor;
     if (meta.usesBanners && bannerLayout !== "grid") config.bannerLayout = bannerLayout;
     if (meta.usesBanners) config.showTitle = showTitle;
+    if (meta.usesEndsAt && endsAt) config.endsAt = new Date(endsAt).toISOString();
 
     setLoading(true);
     try {
@@ -474,6 +505,31 @@ export default function SectionsManager() {
             <div className="admin-form-group">
               <label>Satıcı ID</label>
               <input className="admin-form-control" type="number" value={vendorId} onChange={(e) => setVendorId(e.target.value)} placeholder="Mağaza vitrini için satıcı ID" />
+            </div>
+          )}
+          {meta.usesCategory && (
+            <>
+              <div className="admin-form-group">
+                <label>Kategori</label>
+                <select className="admin-form-control" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                  <option value="">Kategori seçin</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="admin-form-group">
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={saleOnly} onChange={(e) => setSaleOnly(e.target.checked)} />
+                  Sadece indirimli ürünleri göster
+                </label>
+              </div>
+            </>
+          )}
+          {meta.usesEndsAt && (
+            <div className="admin-form-group">
+              <label>Bitiş Zamanı (geri sayım buna göre çalışır)</label>
+              <input className="admin-form-control" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
             </div>
           )}
 

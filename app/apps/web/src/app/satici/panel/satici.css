@@ -106,21 +106,90 @@
     .tab-content{display:none}
     .tab-content.active{display:block;animation:fadeIn .3s}
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-    /* Analiz özet çipleri (bkz. kullanıcı isteği: "analiz") */
-    .stat-chips{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
-    .chip{flex:1;min-width:130px;background:var(--s1);border:1px solid var(--br);border-radius:var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:3px}
-    .chip-val{font-size:22px;font-weight:800;line-height:1.05}
-    .chip-lbl{font-size:11px;color:var(--tx3);font-weight:600;display:flex;align-items:center;gap:5px}
-    .chip-wa .chip-val{color:var(--wa)}
-    .chip-er .chip-val{color:var(--er)}
-    /* Filtre/arama/sıralama çubuğu (bkz. kullanıcı isteği: "filtreleme") */
-    .toolbar{display:flex;flex-wrap:wrap;gap:10px;padding:14px 20px;border-bottom:1px solid var(--br);align-items:center}
-    .toolbar-search{position:relative;flex:1;min-width:200px}
-    .toolbar-search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:13px;pointer-events:none}
-    .toolbar-search .fi{padding-left:34px}
-    .toolbar select.fi{width:auto;min-width:150px}
     @media(max-width:768px){
       .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.hamburger{display:flex}.overlay.open{display:block}
       .row2{grid-template-columns:1fr}.row4{grid-template-columns:1fr 1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}
-      .toolbar-search{min-width:100%}.toolbar select.fi{flex:1;min-width:0}
     }
+
+    /* bkz. kullanıcı isteği: "bireysel satıcının paneli mobilde ... çok daha
+       kullanışlı olmalı arayüzü basit olmalı dolap gibi" - Dolap tarzı alt
+       tab-bar, sadece bireysel satıcılarda ve sadece mobilde (bkz.
+       vendor-mobile-nav.tsx, layout.tsx isIndividual). content-mobile-pad,
+       son içeriğin bu sabit çubuğun arkasında kalmasını önler. */
+    .vendor-mobile-nav{display:none}
+    @media(max-width:768px){
+      .vendor-mobile-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:90;background:var(--s1);border-top:1px solid var(--br);box-shadow:0 -2px 16px rgba(30,25,55,.08);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+      .content-mobile-pad{padding-bottom:80px}
+    }
+    .vmn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:none;background:none;color:var(--tx3);font-size:10.5px;font-family:'Inter',sans-serif;cursor:pointer}
+    .vmn-item i{font-size:19px}
+    .vmn-item.is-active{color:var(--pr)}
+    .vmn-item-add{color:var(--pr)}
+    .vmn-add-icon{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--pr),var(--ac));color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;margin-top:-20px;box-shadow:0 4px 14px rgba(139,92,246,.4)}
+    .vmn-icon-wrap{position:relative;display:inline-flex}
+    .vmn-icon-wrap .badge-count{position:absolute;top:-6px;right:-10px;margin-left:0}
+
+    /* bkz. kullanıcı isteği: "bireysel satıcının paneli ... arayüzü basit
+       olmalı dolap gibi" - Ürünlerim sayfasındaki yoğun tablonun yerine
+       (bkz. products-table.tsx isIndividual) görsel öncelikli kart ızgarası. */
+    .vendor-product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;padding:16px 20px}
+    .vpc{border:1px solid var(--br);border-radius:var(--radius);overflow:hidden;background:var(--s1)}
+    .vpc-img{position:relative;aspect-ratio:1;background:var(--s2);color:var(--tx3);display:flex;align-items:center;justify-content:center;font-size:28px}
+    .vpc-img img{width:100%;height:100%;object-fit:cover}
+    .vpc-status{position:absolute;top:6px;left:6px}
+    .vpc-body{padding:10px}
+    .vpc-name{display:block;font-size:12.5px;font-weight:600;color:var(--tx);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .vpc-price{font-size:13px;font-weight:700;margin-bottom:6px}
+    .vpc-stock{margin-bottom:6px}
+    .vpc-actions{display:flex;align-items:center;gap:6px}
+    .vpc-actions .btn{flex:1;justify-content:center}
+    @media(max-width:768px){.vendor-product-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;padding:12px}}
+
+    /* bkz. vendor-mobile-nav.tsx "Daha Fazla" alt sayfası - mağaza
+       profili/ayarlar/bildirimler gibi az kullanılan linkler için, bkz. aynı
+       dosyadaki olay notu. */
+    .vmn-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:95}
+    .vmn-sheet{position:fixed;left:0;right:0;bottom:0;z-index:96;background:var(--s1);border-radius:20px 20px 0 0;max-height:70vh;overflow-y:auto;animation:fadeIn .22s ease;padding-bottom:env(safe-area-inset-bottom,0px)}
+    .vmn-sheet-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--br)}
+    .vmn-sheet-head h4{margin:0;font-size:16px}
+    .vmn-sheet-head button{border:none;background:none;color:var(--tx3);font-size:18px;cursor:pointer}
+    .vmn-sheet-list{padding:8px}
+    .vmn-sheet-list a,.vmn-sheet-logout{display:flex;align-items:center;gap:12px;padding:14px 12px;border-radius:10px;color:var(--tx);font-size:14.5px}
+    .vmn-sheet-list a:hover,.vmn-sheet-logout:hover{background:var(--s2)}
+    .vmn-sheet-list a i,.vmn-sheet-logout i{width:20px;text-align:center;color:var(--tx3)}
+    .vmn-sheet-logout{color:var(--er)}
+    .vmn-sheet-logout i{color:var(--er)}
+
+    /* bkz. kullanıcı isteği: "bireysel satıcılar ürün yüklerken hem
+       mobilde hem de desktopda step step ilerlesin ... efektler ve
+       animasyonlarla geçişler olmalı" - bkz. new-product-form.tsx sihirbaz
+       modu (sadece bireysel satıcıda). */
+    .wizard-steps{display:flex;align-items:flex-start;padding:20px 20px 4px;gap:0}
+    .wizard-step{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;text-align:center}
+    .wizard-step:not(:last-child)::after{content:'';position:absolute;top:15px;left:calc(50% + 20px);right:calc(-50% + 20px);height:2px;background:var(--br);transition:background .3s ease}
+    .wizard-step.done:not(:last-child)::after{background:var(--pr)}
+    .wizard-step-dot{width:30px;height:30px;border-radius:50%;background:var(--s2);border:2px solid var(--br);color:var(--tx3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;transition:var(--transition);z-index:1}
+    .wizard-step.active .wizard-step-dot{background:linear-gradient(135deg,var(--pr),var(--ac));border-color:transparent;color:#fff;transform:scale(1.1);box-shadow:0 4px 14px rgba(139,92,246,.35)}
+    .wizard-step.done .wizard-step-dot{background:var(--pr);border-color:var(--pr);color:#fff}
+    .wizard-step-label{font-size:11px;font-weight:600;color:var(--tx3);transition:color .3s ease}
+    .wizard-step.active .wizard-step-label{color:var(--pr)}
+    .wizard-step.done .wizard-step-label{color:var(--tx2)}
+
+    @keyframes wizardStepIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:translateX(0)}}
+    .wizard-panel{animation:wizardStepIn .32s cubic-bezier(.22,1,.36,1)}
+
+    .wizard-nav{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-top:1px solid var(--br)}
+
+    .wizard-condition{display:flex;gap:10px}
+    .wizard-condition-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:16px;border-radius:var(--radius);border:1.5px solid var(--br);background:var(--s1);color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;transition:var(--transition);font-family:'Inter',sans-serif}
+    .wizard-condition-btn:hover{border-color:var(--pr)}
+    .wizard-condition-btn.active{background:var(--pr-light);border-color:var(--pr);color:var(--pr)}
+
+    .wizard-preview{display:flex;gap:16px}
+    .wizard-preview-img{width:120px;height:120px;object-fit:cover;border-radius:var(--radius);flex-shrink:0;border:1px solid var(--br)}
+    .wizard-preview-body h4{font-size:16px;margin-bottom:6px}
+    .wizard-preview-price{font-size:18px;font-weight:800;color:var(--pr);margin-bottom:10px}
+    .wizard-preview-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+    .wizard-preview-hint{font-size:12.5px;color:var(--tx3);line-height:1.5}
+    @media(max-width:520px){.wizard-preview{flex-direction:column}.wizard-preview-img{width:100%;height:180px}}
+    @media(max-width:600px){.wizard-step-label{display:none}.wizard-step:not(:last-child)::after{top:15px}}

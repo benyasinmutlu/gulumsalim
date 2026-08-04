@@ -15,7 +15,7 @@ export interface CatalogProduct {
   colorFamily: string;
   price: number;
   inStock: boolean;
-  status: "active" | "draft" | "inactive" | "rejected";
+  status: "active" | "draft" | "pending" | "inactive" | "rejected";
   createdAt: number;
   popularity: number; // 0..1, conversion-adjusted (kaynak sağlar)
 }

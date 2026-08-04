@@ -50,44 +50,57 @@ export default async function CustomerOrdersPage() {
   return (
     <>
       <PendingReviewsPrompt items={pendingReviews} />
-      <div className="form-card">
-      <h3>Siparişlerim</h3>
-      {orders.length === 0 ? (
-        <p style={{ fontSize: "0.9rem" }}>Henüz hiç siparişiniz yok.</p>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table className="orders-table">
-            <thead>
-              <tr>
-                <th>Sipariş No</th>
-                <th>Tarih</th>
-                <th>Ürün Sayısı</th>
-                <th>Tutar</th>
-                <th>Durum</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => {
-                const badge = statusBadge(order);
-                return (
-                  <tr key={order.id}>
-                    <td>
-                      <Link href={`/hesabim/siparisler/${order.orderNumber}`}>{order.orderNumber}</Link>
-                    </td>
-                    <td>{new Date(order.createdAt).toLocaleDateString("tr-TR")}</td>
-                    <td>{order.itemCount}</td>
-                    <td>{Number(order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</td>
-                    <td>
-                      <span className={`status-badge ${badge.className}`}>{badge.label}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <div className="account-page-header">
+        <div className="account-page-header-icon">
+          <i className="fas fa-box" />
         </div>
-      )}
+        <div>
+          <h3>Siparişlerim</h3>
+          <div className="account-page-subtitle">{orders.length > 0 ? `${orders.length} sipariş` : "Sipariş geçmişiniz"}</div>
+        </div>
       </div>
+
+      {orders.length === 0 ? (
+        <div className="form-card account-empty-state">
+          <i className="fas fa-box-open" />
+          <p>Henüz hiç siparişiniz yok.</p>
+          <Link href="/urunler" className="btn btn-primary btn-sm">
+            Alışverişe Başla
+          </Link>
+        </div>
+      ) : (
+        orders.map((order) => {
+          const badge = statusBadge(order);
+          const extraCount = order.previewImages.length < order.itemCount ? order.itemCount - order.previewImages.length : 0;
+          return (
+            <div className="order-card" key={order.id}>
+              <div className="order-card-header">
+                <div className="order-card-header-left">
+                  <span className="order-number">#{order.orderNumber}</span>
+                  <span className="order-date">{new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}</span>
+                </div>
+                <span className={`status-badge ${badge.className}`}>{badge.label}</span>
+              </div>
+              <div className="order-card-body">
+                <div className="order-preview-images">
+                  {order.previewImages.map((img, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={img} alt="" />
+                  ))}
+                  {extraCount > 0 && <div className="order-preview-more">+{extraCount}</div>}
+                </div>
+                <div className="order-card-info">{order.itemCount} ürün</div>
+              </div>
+              <div className="order-card-footer">
+                <span className="order-total">{Number(order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+                <Link href={`/hesabim/siparisler/${order.orderNumber}`} className="btn btn-sec btn-sm">
+                  Detayları Gör <i className="fas fa-arrow-right" style={{ fontSize: 11 }} />
+                </Link>
+              </div>
+            </div>
+          );
+        })
+      )}
     </>
   );
 }

@@ -232,6 +232,118 @@
       "when": 1784836494754,
       "tag": "0032_third_justice",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1785169779080,
+      "tag": "0033_add_legal_consent_and_contract_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785246905039,
+      "tag": "0034_add_cookie_consents",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785316944653,
+      "tag": "0035_add_customer_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785318509095,
+      "tag": "0036_add_newsletter_subscribers",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1785335498868,
+      "tag": "0037_add_coupons",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785341437707,
+      "tag": "0038_add_vendor_store_view_count",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1785409683455,
+      "tag": "0039_glamorous_expediter",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1785490800000,
+      "tag": "0040_tan_war_machine",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1785479261037,
+      "tag": "0041_unknown_darwin",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1785604417986,
+      "tag": "0042_mean_groot",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1785656441198,
+      "tag": "0043_red_leopardon",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1785675565673,
+      "tag": "0044_puzzling_jackpot",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1785684263543,
+      "tag": "0045_soft_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1785701648824,
+      "tag": "0046_spooky_sunset_bain",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785707762889,
+      "tag": "0047_omniscient_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1785857662261,
+      "tag": "0048_new_oracle",
+      "breakpoints": true
     }
   ]
 }

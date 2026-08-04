@@ -19,6 +19,10 @@ export default function AdminSidebarNav() {
           <i className="fas fa-tachometer-alt" />
           <span>Gösterge Paneli</span>
         </Link>
+        <Link href="/admin/panel/icerik-analitigi" className={cls("/admin/panel/icerik-analitigi")}>
+          <i className="fas fa-chart-bar" />
+          <span>İçerik Analitiği</span>
+        </Link>
       </div>
 
       <div className="sidebar-section">
@@ -47,6 +51,10 @@ export default function AdminSidebarNav() {
         <Link href="/admin/panel/musteriler" className={cls("/admin/panel/musteriler")}>
           <i className="fas fa-users" />
           <span>Müşteriler</span>
+        </Link>
+        <Link href="/admin/panel/kuponlar" className={cls("/admin/panel/kuponlar")}>
+          <i className="fas fa-ticket-alt" />
+          <span>Kuponlar</span>
         </Link>
       </div>
 

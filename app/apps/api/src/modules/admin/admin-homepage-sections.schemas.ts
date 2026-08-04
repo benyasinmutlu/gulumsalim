@@ -12,6 +12,14 @@ const ALGO_TYPES = [
   "recently_viewed",
   "related_viewed",
   "discover_personalized",
+  // bkz. kullanıcı isteği (2026-08-02): "burada gözükecek kategorileri
+  // admin panelinde oluşturabilelim, gerektiğinde indirimli ürünleri de
+  // gösterebilsin" - kategori bazlı vitrin bölümü (config.categoryId +
+  // opsiyonel config.saleOnly, bkz. homepage-sections.service.ts).
+  "category",
+  // bkz. kullanıcı isteği: gerçek bitiş zamanına sayan geri sayımlı "Flaş
+  // İndirimler" bölümü (bkz. homepage-sections.service.ts SectionConfig.endsAt).
+  "flash_sale",
 ] as const;
 
 export const createSectionSchema = z.object({

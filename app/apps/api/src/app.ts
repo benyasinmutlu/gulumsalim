@@ -9,6 +9,7 @@ import errorHandlerPlugin from "./plugins/error-handler";
 import sessionPlugin from "./plugins/session";
 import csrfPlugin from "./plugins/csrf";
 import authGuardPlugin from "./plugins/auth-guard";
+import scheduledEmailsPlugin from "./plugins/scheduled-emails";
 import authRoutes from "./modules/auth/auth.routes";
 import catalogRoutes from "./modules/catalog/catalog.routes";
 import cartRoutes from "./modules/cart/cart.routes";
@@ -25,6 +26,7 @@ import adminPayoutsRoutes from "./modules/admin/admin-payouts.routes";
 import adminPagesRoutes from "./modules/admin/admin-pages.routes";
 import adminSlidersRoutes from "./modules/admin/admin-sliders.routes";
 import adminPromoBannersRoutes from "./modules/admin/admin-promo-banners.routes";
+import adminCouponsRoutes from "./modules/admin/admin-coupons.routes";
 import adminHomepageSectionsRoutes from "./modules/admin/admin-homepage-sections.routes";
 import contentRoutes from "./modules/content/content.routes";
 import discoveryRoutes from "./modules/discovery/discovery.routes";
@@ -50,6 +52,7 @@ import adminContactMessagesRoutes from "./modules/admin/admin-contact-messages.r
 import messagingRoutes from "./modules/messaging/messaging.routes";
 import customerMessagingRoutes from "./modules/messaging/customer-messaging.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
+import customerNotificationsRoutes from "./modules/notifications/customer-notifications.routes";
 import vendorCollectionsRoutes from "./modules/vendors/vendor-collections.routes";
 import vendorCategoriesRoutes from "./modules/vendors/vendor-categories.routes";
 import vendorBulkImportRoutes from "./modules/vendors/vendor-bulk-import.routes";
@@ -62,6 +65,8 @@ import adminSettingsRoutes from "./modules/admin/admin-settings.routes";
 import adminHomepageCollectionsRoutes from "./modules/admin/admin-homepage-collections.routes";
 import vendorPromoBannersRoutes from "./modules/vendors/vendor-promo-banners.routes";
 import adminDashboardRoutes from "./modules/admin/admin-dashboard.routes";
+import adminContentAnalyticsRoutes from "./modules/admin/admin-content-analytics.routes";
+import presenceRoutes from "./modules/analytics/presence.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -94,6 +99,7 @@ export function buildApp() {
   app.register(csrfPlugin);
   app.register(authGuardPlugin);
   app.register(uploadPlugin);
+  app.register(scheduledEmailsPlugin);
 
   app.register(authRoutes);
   app.register(catalogRoutes);
@@ -111,6 +117,7 @@ export function buildApp() {
   app.register(adminPagesRoutes);
   app.register(adminSlidersRoutes);
   app.register(adminPromoBannersRoutes);
+  app.register(adminCouponsRoutes);
   app.register(adminHomepageSectionsRoutes);
   app.register(contentRoutes);
   app.register(discoveryRoutes);
@@ -139,6 +146,7 @@ export function buildApp() {
   app.register(messagingRoutes);
   app.register(customerMessagingRoutes);
   app.register(notificationsRoutes);
+  app.register(customerNotificationsRoutes);
   app.register(vendorCollectionsRoutes);
   app.register(vendorCategoriesRoutes);
   app.register(vendorBulkImportRoutes);
@@ -151,6 +159,8 @@ export function buildApp() {
   app.register(adminHomepageCollectionsRoutes);
   app.register(vendorPromoBannersRoutes);
   app.register(adminDashboardRoutes);
+  app.register(adminContentAnalyticsRoutes);
+  app.register(presenceRoutes);
 
   // Deploy sonrası doğrulama ve systemd/uptime izleme için: hem Postgres
   // hem Redis'e gerçekten bağlanabildiğini kontrol eder, sadece process'in
