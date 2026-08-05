@@ -9,7 +9,7 @@ import {
   listVendorChannelListings,
   setListingEnabled,
 } from "./inventory-sync.repository";
-import { enqueueStockSync } from "./inventory-sync.service";
+import { enqueueStockSync, enqueueVariantStockSync } from "./inventory-sync.service";
 
 // Kanalın webhook'undan gelen (normalize) sipariş satırı.
 interface OrderLine {
@@ -26,11 +26,15 @@ async function processChannelOrder(channel: SalesChannel, lines: OrderLine[]): P
     if (!line.barcode || !Number.isFinite(line.quantity) || line.quantity <= 0) continue;
     const listing = await getListingByBarcode(channel, line.barcode);
     if (!listing) continue;
-    const newStock = listing.variantId
-      ? await atomicDecrementVariantStock(listing.variantId, line.quantity)
-      : await atomicDecrementProductStock(listing.productId, line.quantity);
-    if (newStock === null) continue; // yetersiz stok (merkezde zaten tükenmiş)
-    await enqueueStockSync(listing.productId, newStock, channel); // satışı bildiren kanal hariç
+    if (listing.variantId) {
+      const newStock = await atomicDecrementVariantStock(listing.variantId, line.quantity);
+      if (newStock === null) continue; // yetersiz stok
+      await enqueueVariantStockSync(listing.variantId, newStock, channel); // satışı bildiren kanal hariç
+    } else {
+      const newStock = await atomicDecrementProductStock(listing.productId, line.quantity);
+      if (newStock === null) continue;
+      await enqueueStockSync(listing.productId, newStock, channel);
+    }
     processed++;
   }
   return { processed };

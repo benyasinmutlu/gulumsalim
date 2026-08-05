@@ -3,6 +3,7 @@ import { env } from "./config/env";
 import { ensureProductsIndex } from "./lib/meilisearch";
 import { startBulkImportWorker, stopBulkImportWorker } from "./lib/queue/workers/bulk-import.worker";
 import { startOutboxDrainer, stopOutboxDrainer } from "./modules/integrations/outbox-drainer";
+import { startReconcileJob, stopReconcileJob } from "./modules/integrations/reconcile.job";
 
 const app = buildApp();
 
@@ -13,6 +14,10 @@ startBulkImportWorker();
 // Stok senkron outbox drainer (in-process, interval): merkez stok değişince
 // yazılan olayları kanallara (İkas/Trendyol) push eder. Anahtar yoksa bekletir.
 startOutboxDrainer();
+
+// Periyodik mutabakat (30 dk): kanal stoklarını merkezle karşılaştırıp kaçan
+// senkronu düzeltir. Anahtar yoksa no-op (yapılandırılmamış kanalı atlar).
+startReconcileJob();
 
 // Meilisearch geçici olarak erişilemez olsa bile API ayağa kalkmalı -
 // index ayarları bir sonraki başarılı çağrıda yine uygulanabilir.
@@ -39,6 +44,7 @@ for (const sig of ["SIGTERM", "SIGINT"] as const) {
     app.log.info({ sig }, "graceful shutdown başladı");
     const timer = setTimeout(() => process.exit(1), 10_000).unref();
     stopOutboxDrainer();
+    stopReconcileJob();
     Promise.all([app.close(), stopBulkImportWorker()])
       .then(() => {
         clearTimeout(timer);

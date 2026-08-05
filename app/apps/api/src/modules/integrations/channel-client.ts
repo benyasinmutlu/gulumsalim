@@ -59,9 +59,12 @@ async function httpJson(url: string, init: RequestInit): Promise<{ status: numbe
 // Eşleşme anahtarı = barcode. Stok/fiyat: POST .../products/price-and-inventory
 // (async batch -> batchRequestId).
 
-const TRENDYOL_BASE = "https://api.trendyol.com/sapigw";
+// Yeni entegrasyon base'i (V2). Eski "api.trendyol.com/sapigw" 15 Eylül 2026'da
+// kapanıyor. Env ile override edilebilir (staging: stageapigw.trendyol.com/integration).
+const TRENDYOL_BASE = process.env.TRENDYOL_API_BASE ?? "https://apigw.trendyol.com/integration";
 
 // SAF (test edilebilir): push isteğinin url/header/body'sini kurar - ağ yok.
+// Not: supplierId = sellerId (Trendyol V2 yeniden adlandırdı, değer aynı).
 export function buildTrendyolPushRequest(
   supplierId: string,
   apiKey: string,
@@ -70,7 +73,7 @@ export function buildTrendyolPushRequest(
 ): { url: string; headers: Record<string, string>; body: string } {
   const token = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
   return {
-    url: `${TRENDYOL_BASE}/suppliers/${supplierId}/products/price-and-inventory`,
+    url: `${TRENDYOL_BASE}/inventory/sellers/${supplierId}/products/price-and-inventory`,
     headers: {
       Authorization: `Basic ${token}`,
       "Content-Type": "application/json",
@@ -106,9 +109,9 @@ export class TrendyolClient implements ChannelClient {
     if (!this.isConfigured()) throw new NotConfiguredError("Trendyol");
     const out: ChannelStockUpdate[] = [];
     const token = Buffer.from(`${this.apiKey}:${this.apiSecret}`).toString("base64");
-    // Trendyol: barkodla ürün sorgusu (sayfalı). Basit sürüm: her barkodu tek tek.
+    // Trendyol V2: barkodla ürün sorgusu (sayfalı). Basit sürüm: her barkodu tek tek.
     for (const barcode of barcodes) {
-      const { status, body } = await httpJson(`${TRENDYOL_BASE}/suppliers/${this.supplierId}/products?barcode=${encodeURIComponent(barcode)}`, {
+      const { status, body } = await httpJson(`${TRENDYOL_BASE}/product/sellers/${this.supplierId}/products?barcode=${encodeURIComponent(barcode)}`, {
         method: "GET",
         headers: { Authorization: `Basic ${token}`, "User-Agent": `${this.supplierId} - SelfIntegration` },
       });
@@ -122,26 +125,32 @@ export class TrendyolClient implements ChannelClient {
 }
 
 // ---------- İKAS ----------
-// Gerekli env: IKAS_CLIENT_ID, IKAS_CLIENT_SECRET (OAuth uygulaması).
-// OAuth client-credentials -> access_token, sonra Admin GraphQL ile stok
-// güncelleme. ⚠️ GraphQL mutation alanları GERÇEK ANAHTARLA doğrulanmalı.
+// Gerekli env: IKAS_CLIENT_ID, IKAS_CLIENT_SECRET, IKAS_STORE_NAME.
+// OAuth token endpoint'i MAĞAZAYA ÖZEL subdomain'dedir (ikas.dev auth dokümanı
+// ile doğrulandı): https://<store_name>.myikas.com/api/admin/oauth/token.
+// GraphQL ise ortak: https://api.myikas.com/api/v1/admin/graphql. Token
+// client-credentials ile alınır, Bearer olarak kullanılır.
 
-const IKAS_TOKEN_URL = "https://api.myikas.com/api/admin/oauth/token";
 const IKAS_GRAPHQL_URL = "https://api.myikas.com/api/v1/admin/graphql";
 
 export class IkasClient implements ChannelClient {
   readonly channel: SalesChannel = "ikas";
   private clientId = process.env.IKAS_CLIENT_ID;
   private clientSecret = process.env.IKAS_CLIENT_SECRET;
+  private storeName = process.env.IKAS_STORE_NAME;
   private cachedToken: { token: string; expiresAt: number } | null = null;
 
   isConfigured(): boolean {
-    return Boolean(this.clientId && this.clientSecret);
+    return Boolean(this.clientId && this.clientSecret && this.storeName);
+  }
+
+  private tokenUrl(): string {
+    return `https://${this.storeName}.myikas.com/api/admin/oauth/token`;
   }
 
   private async getToken(): Promise<string> {
     if (this.cachedToken && this.cachedToken.expiresAt > Date.now() + 30_000) return this.cachedToken.token;
-    const { status, body } = await httpJson(IKAS_TOKEN_URL, {
+    const { status, body } = await httpJson(this.tokenUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "client_credentials", client_id: this.clientId!, client_secret: this.clientSecret! }).toString(),

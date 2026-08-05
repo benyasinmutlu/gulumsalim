@@ -1,4 +1,4 @@
-import { enqueueOutbox, getActiveListingsForProduct } from "./inventory-sync.repository";
+import { enqueueOutbox, getActiveListingsForProduct, getActiveListingsForVariant } from "./inventory-sync.repository";
 import { exposedStock, type SalesChannel } from "./inventory-sync";
 
 // Dış kanallara AÇIK edilecek stoktan düşülen güvenlik tamponu. Propagation
@@ -11,6 +11,18 @@ const SAFETY_BUFFER = 1;
 // veya hiç kanal yapılandırılmamışsa sessizce hiçbir şey yapmaz (güvenli).
 export async function enqueueStockSync(productId: number, currentStock: number, exceptChannel?: SalesChannel): Promise<void> {
   const listings = await getActiveListingsForProduct(productId);
+  if (listings.length === 0) return;
+  const target = exposedStock(currentStock, SAFETY_BUFFER);
+  for (const l of listings) {
+    if (exceptChannel && l.channel === exceptChannel) continue;
+    await enqueueOutbox(l.id, target);
+  }
+}
+
+// Varyant-bazlı: bir varyantın stoğu değişince o varyanta bağlı kanal
+// listing'lerine (beden/renk satan Trendyol/İkas ilanları) yeni stoğu iter.
+export async function enqueueVariantStockSync(variantId: number, currentStock: number, exceptChannel?: SalesChannel): Promise<void> {
+  const listings = await getActiveListingsForVariant(variantId);
   if (listings.length === 0) return;
   const target = exposedStock(currentStock, SAFETY_BUFFER);
   for (const l of listings) {

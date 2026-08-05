@@ -65,6 +65,36 @@ export async function getActiveListingsForProduct(productId: number) {
     .where(and(eq(channelListings.productId, productId), eq(channelListings.enabled, true)));
 }
 
+// Bir VARYANTIN aktif listing'leri (varyant satılınca bunlara push edilir).
+export async function getActiveListingsForVariant(variantId: number) {
+  return db
+    .select()
+    .from(channelListings)
+    .where(and(eq(channelListings.variantId, variantId), eq(channelListings.enabled, true)));
+}
+
+// Reconcile için: bir kanalın tüm aktif listing'leri + MERKEZ stoğu (varyant
+// varsa varyant stoğu, yoksa ürün stoğu). Kanaldan çekilen stokla karşılaştırılır.
+export async function getEnabledListingsWithStock(channel: SalesChannel) {
+  const rows = await db
+    .select({
+      listingId: channelListings.id,
+      barcode: channelListings.externalBarcode,
+      variantId: channelListings.variantId,
+      productStock: products.stock,
+      variantStock: productVariants.stock,
+    })
+    .from(channelListings)
+    .innerJoin(products, eq(channelListings.productId, products.id))
+    .leftJoin(productVariants, eq(channelListings.variantId, productVariants.id))
+    .where(and(eq(channelListings.channel, channel), eq(channelListings.enabled, true)));
+  return rows.map((r) => ({
+    listingId: r.listingId,
+    barcode: r.barcode,
+    centralStock: r.variantId != null ? (r.variantStock ?? 0) : r.productStock,
+  }));
+}
+
 // Satıcının bu listing'i olduğunu doğrula (yetki kontrolü) + aç/kapa.
 export async function setListingEnabled(listingId: number, vendorId: number, enabled: boolean) {
   const [row] = await db

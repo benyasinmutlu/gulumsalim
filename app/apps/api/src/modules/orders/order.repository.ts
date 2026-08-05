@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { orderItems, orders, productImages, productVariants, products, vendors } from "../../db/schema/index";
-import { enqueueStockSync } from "../integrations/inventory-sync.service";
+import { enqueueStockSync, enqueueVariantStockSync } from "../integrations/inventory-sync.service";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -31,8 +31,11 @@ async function decrementOrderItemStock(tx: Tx, items: CreateOrderItemInput[]) {
         .update(productVariants)
         .set({ stock: sql`${productVariants.stock} - ${item.quantity}` })
         .where(and(eq(productVariants.id, item.variantId), gte(productVariants.stock, item.quantity)))
-        .returning({ id: productVariants.id });
+        .returning({ id: productVariants.id, stock: productVariants.stock });
       if (updated.length === 0) throw new InsufficientStockError(item.productId);
+      // Varyant kanal senkronu (Trendyol/İkas beden-renk ilanları). Sipariş
+      // akışını bloklamaz; kaçanı reconcile toparlar.
+      enqueueVariantStockSync(item.variantId, updated[0]!.stock).catch(() => {});
       continue;
     }
 
