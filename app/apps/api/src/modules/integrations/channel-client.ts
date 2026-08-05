@@ -1,45 +1,85 @@
-// Kanal client SÖZLEŞMESİ + Trendyol/İkas iskeletleri. Gerçek HTTP çağrıları
-// buraya gelir; şu an API anahtarı YOK -> env'den okur, yoksa net "configured
-// değil" hatası verir (prod'da sessizce patlamaz). Anahtar gelince gövdeler
-// doldurulur.
+// Kanal client'ları: Trendyol + İkas. Dış stok itme (pushStock) ve reconcile
+// için stok çekme (fetchStocks). API anahtarı YOKSA isConfigured()=false ->
+// pipeline bu kanalı atlar, sistem hata vermez. Anahtar gelince gövdeler
+// gerçek HTTP çağrısı yapar.
+//
+// NOT: Trendyol API'si iyi belgeli (Basic auth + REST) - yüksek güven. İkas
+// (OAuth + GraphQL) yapısı hazır; kesin mutation alanları GERÇEK ANAHTARLA
+// İkas dokümanına karşı doğrulanmalı (aşağıda işaretli).
 
 import type { SalesChannel } from "./inventory-sync";
-
-export interface ChannelOrderLine {
-  externalBarcode: string;
-  quantity: number;
-}
 
 export interface ChannelStockUpdate {
   externalBarcode: string;
   stock: number;
 }
 
-// Her kanal bu arayüzü uygular. Böylece inventory-sync bir kanalın detayını
-// bilmeden çalışır (repository/adapter deseni).
+export interface PushResult {
+  ok: boolean;
+  ref?: string; // batchRequestId vb.
+  error?: string;
+}
+
 export interface ChannelClient {
   readonly channel: SalesChannel;
   isConfigured(): boolean;
-  // Dışa stok itme (batch). Trendyol'da price-and-inventory async batch,
-  // İkas'ta stok mutation'ı. batchRequestId/sonuç döner.
-  pushStock(updates: ChannelStockUpdate[]): Promise<{ ok: boolean; ref?: string; error?: string }>;
-  // Kanaldan sipariş satırlarını çek (polling yolu; webhook varsa route kullanır).
-  fetchNewOrderLines?(sinceIso: string): Promise<ChannelOrderLine[]>;
-  // Reconcile için kanaldaki güncel stokları çek.
+  pushStock(updates: ChannelStockUpdate[]): Promise<PushResult>;
   fetchStocks?(barcodes: string[]): Promise<ChannelStockUpdate[]>;
 }
 
-class NotConfiguredError extends Error {
+export class NotConfiguredError extends Error {
   constructor(channel: string) {
-    super(`${channel} entegrasyonu yapılandırılmadı (API anahtarı eksik). .env'e anahtarları ekleyin.`);
+    super(`${channel} entegrasyonu yapılandırılmadı (API anahtarı eksik).`);
     this.name = "NotConfiguredError";
   }
 }
 
-// --- TRENDYOL ---
+const HTTP_TIMEOUT_MS = 15000;
+
+async function httpJson(url: string, init: RequestInit): Promise<{ status: number; body: unknown }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), HTTP_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...init, signal: ctrl.signal });
+    const text = await res.text();
+    let body: unknown = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+    return { status: res.status, body };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ---------- TRENDYOL ----------
 // Gerekli env: TRENDYOL_SUPPLIER_ID, TRENDYOL_API_KEY, TRENDYOL_API_SECRET.
-// Ürün eşleşme anahtarı = barcode. Stok/fiyat güncelleme uç noktası:
-//   POST /suppliers/{supplierId}/products/price-and-inventory  (async, batch).
+// Eşleşme anahtarı = barcode. Stok/fiyat: POST .../products/price-and-inventory
+// (async batch -> batchRequestId).
+
+const TRENDYOL_BASE = "https://api.trendyol.com/sapigw";
+
+// SAF (test edilebilir): push isteğinin url/header/body'sini kurar - ağ yok.
+export function buildTrendyolPushRequest(
+  supplierId: string,
+  apiKey: string,
+  apiSecret: string,
+  updates: ChannelStockUpdate[],
+): { url: string; headers: Record<string, string>; body: string } {
+  const token = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+  return {
+    url: `${TRENDYOL_BASE}/suppliers/${supplierId}/products/price-and-inventory`,
+    headers: {
+      Authorization: `Basic ${token}`,
+      "Content-Type": "application/json",
+      "User-Agent": `${supplierId} - SelfIntegration`,
+    },
+    body: JSON.stringify({ items: updates.map((u) => ({ barcode: u.externalBarcode, quantity: Math.max(0, Math.floor(u.stock)) })) }),
+  };
+}
+
 export class TrendyolClient implements ChannelClient {
   readonly channel: SalesChannel = "trendyol";
   private supplierId = process.env.TRENDYOL_SUPPLIER_ID;
@@ -50,39 +90,94 @@ export class TrendyolClient implements ChannelClient {
     return Boolean(this.supplierId && this.apiKey && this.apiSecret);
   }
 
-  async pushStock(updates: ChannelStockUpdate[]): Promise<{ ok: boolean; ref?: string; error?: string }> {
+  async pushStock(updates: ChannelStockUpdate[]): Promise<PushResult> {
     if (!this.isConfigured()) throw new NotConfiguredError("Trendyol");
-    // TODO(anahtar gelince): Basic auth (apiKey:apiSecret), body:
-    //   { items: updates.map(u => ({ barcode: u.externalBarcode, quantity: u.stock })) }
-    // POST .../suppliers/{supplierId}/products/price-and-inventory -> batchRequestId.
-    // Rate limit'e uy, batchRequestId ile durum takibi yap.
-    throw new NotConfiguredError("Trendyol");
+    if (updates.length === 0) return { ok: true };
+    const req = buildTrendyolPushRequest(this.supplierId!, this.apiKey!, this.apiSecret!, updates);
+    const { status, body } = await httpJson(req.url, { method: "POST", headers: req.headers, body: req.body });
+    if (status >= 200 && status < 300) {
+      const ref = (body as { batchRequestId?: string })?.batchRequestId;
+      return { ok: true, ref };
+    }
+    return { ok: false, error: `Trendyol HTTP ${status}: ${JSON.stringify(body).slice(0, 200)}` };
+  }
+
+  async fetchStocks(barcodes: string[]): Promise<ChannelStockUpdate[]> {
+    if (!this.isConfigured()) throw new NotConfiguredError("Trendyol");
+    const out: ChannelStockUpdate[] = [];
+    const token = Buffer.from(`${this.apiKey}:${this.apiSecret}`).toString("base64");
+    // Trendyol: barkodla ürün sorgusu (sayfalı). Basit sürüm: her barkodu tek tek.
+    for (const barcode of barcodes) {
+      const { status, body } = await httpJson(`${TRENDYOL_BASE}/suppliers/${this.supplierId}/products?barcode=${encodeURIComponent(barcode)}`, {
+        method: "GET",
+        headers: { Authorization: `Basic ${token}`, "User-Agent": `${this.supplierId} - SelfIntegration` },
+      });
+      if (status >= 200 && status < 300) {
+        const item = (body as { content?: { barcode: string; quantity: number }[] })?.content?.[0];
+        if (item) out.push({ externalBarcode: item.barcode, stock: item.quantity });
+      }
+    }
+    return out;
   }
 }
 
-// --- İKAS ---
-// Gerekli env: IKAS_STORE_ID (client id), IKAS_CLIENT_SECRET (OAuth app).
-// Admin GraphQL API + webhooks. Stok saveProductStockLocations mutation'ı ile.
+// ---------- İKAS ----------
+// Gerekli env: IKAS_CLIENT_ID, IKAS_CLIENT_SECRET (OAuth uygulaması).
+// OAuth client-credentials -> access_token, sonra Admin GraphQL ile stok
+// güncelleme. ⚠️ GraphQL mutation alanları GERÇEK ANAHTARLA doğrulanmalı.
+
+const IKAS_TOKEN_URL = "https://api.myikas.com/api/admin/oauth/token";
+const IKAS_GRAPHQL_URL = "https://api.myikas.com/api/v1/admin/graphql";
+
 export class IkasClient implements ChannelClient {
   readonly channel: SalesChannel = "ikas";
   private clientId = process.env.IKAS_CLIENT_ID;
   private clientSecret = process.env.IKAS_CLIENT_SECRET;
+  private cachedToken: { token: string; expiresAt: number } | null = null;
 
   isConfigured(): boolean {
     return Boolean(this.clientId && this.clientSecret);
   }
 
-  async pushStock(updates: ChannelStockUpdate[]): Promise<{ ok: boolean; ref?: string; error?: string }> {
+  private async getToken(): Promise<string> {
+    if (this.cachedToken && this.cachedToken.expiresAt > Date.now() + 30_000) return this.cachedToken.token;
+    const { status, body } = await httpJson(IKAS_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "client_credentials", client_id: this.clientId!, client_secret: this.clientSecret! }).toString(),
+    });
+    if (status < 200 || status >= 300) throw new Error(`İkas token HTTP ${status}`);
+    const t = body as { access_token?: string; expires_in?: number };
+    if (!t.access_token) throw new Error("İkas token yanıtı geçersiz");
+    this.cachedToken = { token: t.access_token, expiresAt: Date.now() + (t.expires_in ?? 3600) * 1000 };
+    return t.access_token;
+  }
+
+  async pushStock(updates: ChannelStockUpdate[]): Promise<PushResult> {
     if (!this.isConfigured()) throw new NotConfiguredError("İkas");
-    // TODO(anahtar gelince): OAuth client-credentials ile token al, GraphQL
-    //   saveProductStockLocations mutation'ı ile stok güncelle.
-    throw new NotConfiguredError("İkas");
+    if (updates.length === 0) return { ok: true };
+    const token = await this.getToken();
+    // ⚠️ DOĞRULANACAK: İkas stok mutation'ı. saveProductStockLocations tipik
+    // şekildir; kesin alan adları İkas Admin API dokümanına göre ayarlanmalı.
+    const mutation = `mutation SaveStock($input: [ProductStockLocationInput!]!) { saveProductStockLocations(input: $input) { productId stockCount } }`;
+    const variables = { input: updates.map((u) => ({ barcode: u.externalBarcode, stockCount: Math.max(0, Math.floor(u.stock)) })) };
+    const { status, body } = await httpJson(IKAS_GRAPHQL_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ query: mutation, variables }),
+    });
+    if (status >= 200 && status < 300 && !(body as { errors?: unknown[] })?.errors) return { ok: true };
+    return { ok: false, error: `İkas HTTP ${status}: ${JSON.stringify(body).slice(0, 200)}` };
   }
 }
 
-// Kayıtlı client'lar. inventory-sync buradan çeker.
+// Kayıtlı client'lar (yeni kanal eklenince buraya).
 export function getChannelClients(): ChannelClient[] {
   return [new TrendyolClient(), new IkasClient()];
+}
+
+export function getChannelClient(channel: SalesChannel): ChannelClient {
+  return channel === "trendyol" ? new TrendyolClient() : new IkasClient();
 }
 
 export function getConfiguredChannels(): SalesChannel[] {

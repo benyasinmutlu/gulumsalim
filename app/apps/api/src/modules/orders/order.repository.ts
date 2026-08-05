@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { orderItems, orders, productImages, productVariants, products, vendors } from "../../db/schema/index";
+import { enqueueStockSync } from "../integrations/inventory-sync.service";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -51,8 +52,15 @@ async function decrementOrderItemStock(tx: Tx, items: CreateOrderItemInput[]) {
           : {}),
       })
       .where(and(eq(products.id, item.productId), gte(products.stock, item.quantity)))
-      .returning({ id: products.id });
+      .returning({ id: products.id, stock: products.stock });
     if (updated.length === 0) throw new InsufficientStockError(item.productId);
+
+    // Kanal senkronu: bu ürünün aktif kanal listing'lerine yeni merkez stoğunu
+    // outbox üzerinden it (İkas/Trendyol vb.). Sipariş akışını ASLA bloklamaz -
+    // hata olsa da yutulur; kaçan senkronu reconcile job toparlar.
+    // (Varyant satışında varyant-bazlı senkron ayrı ele alınacak - şimdilik
+    // varyantsız ürünlerin merkez stoğu senkronlanır.)
+    enqueueStockSync(item.productId, updated[0]!.stock).catch(() => {});
   }
 }
 
