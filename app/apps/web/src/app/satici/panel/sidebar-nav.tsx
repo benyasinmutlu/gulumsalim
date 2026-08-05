@@ -40,6 +40,11 @@ export default function VendorSidebarNav() {
         </Link>
       )}
       {!isIndividual && (
+        <Link href="/satici/panel/kanallar" className={active("/satici/panel/kanallar")}>
+          <i className="fas fa-plug nav-icon" /> Kanallar
+        </Link>
+      )}
+      {!isIndividual && (
         <Link href="/satici/panel/kampanyalar" className={active("/satici/panel/kampanyalar")}>
           <i className="fas fa-bullhorn nav-icon" /> Kampanyalar
         </Link>

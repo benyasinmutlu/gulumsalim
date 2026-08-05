@@ -10,6 +10,7 @@ import {
   setListingEnabled,
 } from "./inventory-sync.repository";
 import { enqueueStockSync, enqueueVariantStockSync } from "./inventory-sync.service";
+import { getChannelClients } from "./channel-client";
 
 // Kanalın webhook'undan gelen (normalize) sipariş satırı.
 interface OrderLine {
@@ -71,6 +72,13 @@ const newListingSchema = z.object({
 });
 
 const integrationsRoutes: FastifyPluginAsync = async (app) => {
+  // ---- Satıcı: kanal entegrasyon durumu (hangi kanal bağlı) ----
+  // Panelde "Trendyol/İkas bağlı değil" gibi dürüst durum göstermek için.
+  app.get("/vendor/integrations/status", { preHandler: app.requireVendor }, async (_request, reply) => {
+    const channels = getChannelClients().map((c) => ({ channel: c.channel, configured: c.isConfigured() }));
+    return reply.send({ channels });
+  });
+
   // ---- Satıcı: kanal listing yönetimi ----
   app.get("/vendor/channel-listings", { preHandler: app.requireVendor }, async (request, reply) => {
     return reply.send(await listVendorChannelListings(request.session.vendorId!));
