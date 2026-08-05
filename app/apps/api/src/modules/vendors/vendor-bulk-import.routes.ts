@@ -1,6 +1,14 @@
 import { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { detectImportColumns, importProductsFromCsv, importProductsFromFile, type ColumnMapping } from "./vendor-bulk-import.service";
+import {
+  detectImportColumns,
+  importProductsFromCsv,
+  importProductsFromFile,
+  parseFileToRows,
+  MAX_ASYNC_IMPORT_ROWS,
+  type ColumnMapping,
+} from "./vendor-bulk-import.service";
+import { getBulkImportQueue } from "../../lib/queue/queues";
 
 const mappingSchema = z
   .object({
@@ -67,6 +75,36 @@ const vendorBulkImportRoutes: FastifyPluginAsync = async (app) => {
     } catch (err) {
       return reply.status(400).send({ error: { message: err instanceof Error ? err.message : "Veri işlenemedi" } });
     }
+  });
+
+  // ASYNC toplu içe-aktarma (yüklü dosyalar için): dosyayı parse edip kuyruğa
+  // koyar, hemen jobId döner. Worker arka planda işler - HTTP isteği beklemez.
+  app.post("/vendor/products/bulk-import/async", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
+    const file = await request.file();
+    if (!file) return reply.status(400).send({ error: { message: "Dosya bulunamadı" } });
+    const buffer = await file.toBuffer();
+    try {
+      const mapping = parseMappingParam(q(request.query, "mapping"));
+      const rows = await parseFileToRows(buffer, file.filename, mapping);
+      if (rows.length === 0) return reply.status(400).send({ error: { message: "Dosyada satır bulunamadı" } });
+      if (rows.length > MAX_ASYNC_IMPORT_ROWS)
+        return reply.status(400).send({ error: { message: `En fazla ${MAX_ASYNC_IMPORT_ROWS} satır yüklenebilir (dosyada ${rows.length}).` } });
+      const job = await getBulkImportQueue().add("import", { vendorId: request.session.vendorId!, rows });
+      return reply.status(202).send({ jobId: job.id, total: rows.length });
+    } catch (err) {
+      return reply.status(400).send({ error: { message: err instanceof Error ? err.message : "Dosya işlenemedi" } });
+    }
+  });
+
+  // İş durumu (satıcıya özel). state: waiting|active|completed|failed; tamamlanınca sonuç döner.
+  app.get("/vendor/products/bulk-import/status/:jobId", { preHandler: app.requireVendor }, async (request, reply) => {
+    const { jobId } = request.params as { jobId: string };
+    const job = await getBulkImportQueue().getJob(jobId);
+    if (!job || job.data.vendorId !== request.session.vendorId) {
+      return reply.status(404).send({ error: { message: "İş bulunamadı" } });
+    }
+    const state = await job.getState();
+    return reply.send({ jobId: job.id, state, total: job.data.rows.length, result: job.returnvalue ?? null });
   });
 };
 

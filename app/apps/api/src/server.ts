@@ -1,8 +1,13 @@
 import { buildApp } from "./app";
 import { env } from "./config/env";
 import { ensureProductsIndex } from "./lib/meilisearch";
+import { startBulkImportWorker, stopBulkImportWorker } from "./lib/queue/workers/bulk-import.worker";
 
 const app = buildApp();
+
+// Toplu içe-aktarma worker'ı (in-process): kuyruğa düşen büyük import işlerini
+// arka planda işler. API restart'ında BullMQ işleri Redis'ten devam ettirir.
+startBulkImportWorker();
 
 // Meilisearch geçici olarak erişilemez olsa bile API ayağa kalkmalı -
 // index ayarları bir sonraki başarılı çağrıda yine uygulanabilir.
@@ -28,8 +33,7 @@ for (const sig of ["SIGTERM", "SIGINT"] as const) {
     shuttingDown = true;
     app.log.info({ sig }, "graceful shutdown başladı");
     const timer = setTimeout(() => process.exit(1), 10_000).unref();
-    app
-      .close()
+    Promise.all([app.close(), stopBulkImportWorker()])
       .then(() => {
         clearTimeout(timer);
         process.exit(0);

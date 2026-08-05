@@ -16,6 +16,7 @@ import {
   deleteProductVariant,
   deleteVendorProduct,
   findProductBySlugAnyVendor,
+  findVendorProductFingerprints,
   findProductImageOwnedByVendor,
   findVariantOwnedByVendor,
   findVendorProduct,
@@ -98,6 +99,14 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
     const cleanDesc = cleanDescription(input.description ?? "").value ?? input.description;
     const cleanBrand = normalizeBrand(input.brand ?? "").value ?? input.brand;
 
+    // Kopya uyarısı: aynı satıcıda aynı ad+kategori (parmak izi) zaten varsa
+    // engelle (kaza eseri aynı ürünü ikinci kez eklemeyi önler).
+    const fingerprint = productFingerprint(request.session.vendorId!, cleanName, { category: String(input.categoryId) });
+    const vendorFingerprints = await findVendorProductFingerprints(request.session.vendorId!);
+    if (vendorFingerprints.has(fingerprint)) {
+      return reply.status(409).send({ error: { message: "Bu ürünü zaten eklemişsiniz (aynı ad ve kategori). Farklı bir ad deneyin." } });
+    }
+
     const product = await insertVendorProduct(request.session.vendorId!, {
       categoryId: input.categoryId,
       name: cleanName,
@@ -105,7 +114,7 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       description: cleanDesc,
       brand: cleanBrand,
       basePrice: input.basePrice.toFixed(2),
-      fingerprint: productFingerprint(request.session.vendorId!, cleanName, { category: String(input.categoryId) }),
+      fingerprint,
       compareAtPrice: input.compareAtPrice?.toFixed(2),
       // bkz. kullanıcı isteği: "normal kurumsal satıcılar için 2.el seçeneği
       // olmasın" - istemci arayüzü kurumsal satıcıda bu seçeneği zaten

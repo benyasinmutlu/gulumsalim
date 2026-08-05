@@ -419,3 +419,24 @@ export async function importProductsFromCsv(
   const map = resolveMapping(raw.headers, mapping);
   return importNormalizedRows(vendorId, raw.rows.map((r) => mapRow(r, map)), dryRun);
 }
+
+// --- ASYNC (BullMQ kuyruk) yolu ---
+// Async'te tek seferde çok daha fazla satıra izin verilir (istek bloklanmaz).
+export const MAX_ASYNC_IMPORT_ROWS = 50000;
+
+// Dosyayı kanonik satırlara çevirir ama İÇE AKTARMAZ - route bunları kuyruğa
+// koyar, worker importRows ile işler (büyük dosya HTTP isteğini bloklamaz).
+export async function parseFileToRows(
+  buffer: Buffer,
+  filename: string,
+  mapping?: ColumnMapping,
+): Promise<Record<CanonicalField, string>[]> {
+  const raw = await parseRawImport(buffer, filename);
+  const map = resolveMapping(raw.headers, mapping);
+  return raw.rows.map((r) => mapRow(r, map));
+}
+
+// Worker giriş noktası: kanonik satırları içe aktarır (dryRun=false).
+export async function importRows(vendorId: number, rows: Record<CanonicalField, string>[]): Promise<BulkImportRowResult[]> {
+  return importNormalizedRows(vendorId, rows, false);
+}
