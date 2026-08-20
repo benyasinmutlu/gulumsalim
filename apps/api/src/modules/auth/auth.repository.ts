@@ -1,6 +1,7 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { customerAddresses, customerNotifications, customers, orders, productFavorites, productQuestions, productReviews, vendorFollowers } from "../../db/schema/index";
+import type { SizePrefs } from "../../db/schema/customers";
 
 export async function findCustomerByEmail(email: string) {
   const [row] = await db.select().from(customers).where(eq(customers.email, email)).limit(1);
@@ -102,7 +103,7 @@ export async function updateGuestCustomerContact(id: number, data: { fullName: s
 
 export async function updateCustomerProfile(
   id: number,
-  data: Partial<{ fullName: string; phone: string; age: number; heightCm: number; weightKg: number; passwordHash: string }>,
+  data: Partial<{ fullName: string; phone: string; age: number; heightCm: number; weightKg: number; sizePrefs: SizePrefs; passwordHash: string }>,
 ) {
   const [row] = await db.update(customers).set(data).where(eq(customers.id, id)).returning();
   if (!row) throw new Error("Profil güncellenemedi");
@@ -114,17 +115,16 @@ export async function setCustomerResetToken(id: number, tokenHash: string, expir
   await db.update(customers).set({ passwordResetTokenHash: tokenHash, passwordResetExpiresAt: expiresAt }).where(eq(customers.id, id));
 }
 
-export async function findCustomerByValidResetToken(tokenHash: string) {
+// Token kontrolü, şifre değişimi ve token tüketimi TEK UPDATE içinde yapılır.
+// Böylece aynı bağlantıya eşzamanlı iki istek gelse bile yalnızca biri başarılı
+// olur; ikinci istek token ilk işlemde temizlendiği için satır güncelleyemez.
+export async function consumeCustomerResetToken(tokenHash: string, passwordHash: string) {
   const [row] = await db
-    .select()
-    .from(customers)
+    .update(customers)
+    .set({ passwordHash, passwordResetTokenHash: null, passwordResetExpiresAt: null })
     .where(and(eq(customers.passwordResetTokenHash, tokenHash), gt(customers.passwordResetExpiresAt, new Date())))
-    .limit(1);
+    .returning({ id: customers.id });
   return row ?? null;
-}
-
-export async function clearCustomerResetToken(id: number) {
-  await db.update(customers).set({ passwordResetTokenHash: null, passwordResetExpiresAt: null }).where(eq(customers.id, id));
 }
 
 // E-posta doğrulama - passwordReset* alan çiftiyle birebir aynı desen.

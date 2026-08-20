@@ -43,4 +43,10 @@ describe("calculateEarning", () => {
     const result = calculateEarning("149.90", 10);
     expect(result).toEqual({ grossAmount: "149.90", commissionAmount: "14.99", netAmount: "134.91" });
   });
+
+  it("komisyonu bir kez kuruşa yuvarlayıp neti kesin farktan üretir", () => {
+    const result = calculateEarning("149.90", 5);
+    expect(result).toEqual({ grossAmount: "149.90", commissionAmount: "7.50", netAmount: "142.40" });
+    expect(Number(result.grossAmount) - Number(result.commissionAmount)).toBe(Number(result.netAmount));
+  });
 });

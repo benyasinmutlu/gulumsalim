@@ -1,4 +1,5 @@
-import { bigint, boolean, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { bigint, boolean, check, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { complaintStatusEnum, customerMessageSenderEnum, messageSenderEnum, payoutStatusEnum, reviewStatusEnum, vendorStatusEnum, vendorTypeEnum } from "./enums";
 import { customers } from "./customers";
 
@@ -66,6 +67,8 @@ export const vendors = pgTable("vendors", {
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   statusIdx: index("idx_vendors_status").on(table.status),
+  walletCheck: check("vendor_wallet_nonnegative_check", sql`${table.walletBalance} >= 0`),
+  commissionCheck: check("vendor_commission_rate_check", sql`${table.commissionRate} IS NULL OR (${table.commissionRate} >= 0 AND ${table.commissionRate} <= 100)`),
 }));
 
 // vendor/store-layout.php'deki satıcıya özel slider yönetiminin karşılığı -
@@ -192,12 +195,18 @@ export const vendorPayouts = pgTable("vendor_payouts", {
   vendorId: bigint("vendor_id", { mode: "number" }).notNull().references(() => vendors.id),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   iban: text("iban"),
+  accountHolder: text("account_holder"),
   note: text("note"),
   status: payoutStatusEnum("status").notNull().default("pending"),
   requestedAt: timestamp("requested_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   processedAt: timestamp("processed_at", { withTimezone: true, precision: 3 }),
   processedBy: bigint("processed_by", { mode: "number" }),
   rejectionReason: text("rejection_reason"),
+  // Manuel banka transferi gerçekten yapıldıktan sonra bankanın dekont/işlem
+  // referansı girilir. Aynı transfer iki talebi ödenmiş gösteremez.
+  transferReference: text("transfer_reference"),
 }, (table) => ({
   vendorIdx: index("idx_payouts_vendor").on(table.vendorId),
+  transferReferenceUnique: uniqueIndex("uniq_vendor_payout_transfer_reference").on(table.transferReference),
+  amountCheck: check("vendor_payout_amount_check", sql`${table.amount} > 0`),
 }));

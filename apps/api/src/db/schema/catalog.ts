@@ -2,8 +2,10 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  check,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -35,7 +37,13 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
+  // Pazaryeri-standardı yapılandırılmış ürün özellikleri. Serbest açıklamadan
+  // ayrı tutulur; AI önerileri ancak satıcı formda görüp onayladıktan sonra yazılır.
+  attributes: jsonb("attributes").$type<Record<string, string>>().notNull().default({}),
   brand: text("brand"),
+  // Fit-Zekâsı Faz 4: satıcının ürüne-özel beden ölçü tablosu (opsiyonel, cm).
+  // { "M": { bust: 86, waist: 70 } } — verilirse standart tabloyu ezer (kalıp farkı).
+  sizeChart: jsonb("size_chart").$type<Record<string, { bust?: number; waist?: number; hip?: number }>>(),
   basePrice: numeric("base_price", { precision: 10, scale: 2 }).notNull(),
   compareAtPrice: numeric("compare_at_price", { precision: 10, scale: 2 }),
   // Ürün tanıtım videosu (opsiyonel) - satıcı panelinden yüklenir, S3'e gider,
@@ -73,6 +81,10 @@ export const products = pgTable("products", {
   // (bkz. events.client.ts) - bu, ondan bağımsız, doğrudan sorgulanabilir
   // bir toplam sayaç.
   viewCount: integer("view_count").notNull().default(0),
+  // Ürün-zeka yakın-kopya parmak izi (bkz. product-intelligence/dedupe).
+  // Aynı satıcının aynı ürünü 2. kez girmesini yakalamak için. Nullable:
+  // mevcut ürünlerde boş kalır, dup-kontrolü sadece dolu olanları karşılaştırır.
+  fingerprint: text("fingerprint"),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
@@ -83,6 +95,9 @@ export const products = pgTable("products", {
     .where(sql`${table.status} = 'active'`),
   keysetIdx: index("idx_products_keyset").on(table.status, table.createdAt, table.id),
   vendorIdx: index("idx_products_vendor").on(table.vendorId, table.status),
+  // Satıcı-içi kopya tespiti için (vendorId + fingerprint eşleşmesi).
+  fingerprintIdx: index("idx_products_fingerprint").on(table.vendorId, table.fingerprint),
+  stockNonnegative: check("chk_products_stock_nonnegative", sql`${table.stock} >= 0`),
 }));
 
 export const productVariants = pgTable("product_variants", {
@@ -95,6 +110,7 @@ export const productVariants = pgTable("product_variants", {
   stock: integer("stock").notNull().default(0),
 }, (table) => ({
   productIdx: index("idx_variants_product").on(table.productId),
+  stockNonnegative: check("chk_product_variants_stock_nonnegative", sql`${table.stock} >= 0`),
 }));
 
 export const productImages = pgTable("product_images", {
@@ -142,6 +158,58 @@ export const productFavorites = pgTable("product_favorites", {
 }, (table) => ({
   pk: uniqueIndex("pk_favorites").on(table.customerId, table.productId),
   productIdx: index("idx_favorites_product").on(table.productId),
+}));
+
+// Keşif motoru negatif geri bildirimi: kullanıcının "İlgilenmiyorum/Gizle"
+// aksiyonları. product_id dolu → o ürünü gizle (hiddenProductIds); category_id
+// dolu → o kategoriyle ilgilenme (notInterestedCategoryIds). Discover v1
+// profil adapter'ı bunu okur; ranking negativeFeedback + eligibility kullanır.
+export const discoverFeedback = pgTable("discover_feedback", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  customerId: bigint("customer_id", { mode: "number" }).notNull(),
+  kind: text("kind").notNull(), // 'hide_product' | 'not_interested_category'
+  productId: bigint("product_id", { mode: "number" }).references(() => products.id),
+  categoryId: bigint("category_id", { mode: "number" }).references(() => categories.id),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  customerIdx: index("idx_discover_feedback_customer").on(table.customerId),
+  uniqProduct: uniqueIndex("uniq_discover_feedback_product").on(table.customerId, table.productId),
+  uniqCategory: uniqueIndex("uniq_discover_feedback_category").on(table.customerId, table.categoryId),
+}));
+
+// Keşif motoru pozitif etkileşim logu (impression/click/view/favorite/add_to_cart).
+// A/B ölçümü + geri besleme için. Kimlik DAİMA session'dan (bkz. event-security).
+// dedup_key idempotency (aynı mantıksal event tekrarı yazılmaz). Anonim = session_id.
+export const discoverEvents = pgTable("discover_events", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  type: text("type").notNull(),
+  customerId: bigint("customer_id", { mode: "number" }),
+  sessionId: text("session_id").notNull(),
+  productId: bigint("product_id", { mode: "number" }),
+  vendorId: bigint("vendor_id", { mode: "number" }),
+  categoryId: bigint("category_id", { mode: "number" }),
+  source: text("source").notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true, precision: 3 }).notNull(),
+  dedupKey: text("dedup_key").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  uniqDedup: uniqueIndex("uq_discover_events_dedup").on(table.dedupKey),
+  lookupIdx: index("idx_discover_events_lookup").on(table.type, table.source, table.occurredAt),
+}));
+
+// Fit-Zekâsı Faz 5 (öğrenen katman): müşterinin satın aldıktan sonra verdiği
+// "geldi: dar/tam/bol" geri bildirimi (ve iadeler). Ürünün her bedeni için
+// kalıp kayması buradan öğrenilir (bkz. modules/fit/feedback.ts). Append-only.
+export const fitFeedback = pgTable("fit_feedback", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  productId: bigint("product_id", { mode: "number" }).notNull().references(() => products.id),
+  customerId: bigint("customer_id", { mode: "number" }),
+  sizeNumeric: integer("size_numeric").notNull(),
+  verdict: text("verdict").notNull(), // cok_dar | dar | tam | bol | cok_bol
+  source: text("source").notNull().default("explicit"), // explicit | return
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  productIdx: index("idx_fit_feedback_product").on(table.productId),
 }));
 
 // Satıcının kendi mağaza vitrininde ürünlerini gruplamak için kullandığı

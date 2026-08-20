@@ -37,12 +37,24 @@ export async function updateCollectionImage(vendorId: number, id: number, coverI
 }
 
 export async function deleteCollection(vendorId: number, id: number) {
-  await db.delete(collectionProducts).where(eq(collectionProducts.collectionId, id));
-  const result = await db
-    .delete(collections)
-    .where(and(eq(collections.id, id), eq(collections.vendorId, vendorId)))
-    .returning({ id: collections.id });
-  return result.length > 0;
+  return db.transaction(async (tx) => {
+    // Önce mülkiyeti aynı transaction içinde doğrula. Eski sıra doğrudan
+    // collection_products satırlarını siliyor, koleksiyon başka mağazaya aitse
+    // asıl DELETE başarısız olsa bile o mağazanın ürün bağları kayboluyordu.
+    const [owned] = await tx
+      .select({ id: collections.id })
+      .from(collections)
+      .where(and(eq(collections.id, id), eq(collections.vendorId, vendorId)))
+      .limit(1);
+    if (!owned) return false;
+
+    await tx.delete(collectionProducts).where(eq(collectionProducts.collectionId, id));
+    const result = await tx
+      .delete(collections)
+      .where(and(eq(collections.id, id), eq(collections.vendorId, vendorId)))
+      .returning({ id: collections.id });
+    return result.length > 0;
+  });
 }
 
 export async function listCollectionProducts(collectionId: number) {

@@ -1,6 +1,10 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { orderItems, orders, productImages, productVariants, products, vendors } from "../../db/schema/index";
+import { customers, orderItems, orders, productImages, productVariants, products, vendors } from "../../db/schema/index";
+import { enqueueStockSyncTx, enqueueVariantStockSyncTx } from "../integrations/inventory-sync.service";
+import { reserveCouponUse, releaseCouponUse } from "./coupon.repository";
+import { sortStockReservations, withTransactionRetry } from "./order-concurrency";
+import { CouponUsageLimitError } from "./coupon.service";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -24,14 +28,23 @@ export class InsufficientStockError extends Error {
 // olur (siteden kalkar); kurumsal satıcıda sadece "Tükendi" gösterilir,
 // ürün aktif kalır (satıcı yeniden stok girip devam edebilir).
 async function decrementOrderItemStock(tx: Tx, items: CreateOrderItemInput[]) {
-  for (const item of items) {
+  for (const item of sortStockReservations(items)) {
     if (item.variantId) {
       const updated = await tx
         .update(productVariants)
         .set({ stock: sql`${productVariants.stock} - ${item.quantity}` })
-        .where(and(eq(productVariants.id, item.variantId), gte(productVariants.stock, item.quantity)))
-        .returning({ id: productVariants.id });
+        .where(
+          and(
+            eq(productVariants.id, item.variantId),
+            eq(productVariants.productId, item.productId),
+            gte(productVariants.stock, item.quantity),
+          ),
+        )
+        .returning({ id: productVariants.id, stock: productVariants.stock });
       if (updated.length === 0) throw new InsufficientStockError(item.productId);
+      // Varyant kanal senkronu (Trendyol/İkas beden-renk ilanları). Sipariş
+      // akışını bloklamaz; kaçanı reconcile toparlar.
+      await enqueueVariantStockSyncTx(tx, item.variantId, updated[0]!.stock);
       continue;
     }
 
@@ -51,8 +64,15 @@ async function decrementOrderItemStock(tx: Tx, items: CreateOrderItemInput[]) {
           : {}),
       })
       .where(and(eq(products.id, item.productId), gte(products.stock, item.quantity)))
-      .returning({ id: products.id });
+      .returning({ id: products.id, stock: products.stock });
     if (updated.length === 0) throw new InsufficientStockError(item.productId);
+
+    // Kanal senkronu: bu ürünün aktif kanal listing'lerine yeni merkez stoğunu
+    // outbox üzerinden it (İkas/Trendyol vb.). Sipariş akışını ASLA bloklamaz -
+    // hata olsa da yutulur; kaçan senkronu reconcile job toparlar.
+    // (Varyant satışında varyant-bazlı senkron ayrı ele alınacak - şimdilik
+    // varyantsız ürünlerin merkez stoğu senkronlanır.)
+    await enqueueStockSyncTx(tx, item.productId, updated[0]!.stock);
   }
 }
 
@@ -70,7 +90,7 @@ async function restoreProductStock(tx: Tx, productId: number, quantity: number) 
     .innerJoin(vendors, eq(vendors.id, products.vendorId))
     .where(eq(products.id, productId))
     .limit(1);
-  await tx
+  const [updated] = await tx
     .update(products)
     .set({
       stock: sql`${products.stock} + ${quantity}`,
@@ -78,7 +98,9 @@ async function restoreProductStock(tx: Tx, productId: number, quantity: number) 
         ? { status: sql`CASE WHEN ${products.status} = 'inactive' THEN 'active' ELSE ${products.status} END` }
         : {}),
     })
-    .where(eq(products.id, productId));
+    .where(eq(products.id, productId))
+    .returning({ stock: products.stock });
+  if (updated) await enqueueStockSyncTx(tx, productId, updated.stock);
 }
 
 // Ödeme başarısız olduğunda (bkz. checkout.service markOrderPaymentFailed)
@@ -89,12 +111,14 @@ export async function restoreOrderItemStock(tx: Tx, orderId: number) {
     .select({ variantId: orderItems.variantId, productId: orderItems.productId, quantity: orderItems.quantity })
     .from(orderItems)
     .where(eq(orderItems.orderId, orderId));
-  for (const item of items) {
+  for (const item of sortStockReservations(items)) {
     if (item.variantId) {
-      await tx
+      const [updated] = await tx
         .update(productVariants)
         .set({ stock: sql`${productVariants.stock} + ${item.quantity}` })
-        .where(eq(productVariants.id, item.variantId));
+        .where(eq(productVariants.id, item.variantId))
+        .returning({ stock: productVariants.stock });
+      if (updated) await enqueueVariantStockSyncTx(tx, item.variantId, updated.stock);
       continue;
     }
     await restoreProductStock(tx, item.productId, item.quantity);
@@ -114,10 +138,12 @@ export async function restoreOrderItemStockSingle(tx: Tx, orderItemId: number) {
     .limit(1);
   if (!item) return;
   if (item.variantId) {
-    await tx
+    const [updated] = await tx
       .update(productVariants)
       .set({ stock: sql`${productVariants.stock} + ${item.quantity}` })
-      .where(eq(productVariants.id, item.variantId));
+      .where(eq(productVariants.id, item.variantId))
+      .returning({ stock: productVariants.stock });
+    if (updated) await enqueueVariantStockSyncTx(tx, item.variantId, updated.stock);
     return;
   }
   await restoreProductStock(tx, item.productId, item.quantity);
@@ -133,6 +159,7 @@ export async function fetchProductsForCheckout(productIds: number[]) {
       status: products.status,
       vendorStatus: vendors.status,
       freeShipping: products.freeShipping,
+      storeName: vendors.storeName,
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))
@@ -142,6 +169,7 @@ export async function fetchProductsForCheckout(productIds: number[]) {
 interface CreateOrderItemInput {
   vendorId: number;
   productId: number;
+  paymentItemRef: string;
   variantId?: number;
   productNameSnapshot: string;
   unitPrice: string;
@@ -155,6 +183,7 @@ interface CreateOrderInput {
   subtotal: string;
   shippingFee: string;
   couponId?: number;
+  campaignId?: number;
   discountAmount?: string;
   total: string;
   shippingAddress: unknown;
@@ -177,7 +206,7 @@ export async function fetchVendorsForCheckout(vendorIds: number[]) {
 
 // Sipariş + kalemleri tek transaction'da yazılır: ya hepsi ya hiçbiri -
 // yarım kalmış bir sipariş (kalemsiz veya kısmi kalemli) asla oluşamaz.
-export async function createOrder(data: CreateOrderInput) {
+async function createOrderOnce(data: CreateOrderInput) {
   return db.transaction(async (tx) => {
     const [order] = await tx
       .insert(orders)
@@ -187,6 +216,7 @@ export async function createOrder(data: CreateOrderInput) {
         subtotal: data.subtotal,
         shippingFee: data.shippingFee,
         couponId: data.couponId,
+        campaignId: data.campaignId,
         discountAmount: data.discountAmount ?? "0.00",
         total: data.total,
         shippingAddress: data.shippingAddress,
@@ -204,8 +234,16 @@ export async function createOrder(data: CreateOrderInput) {
 
     await decrementOrderItemStock(tx, data.items);
 
+    if (data.couponId && !(await reserveCouponUse(tx, data.couponId, data.customerId))) {
+      throw new CouponUsageLimitError();
+    }
+
     return { order, items: insertedItems };
   });
+}
+
+export async function createOrder(data: CreateOrderInput) {
+  return withTransactionRetry(() => createOrderOnce(data));
 }
 
 export async function setOrderPaymentRef(orderId: number, paymentRef: string) {
@@ -243,30 +281,68 @@ export async function findOrderByPaymentRef(paymentRef: string) {
   return row ?? null;
 }
 
+export async function findStalePendingOrders(olderThanMs: number, limit = 100) {
+  const cutoff = new Date(Date.now() - olderThanMs);
+  return db
+    .select({ id: orders.id, orderNumber: orders.orderNumber, paymentRef: orders.paymentRef, createdAt: orders.createdAt })
+    .from(orders)
+    .where(and(eq(orders.paymentStatus, "pending"), lt(orders.createdAt, cutoff)))
+    .orderBy(orders.createdAt)
+    .limit(limit);
+}
+
 // Koşullu geçiş: yalnız 'pending' -> 'paid'. RETURNING ile kaç satırın
 // gerçekten geçtiğini döndürür. Bu, eşzamanlı/tekrarlı callback'lerde
 // (TOCTOU) satın alma event'lerinin ve satıcı bildirimlerinin YALNIZCA BİR
 // KEZ üretilmesini garanti eder (bkz. checkout.service handlePaymentCallback).
-export async function markOrderPaid(orderId: number, paymentTransactionId?: string): Promise<boolean> {
-  const transitioned = await db
-    .update(orders)
-    .set({ status: "processing", paymentStatus: "paid", paymentTransactionId })
-    .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")))
-    .returning({ id: orders.id });
-  return transitioned.length === 1;
+export async function markOrderPaid(
+  orderId: number,
+  paymentId: string | undefined,
+  paymentItems: Array<{ orderItemId: number; paymentTransactionId: string }>,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const transitioned = await tx
+      .update(orders)
+      .set({ status: "processing", paymentStatus: "paid", paymentTransactionId: paymentId })
+      .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")))
+      .returning({ id: orders.id });
+    if (transitioned.length !== 1) return false;
+    for (const item of paymentItems) {
+      const updated = await tx
+        .update(orderItems)
+        .set({ paymentTransactionId: item.paymentTransactionId })
+        .where(and(eq(orderItems.id, item.orderItemId), eq(orderItems.orderId, orderId)))
+        .returning({ id: orderItems.id });
+      if (updated.length !== 1) throw new Error("Ödeme kalemi eşleştirilemedi");
+    }
+    return true;
+  });
+}
+
+export async function findOrderItemsForPayment(orderId: number) {
+  return db
+    .select({ id: orderItems.id, productId: orderItems.productId, paymentItemRef: orderItems.paymentItemRef })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
 }
 
 // İdempotent: webhook/callback aynı token için birden fazla kez tetiklense
 // bile stok yalnızca bir kez geri yüklenir (zaten "failed" olan bir
 // siparişte hiçbir şey yapılmaz).
 export async function markOrderPaymentFailed(orderId: number) {
-  await db.transaction(async (tx) => {
-    const [order] = await tx.select({ paymentStatus: orders.paymentStatus }).from(orders).where(eq(orders.id, orderId)).limit(1);
+  return db.transaction(async (tx) => {
+    const transitioned = await tx
+      .update(orders)
+      .set({ paymentStatus: "failed", status: "cancelled" })
+      .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")))
+      .returning({ id: orders.id, couponId: orders.couponId });
     // Yalnız 'pending' -> 'failed'. Zaten 'paid' bir sipariş asla failed
     // yapılmaz (ve stoğu ikinci kez geri yüklenmez); zaten 'failed' ise no-op.
-    if (!order || order.paymentStatus !== "pending") return;
-    await tx.update(orders).set({ paymentStatus: "failed" }).where(eq(orders.id, orderId));
+    if (transitioned.length !== 1) return false;
+    await tx.update(orderItems).set({ vendorStatus: "cancelled" }).where(eq(orderItems.orderId, orderId));
     await restoreOrderItemStock(tx, orderId);
+    if (transitioned[0]!.couponId) await releaseCouponUse(tx, transitioned[0]!.couponId);
+    return true;
   });
 }
 
@@ -334,7 +410,22 @@ export async function findOrderByNumber(orderNumber: string, customerId: number)
 // Sipariş numarası (`GS${timestamp}${random}`) tahmin edilemeyecek kadar
 // rastgele olduğu için tek başına yeterli bir erişim anahtarı sayılır -
 // eski sitenin order-success.php'sindeki aynı varsayım.
-export async function findOrderByNumberPublic(orderNumber: string) {
+export async function findOrderByNumberAndEmail(orderNumber: string, email: string) {
+  const [row] = await db
+    .select({ order: orders })
+    .from(orders)
+    .innerJoin(customers, eq(orders.customerId, customers.id))
+    .where(and(eq(orders.orderNumber, orderNumber), sql`lower(${customers.email}) = ${email.trim().toLowerCase()}`))
+    .limit(1);
+  if (!row) return null;
+  const items = await findOrderItemsForDetail(row.order.id);
+  return { ...row.order, items };
+}
+
+// Route bu sorguyu yalniz order-access-token dogrulandiktan sonra cagirir.
+// Repository katmani HTTP query/token bilgisi bilmedigi icin yetki kontrolu
+// checkout.routes.ts'de, veri getirme burada tutulur.
+export async function findOrderByNumberForSignedAccess(orderNumber: string) {
   const [row] = await db.select().from(orders).where(eq(orders.orderNumber, orderNumber)).limit(1);
   if (!row) return null;
   const items = await findOrderItemsForDetail(row.id);

@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { customers, orderItems, orderRefunds, orders, vendorEarnings, vendors } from "../../db/schema/index";
 
@@ -6,7 +6,7 @@ export class RefundNotFoundError extends Error {}
 export class InvalidRefundStateError extends Error {}
 export class MissingPaymentInfoError extends Error {}
 
-export async function listRefunds(status?: "pending" | "approved" | "rejected" | "item_received" | "refunded") {
+export async function listRefunds(status?: "pending" | "approved" | "rejected" | "item_received" | "refunding" | "refunded") {
   const base = db
     .select({
       id: orderRefunds.id,
@@ -48,48 +48,61 @@ export async function countRefundsByStatus() {
 // yapılmamalı (bağlantıyı ağ round-trip'i boyunca kilitli tutar, bkz.
 // checkout.service.ts startCheckout'taki aynı prensip). Bu yüzden okuma ve
 // nihai yazma (commitRefundRelease) iki ayrı adım.
-export async function getRefundForRelease(refundId: number) {
-  const [refund] = await db
-    .select({
-      id: orderRefunds.id,
-      status: orderRefunds.status,
-      orderItemId: orderRefunds.orderItemId,
-      vendorId: orderRefunds.vendorId,
-    })
-    .from(orderRefunds)
-    .where(eq(orderRefunds.id, refundId))
-    .limit(1);
-  if (!refund) throw new RefundNotFoundError();
-  if (refund.status !== "item_received") throw new InvalidRefundStateError();
+export async function claimRefundForRelease(refundId: number) {
+  return db.transaction(async (tx) => {
+    const [refund] = await tx
+      .update(orderRefunds)
+      .set({ status: "refunding" })
+      .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.status, "item_received")))
+      .returning({ id: orderRefunds.id, orderItemId: orderRefunds.orderItemId, vendorId: orderRefunds.vendorId });
+    if (!refund) {
+      const [existing] = await tx.select({ id: orderRefunds.id }).from(orderRefunds).where(eq(orderRefunds.id, refundId)).limit(1);
+      if (!existing) throw new RefundNotFoundError();
+      throw new InvalidRefundStateError();
+    }
 
-  const [item] = await db
-    .select({ orderId: orderItems.orderId, total: orderItems.total })
-    .from(orderItems)
-    .where(eq(orderItems.id, refund.orderItemId))
-    .limit(1);
-  if (!item) throw new Error("Sipariş kalemi bulunamadı");
+    const [item] = await tx
+      .select({ orderId: orderItems.orderId, total: orderItems.total, paymentTransactionId: orderItems.paymentTransactionId })
+      .from(orderItems)
+      .where(eq(orderItems.id, refund.orderItemId))
+      .limit(1);
+    if (!item) throw new Error("Sipariş kalemi bulunamadı");
 
-  const [order] = await db
-    .select({ paymentTransactionId: orders.paymentTransactionId })
-    .from(orders)
-    .where(eq(orders.id, item.orderId))
-    .limit(1);
-  if (!order?.paymentTransactionId) throw new MissingPaymentInfoError();
+    const [order] = await tx
+      .select({ paymentId: orders.paymentTransactionId })
+      .from(orders)
+      .where(eq(orders.id, item.orderId))
+      .limit(1);
+    const [orderItemCount] = await tx
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, item.orderId));
 
-  const [earning] = await db
-    .select({ netAmount: vendorEarnings.netAmount })
-    .from(vendorEarnings)
-    .where(eq(vendorEarnings.orderItemId, refund.orderItemId))
-    .limit(1);
+    // Yeni siparislerde guvenli kalem-bazli Refund kullanilir. Eski kayitlarda
+    // kalem transaction id yoksa Refund V2 yalniz tek kalemli sipariste
+    // kullanilabilir; cok kalemde hangi urunun iade edilecegi belirsizdir.
+    const refundTarget = item.paymentTransactionId
+      ? { mode: "item" as const, id: item.paymentTransactionId }
+      : (order?.paymentId && orderItemCount?.count === 1
+          ? { mode: "payment" as const, id: order.paymentId }
+          : null);
+    if (!refundTarget) throw new MissingPaymentInfoError();
 
-  return {
-    refundId: refund.id,
-    orderItemId: refund.orderItemId,
-    vendorId: refund.vendorId,
-    itemTotal: item.total,
-    paymentTransactionId: order.paymentTransactionId,
-    vendorNetEarning: earning?.netAmount ?? null,
-  };
+    const [earning] = await tx
+      .select({ netAmount: vendorEarnings.netAmount })
+      .from(vendorEarnings)
+      .where(eq(vendorEarnings.orderItemId, refund.orderItemId))
+      .limit(1);
+
+    return {
+      refundId: refund.id,
+      orderItemId: refund.orderItemId,
+      vendorId: refund.vendorId,
+      itemTotal: item.total,
+      refundTarget,
+      vendorNetEarning: earning?.netAmount ?? null,
+    };
+  });
 }
 
 // bkz. kullanıcı isteği: "ürün satıcıya teslim edildiğinden emin
@@ -105,7 +118,7 @@ export async function commitRefundRelease(refundId: number, orderItemId: number,
     const [refund] = await tx
       .update(orderRefunds)
       .set({ status: "refunded", refundedAt: new Date() })
-      .where(eq(orderRefunds.id, refundId))
+      .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.status, "refunding")))
       .returning();
     if (!refund) throw new Error("İade kaydı güncellenemedi");
 
@@ -119,5 +132,47 @@ export async function commitRefundRelease(refundId: number, orderItemId: number,
     }
 
     return refund;
+  });
+}
+
+export async function resetRefundReleaseClaim(refundId: number): Promise<boolean> {
+  const rows = await db
+    .update(orderRefunds)
+    .set({ status: "item_received" })
+    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.status, "refunding")))
+    .returning({ id: orderRefunds.id });
+  return rows.length === 1;
+}
+
+// Ag hatasi/imza uyusmazligi sonrasi 'refunding' kalan kaydi admin iyzico
+// panelinden dogruladiktan sonra yerel muhasebeye guvenle yansitir. Provider'a
+// ikinci bir para iadesi istegi GONDERMEZ.
+export async function confirmRefundReleaseAfterProviderCheck(refundId: number) {
+  return db.transaction(async (tx) => {
+    const [refund] = await tx
+      .select({ orderItemId: orderRefunds.orderItemId, vendorId: orderRefunds.vendorId })
+      .from(orderRefunds)
+      .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.status, "refunding")))
+      .limit(1);
+    if (!refund) throw new InvalidRefundStateError();
+    const [earning] = await tx
+      .select({ netAmount: vendorEarnings.netAmount })
+      .from(vendorEarnings)
+      .where(eq(vendorEarnings.orderItemId, refund.orderItemId))
+      .limit(1);
+    const [updated] = await tx
+      .update(orderRefunds)
+      .set({ status: "refunded", refundedAt: new Date() })
+      .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.status, "refunding")))
+      .returning();
+    if (!updated) throw new InvalidRefundStateError();
+    await tx.update(orderItems).set({ vendorStatus: "refunded" }).where(eq(orderItems.id, refund.orderItemId));
+    if (earning?.netAmount) {
+      await tx
+        .update(vendors)
+        .set({ walletBalance: sql`GREATEST(0, ${vendors.walletBalance} - ${earning.netAmount})` })
+        .where(eq(vendors.id, refund.vendorId));
+    }
+    return updated;
   });
 }

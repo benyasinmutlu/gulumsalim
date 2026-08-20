@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { apiFetchJson } from "@/lib/api";
-import type { PublicVendorListItem, ProductListResponse } from "@/lib/types";
+import type { PublicVendorListItem, ProductListResponse, VendorStorefront } from "@/lib/types";
 import StoresFilterBar from "./stores-filter-bar";
 import VendorDiscoverShelf from "@/components/vendor-discover-shelf";
 
@@ -29,19 +29,20 @@ async function getPopularProducts(storeSlug: string) {
     const res = await apiFetchJson<ProductListResponse>(
       `/products?vendor=${encodeURIComponent(storeSlug)}&sort=popular&limit=${SHELF_PRODUCT_LIMIT}`,
     );
-    return res.items;
+    if (res.items.length > 0) return res.items;
+  } catch {
+    // Arama indeksi gecici olarak kullanilamazsa asagidaki DB-backed magazaya
+    // ozel urun ucuna duseriz.
+  }
+  try {
+    const storefront = await apiFetchJson<VendorStorefront>(
+      `/vendors/${encodeURIComponent(storeSlug)}?limit=${SHELF_PRODUCT_LIMIT}`,
+    );
+    return storefront.products.items;
   } catch {
     return [];
   }
 }
-
-const SORT_OPTIONS = [
-  { value: "newest", label: "Yeni Katılanlar" },
-  { value: "rating", label: "En Yüksek Puan" },
-  { value: "products", label: "En Çok Ürün" },
-  { value: "followers", label: "En Çok Takipçi" },
-  { value: "name", label: "İsme Göre (A-Z)" },
-];
 
 function sortVendors(vendors: PublicVendorListItem[], sort: string): PublicVendorListItem[] {
   const sorted = [...vendors];

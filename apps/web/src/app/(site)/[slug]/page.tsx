@@ -251,7 +251,7 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
             <>
               <div className="about-hero">
                 <h1>{settings.site_name || "Gülüm Şalım"}</h1>
-                <p>{settings.footer_about || "Türkiye'nin butik moda pazar yeri — yüzlerce satıcı, binlerce ürün, tek adres."}</p>
+                <p>{settings.footer_about || "Kadın modasının yeni nesil pazaryeri. Butikleri ve mağazaları tek bir platformda keşfedin."}</p>
               </div>
               <div className="about-features">
                 <div className="about-feature-card">
@@ -261,8 +261,8 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
                 </div>
                 <div className="about-feature-card">
                   <i className="fas fa-store" />
-                  <h3>Doğrulanmış Satıcılar</h3>
-                  <p>Her mağaza incelemeden geçer, siz güvenle alışveriş yapın.</p>
+                  <h3>Onaylı Mağazalar</h3>
+                  <p>Platformumuza katılan mağazalar belirlenen kayıt ve doğrulama süreçlerinden geçer.</p>
                 </div>
                 <div className="about-feature-card">
                   <i className="fas fa-truck-fast" />

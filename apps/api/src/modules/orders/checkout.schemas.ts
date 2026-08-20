@@ -20,6 +20,10 @@ export const selectedLineSchema = z.object({
 
 export const checkoutSchema = z.object({
   shippingAddress: shippingAddressSchema,
+  // iyzico buyer alanında zorunlu. Yalnız ödeme sağlayıcısına iletilir;
+  // sipariş veya müşteri tablosunda saklanmaz. Yabancı alıcılar pasaport
+  // numarası kullanabildiği için yalnız 11 haneli TCKN ile sınırlandırılmaz.
+  identityNumber: z.string().trim().min(5).max(30).regex(/^[A-Za-z0-9]+$/, "Geçerli bir kimlik veya pasaport numarası girin"),
   // Üye olmayan (misafir) checkout için gerekli - oturum açmış müşteride
   // zaten var olan e-posta kullanılır, bu alan yalnızca misafir akışında
   // zorunlu tutulur (bkz. checkout.service.ts startCheckout).

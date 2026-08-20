@@ -17,6 +17,7 @@ export default defineConfig({
       IYZICO_BASE_URL: "https://sandbox-api.iyzipay.com",
       SITE_URL: "http://127.0.0.1:3001",
       UPLOADS_DIR: "./test-uploads",
+      RESEND_API_KEY: "test-only",
       SMTP_HOST: "127.0.0.1",
       SMTP_USER: "test-only",
       SMTP_PASS: "test-only",

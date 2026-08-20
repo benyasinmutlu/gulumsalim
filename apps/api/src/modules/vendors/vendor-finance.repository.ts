@@ -4,7 +4,13 @@ import { orderItems, orderRefunds, orders, vendorEarnings, vendorPayouts, vendor
 
 export async function getVendorWalletSummary(vendorId: number) {
   const [vendor] = await db
-    .select({ walletBalance: vendors.walletBalance, commissionRate: vendors.commissionRate })
+    .select({
+      walletBalance: vendors.walletBalance,
+      commissionRate: vendors.commissionRate,
+      bankName: vendors.bankName,
+      bankIban: vendors.bankIban,
+      bankAccountHolder: vendors.bankAccountHolder,
+    })
     .from(vendors)
     .where(eq(vendors.id, vendorId))
     .limit(1);
@@ -46,6 +52,9 @@ export async function getVendorWalletSummary(vendorId: number) {
     totalNet: earningsSum?.totalNet ?? "0.00",
     totalPaidOut: paidOutSum?.totalPaid ?? "0.00",
     pendingEarnings: pendingNet,
+    bankName: vendor?.bankName ?? null,
+    bankIban: vendor?.bankIban ?? null,
+    bankAccountHolder: vendor?.bankAccountHolder ?? null,
     // bkz. kullanıcı isteği: "satıcıda ne kadar komisyon alınacak ... önemli" -
     // satıcı panelinde kendi oranını görebilmeli. vendor.commissionRate NULL
     // ise platform varsayılanı (aynı `rate` değişkeni, yukarıda hesaplandı).

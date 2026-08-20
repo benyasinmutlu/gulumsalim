@@ -11,6 +11,15 @@ import { env } from "../config/env";
 
 let s3ClientPromise: Promise<S3Client> | null = null;
 
+function localObjectPath(key: string): string {
+  const base = path.resolve(env.UPLOADS_DIR);
+  const target = path.resolve(base, key);
+  if (target !== base && !target.startsWith(`${base}${path.sep}`)) {
+    throw new Error("Geçersiz storage anahtarı");
+  }
+  return target;
+}
+
 function requireS3Config() {
   const { S3_BUCKET, S3_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY } = env;
   if (!S3_BUCKET || !S3_REGION || !AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
@@ -65,7 +74,7 @@ export async function putObject(key: string, body: Buffer, contentType: string):
   }
 
   // local (varsayılan): UPLOADS_DIR altına yaz, /uploads/... döndür.
-  const filePath = path.join(env.UPLOADS_DIR, cleanKey);
+  const filePath = localObjectPath(cleanKey);
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, body);
   return `/uploads/${cleanKey}`;
@@ -81,7 +90,7 @@ export async function deleteObject(publicUrl: string): Promise<void> {
   try {
     if (publicUrl.startsWith("/uploads/")) {
       const rel = publicUrl.replace(/^\/uploads\//, "");
-      await rm(path.join(env.UPLOADS_DIR, rel), { force: true });
+      await rm(localObjectPath(rel), { force: true });
       return;
     }
     if (/^https?:\/\//i.test(publicUrl) && env.STORAGE_DRIVER === "s3") {

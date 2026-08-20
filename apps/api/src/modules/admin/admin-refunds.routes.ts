@@ -1,7 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
-import { countRefundsByStatus, listRefunds, MissingPaymentInfoError, RefundNotFoundError, InvalidRefundStateError } from "./admin-refunds.repository";
+import { confirmRefundReleaseAfterProviderCheck, countRefundsByStatus, listRefunds, resetRefundReleaseClaim, MissingPaymentInfoError, RefundNotFoundError, InvalidRefundStateError } from "./admin-refunds.repository";
 import { RefundApiError, releaseRefund } from "./admin-refunds.service";
-import { refundIdParamsSchema, refundListQuerySchema } from "./admin-refunds.schemas";
+import { refundIdParamsSchema, refundListQuerySchema, refundReconcileSchema } from "./admin-refunds.schemas";
 
 // bkz. kullanıcı isteği: "ürün satıcıya teslim edildiğinden emin
 // olduğumuzda müşteriye parasını iade edeceğiz" - admin'in iade akışındaki
@@ -34,6 +34,24 @@ const adminRefundsRoutes: FastifyPluginAsync = async (app) => {
       }
       if (err instanceof RefundApiError) {
         return reply.status(502).send({ error: { message: err.message } });
+      }
+      throw err;
+    }
+  });
+
+  app.post("/admin/refunds/:id/reconcile", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
+    const { id } = refundIdParamsSchema.parse(request.params);
+    const { providerStatus } = refundReconcileSchema.parse(request.body);
+    try {
+      if (providerStatus === "refunded") {
+        return reply.send(await confirmRefundReleaseAfterProviderCheck(id));
+      }
+      const reset = await resetRefundReleaseClaim(id);
+      if (!reset) throw new InvalidRefundStateError();
+      return reply.send({ ok: true });
+    } catch (err) {
+      if (err instanceof InvalidRefundStateError) {
+        return reply.status(409).send({ error: { message: "Bu iade artık kontrol bekleyen durumda değil" } });
       }
       throw err;
     }

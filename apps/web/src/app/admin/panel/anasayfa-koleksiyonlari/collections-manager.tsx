@@ -199,7 +199,7 @@ export default function CollectionsManager() {
                 <input type="color" className="admin-form-control" value={textColor || "#1a1a2e"} onChange={(e) => setTextColor(e.target.value)} />
               </div>
               <div className="admin-form-group">
-                <label>"Tümünü Gör" Hedefi</label>
+                <label>&quot;Tümünü Gör&quot; Hedefi</label>
                 <select className="admin-form-control" value={linkType} onChange={(e) => setLinkType(e.target.value)}>
                   {LINK_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>

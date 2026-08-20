@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchJson, mutateJson } from "@/lib/client-api";
+import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { ContactMessage } from "@/lib/types";
 
 export default function ContactMessagesManager() {
@@ -26,9 +26,13 @@ export default function ContactMessagesManager() {
 
   async function handleDelete(id: number) {
     if (!confirm("Bu mesaj silinsin mi?")) return;
-    await mutateJson(`/admin/contact-messages/${id}`, "DELETE");
-    if (activeId === id) setActiveId(null);
-    await load();
+    try {
+      await mutateJson(`/admin/contact-messages/${id}`, "DELETE");
+      if (activeId === id) setActiveId(null);
+      await load();
+    } catch (err) {
+      alert(err instanceof ClientApiError ? err.message : "Silme başarısız oldu");
+    }
   }
 
   const activeMsg = messages?.find((m) => m.id === activeId) ?? null;

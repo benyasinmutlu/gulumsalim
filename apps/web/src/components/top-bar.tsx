@@ -31,11 +31,11 @@ export default function TopBar({ customer, freeShippingLimit }: { customer: Cust
         </div>
         <div className="top-bar-right">
           <Link href="/satici/kayit" className="top-bar-cta">
-            <i className="fas fa-store" /> Satıcı Ol
+            <i className="fas fa-store" /> Kurumsal Üyelik
           </Link>
           {!customer && (
             <Link href="/kayit" className="top-bar-cta">
-              <i className="fas fa-user-plus" /> Üye Ol
+              <i className="fas fa-user-plus" /> Bireysel Üyelik
             </Link>
           )}
           <Link href="/siparis-takip">

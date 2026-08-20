@@ -65,12 +65,15 @@ export default function LoginForm() {
       )}
 
       <div className="ga-fg">
-        <label>E-Posta Adresi</label>
+        <label htmlFor="customer-login-email">E-Posta Adresi</label>
         <div className="ga-input-wrap">
           <i className="fas fa-envelope ga-ic" />
           <input
+            id="customer-login-email"
+            name="email"
             className="ga-input"
             type="email"
+            autoComplete="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -79,12 +82,15 @@ export default function LoginForm() {
       </div>
 
       <div className="ga-fg">
-        <label>Şifre</label>
+        <label htmlFor="customer-login-password">Şifre</label>
         <div className="ga-input-wrap">
           <i className="fas fa-lock ga-ic" />
           <input
+            id="customer-login-password"
+            name="password"
             className="ga-input"
             type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}

@@ -6,9 +6,11 @@ import ReviewForm from "@/app/(site)/urun/[slug]/review-form";
 import QuestionForm from "@/app/(site)/urun/[slug]/question-form";
 import ProductGallery from "@/components/product-gallery";
 import VirtualTryOn from "@/components/virtual-tryon";
+import FitPanel from "@/components/fit-panel";
 import StarRating from "@/components/star-rating";
 import ProductCard from "@/components/product-card";
 import DwellTracker from "@/components/dwell-tracker";
+import ProductCampaignBadge from "@/components/product-campaign-badge";
 
 async function getProduct(slug: string): Promise<ProductDetail | null> {
   const res = await apiFetch(`/products/${slug}`);
@@ -62,10 +64,6 @@ export async function getProductMeta(slug: string) {
       images: product.images[0]?.url ? [product.images[0].url] : undefined,
     },
   };
-}
-
-interface Result {
-  categorySlug: string | null;
 }
 
 // gulumsalim.com'daki product-detail.php'nin karşılığı - hem /urun/{slug}
@@ -163,7 +161,6 @@ export default async function ProductDetailView({
               </Link>
 
               {product.videoUrl && (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
                 <video
                   src={product.videoUrl}
                   controls
@@ -198,7 +195,28 @@ export default async function ProductDetailView({
                 )}
               </div>
 
+              <ProductCampaignBadge
+                productId={product.id}
+                categorySlug={category?.slug ?? ""}
+                vendorSlug={product.vendorSlug}
+                detail
+              />
+
               {product.description && <div className="detail-description">{product.description}</div>}
+
+              {Object.keys(product.attributes ?? {}).length > 0 && (
+                <div style={{ marginTop: "1rem", border: "1px solid var(--color-border)", borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", fontWeight: 700, background: "var(--color-bg-alt)" }}>Ürün Özellikleri</div>
+                  {Object.entries(product.attributes).map(([key, value]) => (
+                    <div key={key} style={{ display: "grid", gridTemplateColumns: "minmax(100px, 0.8fr) 1.2fr", gap: 12, padding: "9px 14px", borderTop: "1px solid var(--color-border)", fontSize: "0.9rem" }}>
+                      <span style={{ color: "var(--color-text-light)" }}>{key}</span>
+                      <strong>{value}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <FitPanel slug={slug} />
 
               <AddToCartButton productId={product.id} variants={product.variants} price={Number(product.basePrice)} stock={product.stock} />
 

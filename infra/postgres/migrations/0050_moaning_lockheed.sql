@@ -1,0 +1,1 @@
+ALTER TABLE "vendor_payouts" ADD COLUMN "account_holder" text;

@@ -5,7 +5,7 @@ import { emailButton, emailHeading, emailMuted, renderEmailLayout, sendMail } fr
 import { verifyGoogleIdToken } from "../../lib/google-auth";
 import {
   anonymizeCustomer,
-  clearCustomerResetToken,
+  consumeCustomerResetToken,
   createCustomer,
   createGoogleCustomer,
   customerHasFootprint,
@@ -14,7 +14,6 @@ import {
   findCustomerByGoogleId,
   findCustomerById,
   findCustomerByValidEmailVerificationToken,
-  findCustomerByValidResetToken,
   hardDeleteCustomer,
   linkGoogleId,
   markCustomerEmailVerified,
@@ -24,6 +23,7 @@ import {
   updateCustomerProfile,
 } from "./auth.repository";
 import type { LoginInput, RegisterInput, UpdateProfileInput } from "./auth.schemas";
+import type { SizePrefs } from "../../db/schema/customers";
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -186,12 +186,9 @@ export async function requestPasswordReset(email: string) {
 }
 
 export async function resetPasswordWithToken(token: string, newPassword: string) {
-  const customer = await findCustomerByValidResetToken(hashResetToken(token));
-  if (!customer) throw new InvalidResetTokenError();
-
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  await updateCustomerProfile(customer.id, { passwordHash });
-  await clearCustomerResetToken(customer.id);
+  const consumed = await consumeCustomerResetToken(hashResetToken(token), passwordHash);
+  if (!consumed) throw new InvalidResetTokenError();
 }
 
 // gulumsalim.com'daki hesabım/profil formunun karşılığı - şifre sadece
@@ -204,6 +201,7 @@ export async function updateProfile(customerId: number, input: UpdateProfileInpu
     age: number;
     heightCm: number;
     weightKg: number;
+    sizePrefs: SizePrefs;
     passwordHash: string;
   }> = {
     fullName: input.fullName,
@@ -211,6 +209,7 @@ export async function updateProfile(customerId: number, input: UpdateProfileInpu
     age: input.age,
     heightCm: input.heightCm,
     weightKg: input.weightKg,
+    sizePrefs: input.sizePrefs,
   };
 
   if (input.newPassword) {

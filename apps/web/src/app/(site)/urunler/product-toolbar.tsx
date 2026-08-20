@@ -9,6 +9,7 @@ interface FiltersInitial {
   search?: string;
   saleOnly?: string;
   size?: string;
+  fitToMe?: string;
   color?: string;
   vendor?: string;
   minPrice?: string;
@@ -56,6 +57,7 @@ export default function ProductToolbar({
   const [minPrice, setMinPrice] = useState(initial.minPrice ?? "");
   const [maxPrice, setMaxPrice] = useState(initial.maxPrice ?? "");
   const [sort, setSort] = useState(initial.sort ?? "");
+  const [fitToMe, setFitToMe] = useState(initial.fitToMe === "true");
   const [panelOpen, setPanelOpen] = useState(false);
 
   function applyFilters(overrides: Partial<FiltersInitial> = {}) {
@@ -64,6 +66,7 @@ export default function ProductToolbar({
       search: initial.search,
       saleOnly: initial.saleOnly,
       size,
+      fitToMe: fitToMe ? "true" : undefined,
       color,
       vendor,
       minPrice,
@@ -77,6 +80,14 @@ export default function ProductToolbar({
     }
     router.push(`${basePath}?${params.toString()}`);
     setPanelOpen(false);
+  }
+
+  // "Bedenime Uygun": açınca sunucu profildeki bedenleri (+ ±1 komşu, stokta)
+  // uygular. Giriş yoksa/beden yoksa sonuç normal gözatma gibi döner (zararsız).
+  function toggleFitToMe() {
+    const nv = !fitToMe;
+    setFitToMe(nv);
+    applyFilters({ fitToMe: nv ? "true" : undefined });
   }
 
   function goToCategory(slug?: string) {
@@ -96,6 +107,13 @@ export default function ProductToolbar({
     <div className="product-toolbar" id="productToolbar">
       <div className="pt-row">
         <div className="pt-chips" id="ptChips">
+          <a
+            className={`pt-chip${fitToMe ? " active" : ""}`}
+            onClick={toggleFitToMe}
+            title="Profilindeki bedenlere uygun, stoktaki ürünler (bir alt/üst beden dahil)"
+          >
+            <i className="fas fa-ruler" /> Bedenime Uygun
+          </a>
           <a className={`pt-chip${!initial.category ? " active" : ""}`} onClick={() => goToCategory(undefined)}>
             Tüm Kategoriler
           </a>

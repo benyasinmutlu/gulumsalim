@@ -8,27 +8,28 @@ import { createGuestCustomer, findCustomerByEmail, findCustomerById, updateGuest
 import { createAddress, listAddressesByCustomer } from "../customers/customer-addresses.repository";
 import { hydrateCart } from "../cart/cart.service";
 import { createNotification } from "../notifications/notifications.repository";
-import { getShippingConfig, computeMultiVendorShipping } from "../../lib/shipping";
 import { emailButton, emailDivider, emailHeading, emailProductRow, renderEmailLayout, sendMail } from "../../lib/mailer";
 import type { CartLine } from "../cart/cart.types";
 import type { ShippingAddress } from "./checkout.schemas";
 import { renderDistanceSalesContract, type ContractVendorBlock } from "./contract-template";
-import { initializeCheckoutForm, retrieveCheckoutForm } from "./iyzico.client";
+import { initializeCheckoutForm, retrieveCheckoutForm, verifyCheckoutFormSignature } from "./iyzico.client";
 import {
   createOrder,
   fetchProductsForCheckout,
   fetchVendorsForCheckout,
   findOrderByPaymentRef,
   findOrderItemsForDetail,
+  findOrderItemsForPayment,
   findOrderItemsWithProductInfo,
   InsufficientStockError,
   markOrderPaid,
   markOrderPaymentFailed,
   setOrderPaymentRef,
 } from "./order.repository";
-import { isVerifiedSuccessfulPayment } from "./order-security";
+import { isVerifiedSuccessfulPayment, verifyPaymentItemTransactions } from "./order-security";
 import { recordCouponRedemption } from "./coupon.repository";
-import { validateAndComputeDiscount } from "./coupon.service";
+import { createOrderAccessToken } from "./order-access-token";
+import { resolveCheckoutTotals } from "./checkout-totals";
 
 export { InsufficientStockError };
 
@@ -121,26 +122,7 @@ export async function previewContract(
   const productRows = await fetchProductsForCheckout(productIds);
   const productMap = new Map(productRows.map((p) => [p.id, p]));
 
-  const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
-  const subtotal = Number(hydrated.subtotal);
-  // Satıcı-bazlı kargo (bkz. lib/shipping.ts) - sepet/checkout birebir aynı.
-  const shippingFee = computeMultiVendorShipping(
-    hydrated.items.map((it) => {
-      const p = productMap.get(it.productId);
-      return { vendorId: p?.vendorId ?? 0, lineTotal: Number(it.lineTotal), freeShipping: p?.freeShipping === true };
-    }),
-    baseShippingFee,
-    freeShippingThreshold,
-  );
-
-  let discountAmount = 0;
-  let appliedCouponCode: string | null = null;
-  if (couponCode) {
-    const result = await validateAndComputeDiscount(couponCode, sessionCustomerId, subtotal);
-    discountAmount = result.discountAmount;
-    appliedCouponCode = result.coupon.code;
-  }
-  const total = subtotal - discountAmount + shippingFee;
+  const totals = await resolveCheckoutTotals(hydrated.items, productMap, couponCode, sessionCustomerId);
 
   const items = hydrated.items.map((item) => {
     const product = productMap.get(item.productId);
@@ -166,11 +148,11 @@ export async function previewContract(
       addressLine: shippingAddress.addressLine,
     },
     vendorBlocks,
-    subtotal: subtotal.toFixed(2),
-    shippingFee: shippingFee.toFixed(2),
-    couponCode: appliedCouponCode,
-    discountAmount: discountAmount.toFixed(2),
-    total: total.toFixed(2),
+    subtotal: totals.subtotal.toFixed(2),
+    shippingFee: totals.shippingFee.toFixed(2),
+    couponCode: totals.couponCode,
+    discountAmount: totals.discountAmount.toFixed(2),
+    total: totals.total.toFixed(2),
     date: new Date(),
   });
 }
@@ -183,6 +165,8 @@ export async function startCheckout(
   orderNote?: string,
   contractAccepted?: boolean,
   couponCode?: string,
+  identityNumber?: string,
+  buyerIp?: string,
 ) {
   if (cart.length === 0) throw new EmptyCartError();
   const customerId = await resolveCustomerId(sessionCustomerId, email, shippingAddress);
@@ -199,29 +183,8 @@ export async function startCheckout(
   const productRows = await fetchProductsForCheckout(productIds);
   const productMap = new Map(productRows.map((p) => [p.id, p]));
 
-  const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
-  const subtotal = Number(hydrated.subtotal);
-  // Satıcı-bazlı kargo (bkz. lib/shipping.ts computeMultiVendorShipping):
-  // her satıcı için ayrı ücret, o satıcının toplamı eşiği geçince veya tüm
-  // ürünleri freeShipping ise o satıcının kargosu sıfırlanır. previewContract
-  // ile BİREBİR aynı hesap.
-  const shippingFee = computeMultiVendorShipping(
-    hydrated.items.map((it) => {
-      const p = productMap.get(it.productId);
-      return { vendorId: p?.vendorId ?? 0, lineTotal: Number(it.lineTotal), freeShipping: p?.freeShipping === true };
-    }),
-    baseShippingFee,
-    freeShippingThreshold,
-  );
-
-  let discountAmount = 0;
-  let couponId: number | null = null;
-  if (couponCode) {
-    const result = await validateAndComputeDiscount(couponCode, customerId, subtotal);
-    discountAmount = result.discountAmount;
-    couponId = result.coupon.id;
-  }
-  const total = subtotal - discountAmount + shippingFee;
+  const { subtotal, shippingFee, discountAmount, total, couponId, couponCode: appliedCouponCode, campaignId } =
+    await resolveCheckoutTotals(hydrated.items, productMap, couponCode, customerId);
   const orderNumber = `GS${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
   const items = hydrated.items.map((item) => {
@@ -230,6 +193,7 @@ export async function startCheckout(
     return {
       vendorId: product.vendorId,
       productId: item.productId,
+      paymentItemRef: randomUUID(),
       variantId: item.variantId,
       productNameSnapshot: item.productName,
       unitPrice: item.unitPrice,
@@ -254,7 +218,7 @@ export async function startCheckout(
     vendorBlocks,
     subtotal: subtotal.toFixed(2),
     shippingFee: shippingFee.toFixed(2),
-    couponCode: couponId ? couponCode : null,
+    couponCode: appliedCouponCode,
     discountAmount: discountAmount.toFixed(2),
     total: total.toFixed(2),
     orderNumber,
@@ -267,6 +231,7 @@ export async function startCheckout(
     subtotal: subtotal.toFixed(2),
     shippingFee: shippingFee.toFixed(2),
     couponId: couponId ?? undefined,
+    campaignId: campaignId ?? undefined,
     discountAmount: discountAmount.toFixed(2),
     total: total.toFixed(2),
     shippingAddress,
@@ -309,6 +274,7 @@ export async function startCheckout(
       currency: "TRY",
       basketId: order.orderNumber,
       paymentGroup: "PRODUCT",
+      enabledInstallments: [1],
       callbackUrl: `${env.SITE_URL}/api/payment-callback`,
       buyer: {
         id: String(customer.id),
@@ -316,13 +282,11 @@ export async function startCheckout(
         surname: rest.join(" ") || "-",
         gsmNumber: shippingAddress.phone,
         email: customer.email,
-        // Sandbox test akışı için sabit değer - gerçek TC Kimlik No toplama
-        // alanı, canlıya geçiş öncesi checkout formuna eklenmeli.
-        identityNumber: "11111111111",
+        identityNumber,
         registrationAddress: shippingAddress.addressLine,
         city: shippingAddress.city,
         country: "Turkey",
-        ip: "127.0.0.1",
+        ip: buyerIp,
       },
       shippingAddress: {
         contactName: shippingAddress.fullName,
@@ -337,7 +301,7 @@ export async function startCheckout(
         address: `${shippingAddress.district}, ${shippingAddress.addressLine}`,
       },
       basketItems: items.map((item) => ({
-        id: String(item.productId),
+        id: item.paymentItemRef,
         name: item.productNameSnapshot,
         category1: "Giyim",
         itemType: "PHYSICAL",
@@ -392,7 +356,8 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
     // Callback tutar + token doğrulaması: iyzico'dan server-to-server alınan
     // sonuç, siparişin paymentRef'i/numarası ve tutarlarıyla (BigInt kuruş)
     // birebir eşleşmeli. Tamper edilmiş/yanlış-tutarlı "success" reddedilir.
-    if (!isVerifiedSuccessfulPayment(result, order)) {
+    const paymentItems = verifyPaymentItemTransactions(result.itemTransactions, await findOrderItemsForPayment(order.id));
+    if (!verifyCheckoutFormSignature(result) || !paymentItems || !isVerifiedSuccessfulPayment(result, order)) {
       app.log.warn({ orderId: order.id }, "Ödeme sağlayıcı sonucu bekleyen siparişle eşleşmedi");
       return { orderNumber: order.orderNumber, success: false };
     }
@@ -400,9 +365,14 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
     // Koşullu geçiş (pending -> paid) yalnız BİR çağrıda başarılı olur;
     // event/bildirim üretimi buna bağlanır → eşzamanlı/tekrarlı callback'te
     // satın alma event'leri ve satıcı bildirimleri tekrar üretilmez.
-    const transitioned = await markOrderPaid(order.id, result.paymentId);
+    const transitioned = await markOrderPaid(order.id, result.paymentId, paymentItems);
     if (!transitioned) {
-      return { orderNumber: order.orderNumber, success: true, purchasedLines: await getPurchasedLines(order.id) };
+      const current = await findOrderByPaymentRef(token);
+      if (current?.paymentStatus === "paid") {
+        return { orderNumber: order.orderNumber, success: true, purchasedLines: await getPurchasedLines(order.id) };
+      }
+      app.log.warn({ orderId: order.id, paymentStatus: current?.paymentStatus }, "Ödeme başarı geçişi başka bir durum tarafından kazanıldı");
+      return { orderNumber: order.orderNumber, success: false };
     }
 
     // Kupon kullanımı SADECE ödeme gerçekten başarılı olunca sayılır (vendor
@@ -448,7 +418,9 @@ export async function handlePaymentCallback(app: FastifyInstance, token: string)
           }),
         )
         .join("");
-      const trackHref = `${env.SITE_URL}/hesabim/siparisler/${order.orderNumber}`;
+      const trackHref = orderCustomer.isGuest
+        ? `${env.SITE_URL}/siparis-sonucu?order=${encodeURIComponent(order.orderNumber)}&success=true&access=${createOrderAccessToken(order.orderNumber)}`
+        : `${env.SITE_URL}/hesabim/siparisler/${order.orderNumber}`;
       const body =
         emailHeading("Siparişiniz Alındı! 🎉") +
         `<p>Merhaba ${orderCustomer.fullName},</p>` +

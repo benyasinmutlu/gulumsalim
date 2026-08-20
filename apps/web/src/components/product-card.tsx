@@ -4,6 +4,7 @@ import QuickAddButton from "./quick-add-button";
 import FavoriteButton from "./favorite-button";
 import ProductCardImage from "./product-card-image";
 import StarRating from "./star-rating";
+import ProductCampaignBadge from "./product-campaign-badge";
 
 const NEW_THRESHOLD_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -20,6 +21,9 @@ export default function ProductCard({
   const discountPercent = product.compareAtPrice
     ? Math.round((1 - Number(product.basePrice) / Number(product.compareAtPrice)) * 100)
     : null;
+  // Server component'te istek anına göre hesaplanır; istemcide yeniden
+  // hesaplanmadığı için hydration farkı üretmez.
+  // eslint-disable-next-line react-hooks/purity
   const isNew = Date.now() - new Date(product.createdAt).getTime() < NEW_THRESHOLD_MS;
   const detailHref = productUrl(product);
   const images = product.imageUrls?.length ? product.imageUrls : product.primaryImageUrl ? [product.primaryImageUrl] : [];
@@ -35,6 +39,7 @@ export default function ProductCard({
           </Link>
         )}
         <div className="product-badges">
+          <ProductCampaignBadge productId={product.id} categorySlug={product.categorySlug} vendorSlug={product.vendorSlug} />
           {discountPercent !== null && discountPercent > 0 && (
             <span className="badge badge-sale badge-sale-pulse">%{discountPercent} İNDİRİM</span>
           )}

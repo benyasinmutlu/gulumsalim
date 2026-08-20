@@ -18,6 +18,9 @@ export interface CatalogProduct {
   status: "active" | "draft" | "pending" | "inactive" | "rejected";
   createdAt: number;
   popularity: number; // 0..1, conversion-adjusted (kaynak sağlar)
+  // "Bedenime uygun" sinyali (sizeFit) için: stoğu >0 olan varyant bedenleri.
+  // Opsiyonel — beden kavramı olmayan ürün/eski fixture'larda boş sayılır.
+  inStockSizes?: string[];
 }
 
 export interface CatalogPort {

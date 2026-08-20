@@ -59,10 +59,12 @@ export async function listProcessedPayouts() {
       vendorStoreName: vendors.storeName,
       amount: vendorPayouts.amount,
       iban: vendorPayouts.iban,
+      accountHolder: vendorPayouts.accountHolder,
       status: vendorPayouts.status,
       requestedAt: vendorPayouts.requestedAt,
       processedAt: vendorPayouts.processedAt,
       rejectionReason: vendorPayouts.rejectionReason,
+      transferReference: vendorPayouts.transferReference,
     })
     .from(vendorPayouts)
     .innerJoin(vendors, eq(vendorPayouts.vendorId, vendors.id))

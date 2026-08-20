@@ -24,18 +24,21 @@ const ITEM_STATUS_LABEL: Record<string, string> = {
 
 export default function OrderTrackingForm() {
   const [orderNumber, setOrderNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<CustomerOrderDetail | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!orderNumber.trim() || loading) return;
+    if (!orderNumber.trim() || !email.trim() || loading) return;
     setLoading(true);
     setError(null);
     setOrder(null);
     try {
-      const result = await fetchJson<CustomerOrderDetail>(`/orders/${encodeURIComponent(orderNumber.trim())}`);
+      const result = await fetchJson<CustomerOrderDetail>(
+        `/orders/${encodeURIComponent(orderNumber.trim())}?email=${encodeURIComponent(email.trim())}`,
+      );
       setOrder(result);
     } catch (err) {
       setError(err instanceof ClientApiError && err.status === 404 ? "Bu sipariş numarasıyla bir sipariş bulunamadı." : "Sipariş sorgulanırken bir hata oluştu.");
@@ -46,13 +49,22 @@ export default function OrderTrackingForm() {
 
   return (
     <div>
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10, marginBottom: 24 }}>
         <input
           type="text"
           className="form-control"
           placeholder="Sipariş Numaranız (ör. GS1234567890)"
           value={orderNumber}
           onChange={(e) => setOrderNumber(e.target.value)}
+        />
+        <input
+          type="email"
+          className="form-control"
+          placeholder="Siparişte kullandığınız e-posta"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
         <button type="submit" className="btn btn-primary" disabled={loading}>
           {loading ? "Aranıyor..." : "Sorgula"}

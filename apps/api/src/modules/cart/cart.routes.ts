@@ -6,6 +6,8 @@ import { addToCartSchema, applyCouponSchema, cartQuerySchema, removeCartItemSche
 import { addToCart, hydrateCart, lineKey, removeCartItem, updateCartItem } from "./cart.service";
 import { syncCartProductIndex } from "../../lib/cart-product-index";
 import { validateAndComputeDiscount } from "../orders/coupon.service";
+import { fetchProductsForCheckout } from "../orders/order.repository";
+import { resolveCheckoutTotals } from "../orders/checkout-totals";
 
 // bkz. kullanıcı isteği: "kupon kodu... admin panelde kontrol edebilelim" -
 // sepetin HER görünümü (GET /cart, ürün ekle/güncelle/sil sonrası) aynı
@@ -15,26 +17,33 @@ async function buildCartResponse(
   request: FastifyRequest,
   hydrated: Awaited<ReturnType<typeof hydrateCart>>,
 ) {
-  let discountAmount = 0;
-  let couponCode: string | null = null;
+  let savedCouponCode: string | null = null;
   const appliedCode = request.session.couponCode;
-  if (appliedCode && hydrated.items.length > 0) {
-    try {
-      const result = await validateAndComputeDiscount(appliedCode, request.session.customerId, Number(hydrated.subtotal));
-      discountAmount = result.discountAmount;
-      couponCode = result.coupon.code;
-    } catch {
-      request.session.couponCode = undefined;
-    }
+  const productIds = [...new Set(hydrated.items.map((item) => item.productId))];
+  const productRows = await fetchProductsForCheckout(productIds);
+  const productMap = new Map(productRows.map((product) => [product.id, product]));
+  let totals;
+  try {
+    totals = await resolveCheckoutTotals(hydrated.items, productMap, appliedCode, request.session.customerId);
+    savedCouponCode = appliedCode ?? null;
+  } catch {
+    // Süresi/limiti/minimumu artık geçersiz olan kupon sepeti kırmasın.
+    // Kampanyalar yine hesaplansın; yalnız geçersiz kupon session'dan düşsün.
+    request.session.couponCode = undefined;
+    totals = await resolveCheckoutTotals(hydrated.items, productMap, undefined, request.session.customerId);
   }
   return {
     items: hydrated.items,
-    subtotal: hydrated.subtotal,
-    shippingFee: hydrated.shippingFee,
-    shippingBreakdown: hydrated.shippingBreakdown,
-    freeShippingThreshold: hydrated.freeShippingThreshold,
-    couponCode,
-    discountAmount: discountAmount.toFixed(2),
+    subtotal: totals.subtotal.toFixed(2),
+    shippingFee: totals.shippingFee.toFixed(2),
+    shippingBreakdown: totals.shippingBreakdown,
+    freeShippingThreshold: totals.freeShippingThreshold,
+    couponCode: savedCouponCode,
+    appliedCouponCode: totals.couponCode,
+    campaignId: totals.campaignId,
+    discountSource: totals.campaignId ? "campaign" : totals.couponCode ? "coupon" : null,
+    discountAmount: totals.discountAmount.toFixed(2),
+    total: totals.total.toFixed(2),
     stockNotices: hydrated.stockNotices,
   };
 }

@@ -1,11 +1,16 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { categories } from "../../db/schema/index";
-import { findProductBySlugAnyVendor, insertVendorProduct, insertProductVariant } from "./vendor-products.repository";
+import { findProductBySlugAnyVendor, findVendorProductFingerprints, insertVendorProductWithVariants } from "./vendor-products.repository";
+import { productFingerprint } from "../product-intelligence/dedupe/fingerprint";
 import { slugify } from "../../lib/slugify";
+import { normalizeProductInput } from "../product-intelligence/normalize/index";
+import type { RawProductInput } from "../product-intelligence/types";
+import { enrichProduct } from "../product-intelligence/enrichment/pipeline";
 
 // Tek seferde işlenecek azami satır (timeout/aşırı yük koruması).
 const MAX_IMPORT_ROWS = 5000;
+export const MAX_AI_ENRICH_ROWS = 100;
 
 // UTF-8 BOM'u (ör. Excel'in kaydettiği CSV) at - aksi halde ilk başlık
 // "﻿name" gibi görünüp eşleme kaçar, Türkçe karakterler bozulur.
@@ -96,7 +101,22 @@ const COLUMN_ALIASES: Record<CanonicalField, string[]> = {
   description: ["description", "aciklama", "açıklama", "desc", "detay", "detail"],
   brand: ["brand", "marka", "manufacturer"],
   compareAtPrice: ["compareatprice", "compare_at_price", "compareprice", "indirimli fiyat", "indirimlifiyat", "eski fiyat", "list price", "oldprice", "old price"],
-  stock: ["stock", "stok", "adet", "quantity", "qty", "miktar", "adet stok", "stok adedi", "stok adeti"],
+  stock: [
+    "stock",
+    "stock per size",
+    "stockpersize",
+    "stok",
+    "adet",
+    "quantity",
+    "qty",
+    "miktar",
+    "adet stok",
+    "stok adedi",
+    "stok adeti",
+    "beden başına stok",
+    "beden basina stok",
+    "bedenbasinastok",
+  ],
   sizes: ["sizes", "size", "beden", "bedenler", "numara", "varyant", "varyantlar", "beden listesi"],
 };
 
@@ -212,7 +232,8 @@ export async function parseRawImport(buffer: Buffer, filename: string): Promise<
   if (ext === "xls")
     throw new Error("Eski .xls biçimi desteklenmiyor. Excel'de 'Farklı Kaydet → .xlsx (veya CSV)' ile kaydedip tekrar yükleyin.");
   if (ext === "xlsx") return parseXlsxRaw(buffer);
-  return parseDelimitedRaw(buffer.toString("utf-8"));
+  if (ext === "csv" || ext === "tsv") return parseDelimitedRaw(buffer.toString("utf-8"));
+  throw new Error("Desteklenmeyen dosya biçimi. CSV, TSV, XLSX, JSON veya JSONL yükleyin.");
 }
 
 // Başlıkları takma-adlarla kanonik alanlara otomatik eşle (ilk eşleşen kazanır).
@@ -247,9 +268,9 @@ function mapRow(raw: Record<string, string>, mapping: ColumnMapping): Record<Can
 export async function detectImportColumns(
   buffer: Buffer,
   filename: string,
-): Promise<{ columns: string[]; autoMap: ColumnMapping; sample: Record<string, string>[] }> {
+): Promise<{ columns: string[]; autoMap: ColumnMapping; sample: Record<string, string>[]; rowCount: number }> {
   const { headers, rows } = await parseRawImport(buffer, filename);
-  return { columns: headers, autoMap: autoMapHeaders(headers), sample: rows.slice(0, 3) };
+  return { columns: headers, autoMap: autoMapHeaders(headers), sample: rows.slice(0, 3), rowCount: rows.length };
 }
 
 async function resolveCategoryId(value: string): Promise<number | null> {
@@ -267,51 +288,16 @@ async function resolveCategoryId(value: string): Promise<number | null> {
   return byName[0]?.id ?? null;
 }
 
-// Satıcı elektronik tablolarındaki para biçimlerini toleranslı ayrıştır:
-// "₺1.234,56", "199,90 TL", "1,234.56", " 299.90 " vb. Önceki hali sadece
-// ilk virgülü noktaya çeviriyordu; "1.234,56" -> "1.234.56" -> NaN olup
-// geçerli satırlar atlanıyordu.
-function toPriceString(raw: string): string | null {
-  let s = raw.trim();
-  if (!s) return null;
-  // Para sembolü/harf/boşluk vs. temizle - sadece rakam, nokta, virgül, eksi.
-  s = s.replace(/[^\d.,-]/g, "");
-  if (!s || s === "-") return null;
-  const hasComma = s.includes(",");
-  const hasDot = s.includes(".");
-  if (hasComma && hasDot) {
-    // İki tür ayraç var: en sağdaki ondalık, diğerleri binlik ayraçtır.
-    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
-      s = s.replace(/\./g, "").replace(",", "."); // TR: 1.234,56
-    } else {
-      s = s.replace(/,/g, ""); // EN: 1,234.56
-    }
-  } else if (hasComma) {
-    const parts = s.split(",");
-    // Tek virgül + en çok 2 ondalık hane -> ondalık (199,90). Aksi halde binlik.
-    if (parts.length === 2 && parts[1]!.length <= 2) s = parts[0] + "." + parts[1];
-    else s = s.replace(/,/g, "");
-  }
-  const parsed = Number(s);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return parsed.toFixed(2);
-}
-
-// Stok adedi: "10", "10 adet", boşluk -> tam sayı (>=0). Boş -> null (belirtilmemiş).
-function toStockInt(raw: string): number | null {
-  const s = raw.replace(/[^\d-]/g, "").trim();
-  if (!s) return null;
-  const n = Number(s);
-  if (!Number.isInteger(n) || n < 0) return null;
-  return n;
-}
-
 // Kanonik satırları içe aktarır (dryRun=true -> yalnızca doğrulama).
 async function importNormalizedRows(
   vendorId: number,
   rows: Record<CanonicalField, string>[],
   dryRun: boolean,
+  enrichMissing: boolean,
 ): Promise<BulkImportRowResult[]> {
+  if (enrichMissing && rows.length > MAX_AI_ENRICH_ROWS) {
+    throw new Error(`Akıllı tamamlama tek işlemde en fazla ${MAX_AI_ENRICH_ROWS} ürün için kullanılabilir.`);
+  }
   const results: BulkImportRowResult[] = [];
   // Kategori aramalarını önbelleğe al - aynı kategoriden yüzlerce ürün
   // olan dosyalarda satır başına DB sorgusu yapmamak için (perf).
@@ -325,76 +311,100 @@ async function importNormalizedRows(
     return id;
   };
 
+  // Kopya tespiti: satıcının mevcut ürün parmak izleri (tek sorgu) + bu dosyada
+  // görülenler. Aynı ürünü tekrar (ör. dosyayı iki kez) yüklemeyi yakalar.
+  const existingFingerprints = await findVendorProductFingerprints(vendorId);
+  const seenFingerprints = new Set<string>();
+
   for (let i = 0; i < rows.length; i++) {
     const rowNum = i + 2;
     const r = rows[i]!;
-    const name = (r.name ?? "").trim();
-    const basePriceRaw = (r.basePrice ?? "").trim();
-    const categoryValue = (r.categorySlug ?? "").trim();
+    // Tek doğruluk kaynağı motoruyla normalize + validasyon (tekli girişle
+    // AYNI kurallar). Kategori cache'li resolver enjekte edilir -> perf korunur.
+    const raw: RawProductInput = {
+      name: r.name,
+      basePrice: r.basePrice,
+      compareAtPrice: r.compareAtPrice,
+      category: r.categorySlug,
+      description: r.description,
+      brand: r.brand,
+      stock: r.stock,
+      sizes: r.sizes,
+    };
+    const norm = await normalizeProductInput(raw, { resolveCategory: resolveCategoryCached, defaultStock: 0 });
+    const enrichment = enrichMissing
+      ? await enrichProduct(norm, { vendorId, resolveCategory: resolveCategoryCached })
+      : null;
 
-    if (!name || !basePriceRaw || !categoryValue) {
-      results.push({ row: rowNum, name: name || "?", status: "skipped", reason: "ad / fiyat / kategori zorunlu" });
+    // Bloklayan hata (ad/fiyat/kategori) -> satırı atla (ilk hata mesajıyla).
+    const blocking = norm.issues.find((issue) => issue.level === "error" && !(issue.field === "category" && enrichment?.category?.value));
+    if (blocking) {
+      results.push({ row: rowNum, name: norm.name.value ?? "?", status: "skipped", reason: blocking.message });
       continue;
     }
-    const basePrice = toPriceString(basePriceRaw);
-    if (basePrice === null || Number(basePrice) <= 0) {
-      results.push({ row: rowNum, name, status: "skipped", reason: `fiyat geçersiz: ${basePriceRaw}` });
+    // Parity: geçersiz stok metni girildiyse satırı atla (motor burada uyarı
+    // üretip varsayılana çeker; toplu içe-aktarmada eski davranış "atla" idi).
+    if (norm.issues.some((x) => x.field === "stock" && x.level === "warn")) {
+      results.push({ row: rowNum, name: norm.name.value ?? "?", status: "skipped", reason: `stok geçersiz: ${(r.stock ?? "").trim()}` });
       continue;
     }
-    const categoryId = await resolveCategoryCached(categoryValue);
+
+    const name = norm.name.value!;
+    const categoryId = norm.categoryId.value ?? enrichment?.category?.value;
     if (!categoryId) {
-      results.push({ row: rowNum, name, status: "skipped", reason: `kategori bulunamadı: ${categoryValue}` });
+      results.push({ row: rowNum, name, status: "skipped", reason: "kategori önerilemedi" });
       continue;
     }
+    const basePrice = norm.basePrice.value!;
+    const stock = norm.stock.value ?? 0;
+    const sizes = norm.sizes;
 
-    // Stok (opsiyonel): belirtilmemişse varyantsız ürün için 0 kalır.
-    const stockRaw = (r.stock ?? "").trim();
-    const stock = stockRaw ? toStockInt(stockRaw) : 0;
-    if (stock === null) {
-      results.push({ row: rowNum, name, status: "skipped", reason: `stok geçersiz: ${stockRaw}` });
+    // Kopya tespiti (satıcı-içi): aynı ad + kategori zaten varsa ya da bu
+    // dosyada tekrar geçtiyse satırı atla (kaza eseri çift yüklemeyi önler).
+    const fingerprint = productFingerprint(vendorId, name, { category: String(categoryId) });
+    if (existingFingerprints.has(fingerprint) || seenFingerprints.has(fingerprint)) {
+      results.push({ row: rowNum, name, status: "skipped", reason: "olası kopya (aynı ürün zaten var)" });
       continue;
     }
-    // Bedenler (opsiyonel): "S,M,L" / "S/M/L" -> her biri için ayrı varyant.
-    const sizes = (r.sizes ?? "")
-      .split(/[,/;|]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    seenFingerprints.add(fingerprint);
 
     if (dryRun) {
       results.push({ row: rowNum, name, status: "valid" });
       continue;
     }
 
-    const compareRaw = (r.compareAtPrice ?? "").trim();
-    const compareAtPrice = compareRaw ? (toPriceString(compareRaw) ?? undefined) : undefined;
+    // Sahte/geçersiz indirim (eski fiyat <= satış ya da >20x) motorca uyarılır;
+    // tekli girişteki reddetme davranışıyla tutarlı olması için burada da düşülür.
+    const badDiscount = norm.issues.some((x) => x.field === "compareAtPrice" && x.level === "warn");
+    const compareAtPrice = badDiscount ? undefined : (norm.compareAtPrice.value ?? undefined);
+    const description = norm.description.value ?? enrichment?.description?.value ?? undefined;
+    const attributes = enrichment?.attributes ?? undefined;
+    const brand = norm.brand.value ?? undefined;
 
     // Slug çakışmasında (nadir) atlamak yerine birkaç kez yeni son ek dene.
     let created: { id: number } | null = null;
     for (let attempt = 0; attempt < 5 && !created; attempt++) {
       const slug = slugify(name) + "-" + Math.random().toString(36).slice(2, 7);
       if (await findProductBySlugAnyVendor(slug)) continue;
-      created = await insertVendorProduct(vendorId, {
+      created = await insertVendorProductWithVariants(vendorId, {
         categoryId,
         name,
         slug,
-        description: (r.description ?? "").trim() || undefined,
-        brand: (r.brand ?? "").trim() || undefined,
+        description,
+        attributes,
+        brand,
         basePrice,
         compareAtPrice,
+        fingerprint,
         // Beden varyantı varsa ürün stoğu varyant toplamından gelir (0 bırakılır);
         // beden yoksa varyantsız ürün doğrudan products.stock kullanır -> stok>0
         // ise ürün satılabilir olur (önceden hep 0'dı, hiç satılamıyordu).
         stock: sizes.length > 0 ? 0 : stock,
-      });
+      }, sizes.map((size) => ({ size, stock })));
     }
     if (!created) {
       results.push({ row: rowNum, name, status: "skipped", reason: "benzersiz adres üretilemedi, tekrar deneyin" });
       continue;
-    }
-
-    // Her beden için bir varyant (aynı stok adediyle). SKU otomatik üretilir.
-    for (const size of sizes) {
-      await insertProductVariant(created.id, { size, stock });
     }
 
     results.push({ row: rowNum, name, status: "created" });
@@ -414,12 +424,13 @@ export async function importProductsFromFile(
   filename: string,
   dryRun = false,
   mapping?: ColumnMapping,
+  enrichMissing = false,
 ): Promise<BulkImportRowResult[]> {
   const raw = await parseRawImport(buffer, filename);
   if (raw.rows.length > MAX_IMPORT_ROWS)
     throw new Error(`Tek seferde en fazla ${MAX_IMPORT_ROWS} satır yüklenebilir (dosyada ${raw.rows.length}). Lütfen dosyayı parçalara bölün.`);
   const map = resolveMapping(raw.headers, mapping);
-  return importNormalizedRows(vendorId, raw.rows.map((r) => mapRow(r, map)), dryRun);
+  return importNormalizedRows(vendorId, raw.rows.map((r) => mapRow(r, map)), dryRun, enrichMissing);
 }
 
 // Yapıştırma (ham CSV/TSV metni) - opsiyonel kullanıcı eşlemesiyle.
@@ -428,10 +439,36 @@ export async function importProductsFromCsv(
   csvText: string,
   dryRun = false,
   mapping?: ColumnMapping,
+  enrichMissing = false,
 ): Promise<BulkImportRowResult[]> {
   const raw = parseDelimitedRaw(csvText);
   if (raw.rows.length > MAX_IMPORT_ROWS)
     throw new Error(`Tek seferde en fazla ${MAX_IMPORT_ROWS} satır yüklenebilir (${raw.rows.length} bulundu). Lütfen parçalara bölün.`);
   const map = resolveMapping(raw.headers, mapping);
-  return importNormalizedRows(vendorId, raw.rows.map((r) => mapRow(r, map)), dryRun);
+  return importNormalizedRows(vendorId, raw.rows.map((r) => mapRow(r, map)), dryRun, enrichMissing);
+}
+
+// --- ASYNC (BullMQ kuyruk) yolu ---
+// Async'te tek seferde çok daha fazla satıra izin verilir (istek bloklanmaz).
+export const MAX_ASYNC_IMPORT_ROWS = 5000;
+
+// Dosyayı kanonik satırlara çevirir ama İÇE AKTARMAZ - route bunları kuyruğa
+// koyar, worker importRows ile işler (büyük dosya HTTP isteğini bloklamaz).
+export async function parseFileToRows(
+  buffer: Buffer,
+  filename: string,
+  mapping?: ColumnMapping,
+): Promise<Record<CanonicalField, string>[]> {
+  const raw = await parseRawImport(buffer, filename);
+  const map = resolveMapping(raw.headers, mapping);
+  return raw.rows.map((r) => mapRow(r, map));
+}
+
+// Worker giriş noktası: kanonik satırları içe aktarır (dryRun=false).
+export async function importRows(
+  vendorId: number,
+  rows: Record<CanonicalField, string>[],
+  enrichMissing = false,
+): Promise<BulkImportRowResult[]> {
+  return importNormalizedRows(vendorId, rows, false, enrichMissing);
 }

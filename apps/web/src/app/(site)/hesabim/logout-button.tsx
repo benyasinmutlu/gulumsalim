@@ -6,6 +6,8 @@
 // takılabiliyordu - bu yüzden en sağlam yöntem olan düz linke geçildi.
 export default function CustomerLogoutButton() {
   return (
+    // Oturum kapatma API navigasyonudur; Next sayfa rotası değildir.
+    // eslint-disable-next-line @next/next/no-html-link-for-pages
     <a href="/api/auth/logout" className="btn btn-secondary btn-sm">
       <i className="fas fa-sign-out-alt" /> Çıkış Yap
     </a>

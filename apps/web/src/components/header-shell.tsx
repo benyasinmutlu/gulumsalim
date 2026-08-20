@@ -76,7 +76,6 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
       window.removeEventListener("resize", recompute);
       ro.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer, cartCount, favoriteCount]);
 
   return (
@@ -90,7 +89,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
             ) : (
               <span className="logo-icon">🌸</span>
             )}
-            <span className="logo-text">{siteName || "Gülüm Şalım"}</span>
+            {!siteLogo && <span className="logo-text">{siteName || "Gülüm Şalım"}</span>}
           </Link>
 
           <div

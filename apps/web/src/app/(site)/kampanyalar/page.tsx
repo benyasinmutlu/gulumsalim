@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { apiFetchJson } from "@/lib/api";
-import type { Category, ProductListItem, ResolvedHomepageSection } from "@/lib/types";
+import type { ActiveCampaign, Category, ProductListItem, ResolvedHomepageSection } from "@/lib/types";
 import TitleBackgroundIcons from "@/components/title-background-icons";
 import PromoBannerImage from "@/components/promo-banner-image";
 import PromoBannerLink from "@/components/promo-banner-link";
@@ -37,6 +37,14 @@ async function getSaleProducts(): Promise<ProductListItem[]> {
   }
 }
 
+async function getActiveCampaigns(): Promise<ActiveCampaign[]> {
+  try {
+    return await apiFetchJson<ActiveCampaign[]>("/campaigns");
+  } catch {
+    return [];
+  }
+}
+
 // bkz. kullanıcı isteği (2026-08-02): "kampanyalar bölümüne düzenleme getir" -
 // nav'daki "Kampanyalar" linki önceden sadece /urunler?saleOnly=true'ya
 // gidiyordu, ayrı bir sayfa/deneyim yoktu. Yeni bir "kampanya" veritabanı
@@ -50,7 +58,12 @@ async function getSaleProducts(): Promise<ProductListItem[]> {
 // gösteriyor (bkz. (site)/page.tsx), ama bu sayfa kasıtlı olarak SADECE
 // indirimli ürünlerle sınırlı kalıyor (adı zaten "Kampanyalar").
 export default async function CampaignsPage() {
-  const [categories, sections, saleProducts] = await Promise.all([getCategories(), getHomepageSections(), getSaleProducts()]);
+  const [categories, sections, saleProducts, activeCampaigns] = await Promise.all([
+    getCategories(),
+    getHomepageSections(),
+    getSaleProducts(),
+    getActiveCampaigns(),
+  ]);
 
   const banners = sections.filter((s) => s.algoType === "promo_banners").flatMap((s) => s.banners ?? []);
 
@@ -71,10 +84,35 @@ export default async function CampaignsPage() {
       <div className="container products-page">
         <h1 className="products-page-title">Kampanyalar</h1>
 
-        {banners.length === 0 && categoryShelves.length === 0 ? (
+        {banners.length === 0 && categoryShelves.length === 0 && activeCampaigns.length === 0 ? (
           <p className="empty-state">Şu anda aktif bir kampanya bulunmuyor, yakında burada olacak!</p>
         ) : (
           <>
+            {activeCampaigns.length > 0 && (
+              <section className="vstore-section campaign-list-section">
+                <div className="vstore-section-title">
+                  <i className="fas fa-bullhorn" /> Aktif Kampanyalar
+                </div>
+                <div className="discount-tiers-grid">
+                  {activeCampaigns.map((campaign) => (
+                    <article key={campaign.id} className="discount-tier-card">
+                      <div className="discount-tier-percent">
+                        {campaign.type === "percent" ? `%${campaign.value}` : <i className="fas fa-truck" aria-hidden />}
+                      </div>
+                      <strong className="discount-tier-label">{campaign.name}</strong>
+                      <span className="campaign-card-meta">
+                        {[
+                          campaign.type === "free_shipping" ? "Ücretsiz Kargo" : null,
+                          campaign.minOrderAmount ? `${campaign.minOrderAmount.toLocaleString("tr-TR")} ₺ üzeri` : null,
+                          campaign.endsAt ? `${new Date(campaign.endsAt).toLocaleDateString("tr-TR")} tarihine kadar` : null,
+                        ].filter(Boolean).join(" · ")}
+                      </span>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {banners.length > 0 && (
               <section className="vstore-section" style={{ marginBottom: 32 }}>
                 <div className="vstore-section-title">

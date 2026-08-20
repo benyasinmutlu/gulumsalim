@@ -31,7 +31,23 @@ interface ColorStockRow {
   stock: string;
 }
 
+interface EnrichResponse {
+  suggestions: {
+    title: string | null;
+    categoryId: number | null;
+    description: string | null;
+    attributes: Record<string, string>;
+  };
+  guidance: { missingInformation: string[]; warnings: string[] };
+  sources: Record<string, "ai" | "ml" | "rule">;
+}
+
 const WIZARD_STEPS = ["Fotoğraflar", "Bilgiler", "Fiyat", "Yayınla"];
+const MAX_PRODUCT_IMAGES = 8;
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const ALLOWED_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 
 export default function NewProductForm() {
   const router = useRouter();
@@ -63,12 +79,17 @@ export default function NewProductForm() {
   // zorunlu olarak girilmeli" - renk/beden satırı eklenmezse ürün artık
   // stok takibi olmadan DEĞİL, bu düz alandaki miktarla satılır (zorunlu).
   const [plainStock, setPlainStock] = useState("");
+  const [showSizeChart, setShowSizeChart] = useState(false);
+  const [sizeChart, setSizeChart] = useState<Record<string, { bust: string; waist: string; hip: string }>>({});
   const [images, setImages] = useState<StagedImage[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [video, setVideo] = useState<File | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [aiFacts, setAiFacts] = useState<Record<string, string>>({});
+  const [aiResult, setAiResult] = useState<EnrichResponse | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   // Kategoriler yalnızca admin tarafından yönetilir - satıcı yeni kategori
@@ -82,9 +103,42 @@ export default function NewProductForm() {
   // sırayla /vendor/products/{id}/images'a gönderilir. İlk görsel vitrin olur.
   function handleAddImages(files: FileList | null) {
     if (!files || files.length === 0) return;
-    const next = Array.from(files).map((file) => ({ file, url: URL.createObjectURL(file) }));
+    const selected = Array.from(files);
+    const invalidType = selected.find((file) => !ALLOWED_IMAGE_TYPES.has(file.type));
+    if (invalidType) {
+      setError(`${invalidType.name}: yalnız JPG, PNG, WebP veya GIF yükleyebilirsiniz.`);
+      return;
+    }
+    const tooLarge = selected.find((file) => file.size > MAX_IMAGE_BYTES);
+    if (tooLarge) {
+      setError(`${tooLarge.name}: görsel en fazla 12 MB olabilir.`);
+      return;
+    }
+    if (images.length + selected.length > MAX_PRODUCT_IMAGES) {
+      setError(`Bir ürüne en fazla ${MAX_PRODUCT_IMAGES} görsel ekleyebilirsiniz.`);
+      return;
+    }
+    setError(null);
+    const next = selected.map((file) => ({ file, url: URL.createObjectURL(file) }));
     setImages((prev) => [...prev, ...next]);
     if (imageInputRef.current) imageInputRef.current.value = "";
+  }
+
+  function handleVideo(file: File | undefined) {
+    if (!file) {
+      setVideo(null);
+      return;
+    }
+    if (!ALLOWED_VIDEO_TYPES.has(file.type)) {
+      setError("Yalnız MP4, WebM veya MOV video yükleyebilirsiniz.");
+      return;
+    }
+    if (file.size > MAX_VIDEO_BYTES) {
+      setError("Video en fazla 50 MB olabilir.");
+      return;
+    }
+    setError(null);
+    setVideo(file);
   }
 
   function removeImage(index: number) {
@@ -115,6 +169,141 @@ export default function NewProductForm() {
 
   const totalStock = colorRows.reduce((sum, r) => sum + (Number(r.stock) || 0), 0);
 
+  const chartSizes = [...new Set(colorRows.map((row) => row.size.trim()).filter(Boolean))];
+
+  function updateSizeChart(label: string, field: "bust" | "waist" | "hip", value: string) {
+    setSizeChart((previous) => {
+      const current = previous[label] ?? { bust: "", waist: "", hip: "" };
+      return { ...previous, [label]: { ...current, [field]: value } };
+    });
+  }
+
+  function updateAiFact(field: string, value: string) {
+    setAiFacts((previous) => ({ ...previous, [field]: value }));
+  }
+
+  function buildSizeChart(): Record<string, { bust?: number; waist?: number; hip?: number }> | undefined {
+    const result: Record<string, { bust?: number; waist?: number; hip?: number }> = {};
+    for (const label of chartSizes) {
+      const measurements = sizeChart[label];
+      if (!measurements) continue;
+      const entry: { bust?: number; waist?: number; hip?: number } = {};
+      for (const field of ["bust", "waist", "hip"] as const) {
+        const value = Number(measurements[field]);
+        if (measurements[field] && Number.isFinite(value) && value >= 30 && value <= 200) entry[field] = value;
+      }
+      if (Object.keys(entry).length > 0) result[label] = entry;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+
+  function buildAttributes(): Record<string, string> | undefined {
+    const result: Record<string, string> = { ...(aiResult?.suggestions.attributes ?? {}) };
+    const mappings = isIndividual
+      ? [
+          ["condition", "Durum"], ["size", "Beden"], ["color", "Renk"],
+          ["material", "Materyal"], ["usage", "Kullanım"], ["defects", "Kusur / İz"],
+        ]
+      : [
+          ["productType", "Ürün Tipi"], ["material", "Materyal"], ["pattern", "Desen"],
+          ["fit", "Kalıp"], ["collection", "Koleksiyon"], ["care", "Bakım"],
+          ["targetAudience", "Kullanım Alanı"], ["notableFeatures", "Öne Çıkan Özellikler"],
+        ];
+    for (const [factKey, label] of mappings) {
+      const value = aiFacts[factKey]?.trim();
+      if (value) result[label] = value;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+
+  // Ürün-zeka "✨ Otomatik doldur": mevcut ad/marka/kategori/bedeni enrich
+  // endpoint'ine gönderip boş alanları (açıklama, kategori) öneriyle doldurur.
+  // AI kapalıyken rule katmanı önerir. Hiçbir şey kaydetmez, satıcı düzenler.
+  async function handleEnrich() {
+    if (name.trim().length < 1) return;
+    setEnriching(true);
+    setError(null);
+    try {
+      const sizes = colorRows
+        .map((r) => r.size)
+        .filter(Boolean)
+        .join(",") || (isIndividual ? aiFacts.size ?? "" : "");
+      const categoryName = categories.find((c) => c.id === categoryId)?.name;
+      const facts = isIndividual
+        ? {
+            condition: aiFacts.condition,
+            usage: aiFacts.usage,
+            defects: aiFacts.defects,
+            color: aiFacts.color,
+            material: aiFacts.material,
+            pattern: aiFacts.pattern,
+          }
+        : {
+            color: [...new Set(colorRows.map((row) => row.color.trim()).filter(Boolean))].join(", ") || aiFacts.color,
+            material: aiFacts.material,
+            pattern: aiFacts.pattern,
+            fit: aiFacts.fit,
+            collection: aiFacts.collection,
+            care: aiFacts.care,
+            productType: aiFacts.productType,
+            targetAudience: aiFacts.targetAudience,
+            notableFeatures: aiFacts.notableFeatures,
+          };
+      const res = await mutateJson<EnrichResponse>(
+        "/vendor/products/enrich",
+        "POST",
+        {
+          name,
+          description: description || undefined,
+          brand: brand || undefined,
+          category: categoryName || undefined,
+          sizes: sizes || undefined,
+          facts: Object.fromEntries(Object.entries(facts).filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))),
+        },
+      );
+      setAiResult(res);
+      if (!description && res.suggestions.description) setDescription(res.suggestions.description);
+      if (categoryId === "" && res.suggestions.categoryId) setCategoryId(res.suggestions.categoryId);
+    } catch {
+      setError("Otomatik doldurma şu an çalışmadı, elle devam edebilirsiniz.");
+    } finally {
+      setEnriching(false);
+    }
+  }
+
+  const aiGuidanceBlock = aiResult && (
+    <div style={{ marginTop: 12, border: "1px solid var(--br)", borderRadius: 10, padding: 12, background: "var(--bg2, #fafafa)" }}>
+      {aiResult.suggestions.title && aiResult.suggestions.title !== name && (
+        <div style={{ marginBottom: 10 }}>
+          <strong>Başlık önerisi:</strong> {aiResult.suggestions.title}{" "}
+          <button type="button" className="btn btn-sec btn-sm" onClick={() => handleNameChange(aiResult.suggestions.title!)}>Başlığı Kullan</button>
+        </div>
+      )}
+      {Object.keys(aiResult.suggestions.attributes).length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+          {Object.entries(aiResult.suggestions.attributes).map(([key, value]) => (
+            <span key={key} className="st st-muted">{key}: {value}</span>
+          ))}
+        </div>
+      )}
+      {aiResult.guidance.missingInformation.length > 0 && (
+        <div style={{ color: "var(--tx2)", fontSize: 13, marginTop: 6 }}>
+          <strong>İlanı güçlendirmek için:</strong>
+          <ul style={{ margin: "5px 0 0 18px" }}>{aiResult.guidance.missingInformation.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      )}
+      {aiResult.guidance.warnings.length > 0 && (
+        <div style={{ color: "var(--er)", fontSize: 13, marginTop: 8 }}>
+          <strong>Kontrol et:</strong>
+          <ul style={{ margin: "5px 0 0 18px" }}>{aiResult.guidance.warnings.map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      )}
+      <small style={{ display: "block", marginTop: 8, color: "var(--tx3)" }}>
+        AI yalnız öneri verir. Yayınlamadan önce tüm bilgileri siz doğrulayın.
+      </small>
+    </div>
+  );
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     // Sihirbazda ara adımlarda Enter'a basılırsa formu erken göndermesin -
@@ -136,11 +325,13 @@ export default function NewProductForm() {
         name,
         slug,
         description: description || undefined,
+        attributes: buildAttributes(),
         brand: brand || undefined,
         basePrice: Number(basePrice),
         compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
         isSecondHand: isIndividual ? isSecondHand : false,
         stock: !isIndividual && colorRows.length === 0 ? Number(plainStock) : undefined,
+        sizeChart: buildSizeChart(),
       });
 
       // Renk/stok satırları girildiyse, ürün oluştuktan sonra her biri ayrı
@@ -203,7 +394,7 @@ export default function NewProductForm() {
         />
         <i className="fas fa-images" />
         <p>Görsel seçmek için tıklayın veya sürükleyin</p>
-        <small>JPG, PNG, WEBP, GIF · birden fazla seçebilirsiniz · ilki vitrin görseli olur</small>
+        <small>JPG, PNG, WEBP, GIF · en fazla 8 görsel / görsel başına 12MB · ilki vitrin görseli olur</small>
       </div>
       {images.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
@@ -243,7 +434,7 @@ export default function NewProductForm() {
           ref={videoInputRef}
           type="file"
           accept="video/mp4,video/webm,video/quicktime"
-          onChange={(e) => setVideo(e.target.files?.[0] ?? null)}
+          onChange={(e) => handleVideo(e.target.files?.[0])}
         />
         <i className="fas fa-video" />
         <p>{video ? video.name : "Kısa tanıtım videosu ekleyin"}</p>
@@ -286,8 +477,45 @@ export default function NewProductForm() {
               }}
             />
           </div>
+          <details className="fg" style={{ border: "1px solid var(--br)", borderRadius: 10, padding: 12 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>AI katalog brifi (önerilir)</summary>
+            <small style={{ display: "block", margin: "6px 0 12px", color: "var(--tx3)" }}>
+              Bildiğiniz gerçekleri yazın; AI profesyonel açıklama üretirken bilinmeyen özellikleri uydurmaz.
+            </small>
+            <div className="row2">
+              <div className="fg"><label>Ürün türü</label><input className="fi" value={aiFacts.productType ?? ""} onChange={(e) => updateAiFact("productType", e.target.value)} placeholder="ör. oversize gömlek" /></div>
+              <div className="fg"><label>Materyal / kumaş</label><input className="fi" value={aiFacts.material ?? ""} onChange={(e) => updateAiFact("material", e.target.value)} placeholder="Etikette yazdığı şekliyle" /></div>
+              <div className="fg"><label>Desen</label><input className="fi" value={aiFacts.pattern ?? ""} onChange={(e) => updateAiFact("pattern", e.target.value)} placeholder="ör. çizgili" /></div>
+              <div className="fg"><label>Kalıp</label><input className="fi" value={aiFacts.fit ?? ""} onChange={(e) => updateAiFact("fit", e.target.value)} placeholder="ör. regular fit" /></div>
+              <div className="fg"><label>Koleksiyon</label><input className="fi" value={aiFacts.collection ?? ""} onChange={(e) => updateAiFact("collection", e.target.value)} placeholder="Gerçek koleksiyon adı varsa" /></div>
+              <div className="fg"><label>Hedef kullanım</label><input className="fi" value={aiFacts.targetAudience ?? ""} onChange={(e) => updateAiFact("targetAudience", e.target.value)} placeholder="ör. günlük, ofis" /></div>
+            </div>
+            <div className="fg"><label>Bakım bilgisi</label><input className="fi" value={aiFacts.care ?? ""} onChange={(e) => updateAiFact("care", e.target.value)} placeholder="Etiketteki yıkama/bakım bilgisi" /></div>
+            <div className="fg"><label>Öne çıkan doğrulanabilir özellikler</label><textarea className="fi" rows={2} value={aiFacts.notableFeatures ?? ""} onChange={(e) => updateAiFact("notableFeatures", e.target.value)} placeholder="Cep, astar, fermuar, ölçü gibi gerçek bilgiler" /></div>
+          </details>
           <div className="fg">
-            <label>Açıklama</label>
+            <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span>Açıklama</span>
+              <button
+                type="button"
+                onClick={handleEnrich}
+                disabled={enriching || name.trim().length < 1}
+                title="Ürün adına göre açıklama ve kategori önerisi doldurur"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: "5px 12px",
+                  borderRadius: 8,
+                  border: "1px solid var(--color-primary, #8a1c4d)",
+                  background: enriching ? "var(--color-primary, #8a1c4d)" : "transparent",
+                  color: enriching ? "#fff" : "var(--color-primary, #8a1c4d)",
+                  cursor: enriching || name.trim().length < 1 ? "default" : "pointer",
+                  opacity: name.trim().length < 1 ? 0.5 : 1,
+                }}
+              >
+                {enriching ? "AI dolduruyor…" : "✨ AI ile otomatik doldur"}
+              </button>
+            </label>
             <textarea
               className="fi"
               rows={4}
@@ -295,6 +523,7 @@ export default function NewProductForm() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ürününüzü müşterilerinize tanıtın (opsiyonel)"
             />
+            {aiGuidanceBlock}
           </div>
           <div className="row2">
             <div className="fg">
@@ -350,6 +579,50 @@ export default function NewProductForm() {
               </div>
             )}
           </div>
+
+          {chartSizes.length > 0 && (
+            <div className="fg">
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={showSizeChart}
+                  onChange={(event) => setShowSizeChart(event.target.checked)}
+                  style={{ width: "auto" }}
+                />
+                Beden ölçü tablosu ekle (opsiyonel)
+              </label>
+              <small style={{ color: "var(--tx3)" }}>
+                Ürününüz standart bedenden dar veya bol kalıpsa her beden için gerçek ölçüleri santimetre olarak girin.
+                Müşterinin &quot;Sana Oturur mu?&quot; önerisinde bu değerler kullanılır.
+              </small>
+              {showSizeChart && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                  {chartSizes.map((label) => (
+                    <div key={label} className="row4" style={{ alignItems: "flex-end" }}>
+                      <div className="fg">
+                        <label>Beden</label>
+                        <input className="fi" value={label} disabled style={{ fontWeight: 600 }} />
+                      </div>
+                      {(["bust", "waist", "hip"] as const).map((field) => (
+                        <div className="fg" key={field}>
+                          <label>{field === "bust" ? "Göğüs (cm)" : field === "waist" ? "Bel (cm)" : "Kalça (cm)"}</label>
+                          <input
+                            className="fi"
+                            type="number"
+                            min={30}
+                            max={200}
+                            value={sizeChart[label]?.[field] ?? ""}
+                            onChange={(event) => updateSizeChart(label, field, event.target.value)}
+                            placeholder="—"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {imagesBlock}
           {videoBlock}
@@ -414,8 +687,38 @@ export default function NewProductForm() {
                 <label>Marka</label>
                 <input className="fi" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Opsiyonel" />
               </div>
+              <div className="row2">
+                <div className="fg">
+                  <label>Ürün kullanım durumu</label>
+                  <select
+                    className="fi"
+                    value={aiFacts.condition ?? ""}
+                    onChange={(e) => {
+                      updateAiFact("condition", e.target.value);
+                      if (e.target.value) setIsSecondHand(!["Sıfır / kullanılmamış", "Etiketli, hiç kullanılmadı"].includes(e.target.value));
+                    }}
+                  >
+                    <option value="">Seçin...</option>
+                    <option value="Sıfır / kullanılmamış">Sıfır / kullanılmamış</option>
+                    <option value="Etiketli, hiç kullanılmadı">Etiketli, hiç kullanılmadı</option>
+                    <option value="Az kullanıldı, çok iyi durumda">Az kullanıldı, çok iyi durumda</option>
+                    <option value="Kullanıldı, iyi durumda">Kullanıldı, iyi durumda</option>
+                    <option value="Belirgin kullanım izi var">Belirgin kullanım izi var</option>
+                  </select>
+                </div>
+                <div className="fg"><label>Beden</label><input className="fi" value={aiFacts.size ?? ""} onChange={(e) => updateAiFact("size", e.target.value)} placeholder="ör. M / 38" /></div>
+                <div className="fg"><label>Renk</label><input className="fi" value={aiFacts.color ?? ""} onChange={(e) => updateAiFact("color", e.target.value)} placeholder="ör. lacivert" /></div>
+                <div className="fg"><label>Materyal</label><input className="fi" value={aiFacts.material ?? ""} onChange={(e) => updateAiFact("material", e.target.value)} placeholder="Yalnız etikette yazıyorsa" /></div>
+              </div>
+              <div className="fg"><label>Kullanım bilgisi</label><input className="fi" value={aiFacts.usage ?? ""} onChange={(e) => updateAiFact("usage", e.target.value)} placeholder="ör. iki kez kullanıldı" /></div>
+              <div className="fg"><label>Kusur / kullanım izi</label><input className="fi" value={aiFacts.defects ?? ""} onChange={(e) => updateAiFact("defects", e.target.value)} placeholder="Yoksa 'yok', varsa açıkça yazın" /></div>
               <div className="fg">
-                <label>Açıklama</label>
+                <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <span>Açıklama</span>
+                  <button type="button" className="btn btn-sec btn-sm" onClick={handleEnrich} disabled={enriching || name.trim().length < 1}>
+                    {enriching ? "AI inceliyor…" : "✨ AI İlan Rehberi"}
+                  </button>
+                </label>
                 <textarea
                   className="fi"
                   rows={4}
@@ -423,6 +726,7 @@ export default function NewProductForm() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Kumaş, kalıp, kullanım durumu... (opsiyonel)"
                 />
+                {aiGuidanceBlock}
               </div>
             </>
           )}

@@ -53,7 +53,7 @@ export default async function SiteFooter() {
               }}
             >
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-primary)", marginBottom: 6 }}>
-                <i className="fas fa-store" /> Satıcı Ol
+                <i className="fas fa-store" /> Kurumsal Üyelik
               </div>
               <p style={{ fontSize: 11, color: "var(--color-text-light)", marginBottom: 8 }}>
                 Kendi mağazanı aç, ürünlerini sat!
@@ -144,7 +144,10 @@ export default async function SiteFooter() {
                     404 vermişti (bkz. globals.css .troy-badge/.iyzico-badge
                     yorumu) - bu yüzden dosyalar public/'e kopyalanıp
                     kendi sunucumuzdan servis ediliyor, dış bağımlılık yok. */}
+                {/* SVG marka ölçüleri CSS ile yönetiliyor; raster optimizasyon gerekmez. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/payment-badges/iyzico.svg" alt="iyzico ile öde" className="payment-badge-img" style={{ height: 20 }} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/payment-badges/troy.svg" alt="Troy" className="payment-badge-img" style={{ height: 20 }} />
               </div>
             </div>
@@ -156,8 +159,7 @@ export default async function SiteFooter() {
         <div className="container">
           <p>© {new Date().getFullYear()} {settings.site_name || "Gülüm Şalım"}. Tüm hakları saklıdır.</p>
           <div className="footer-admin-links">
-            <Link href="/satici/giris">Satıcı Girişi</Link>
-            <Link href="/admin/giris">Yönetim</Link>
+            <Link href="/satici/giris">Kurumsal Üye Girişi</Link>
           </div>
         </div>
       </div>

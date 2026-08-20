@@ -18,10 +18,52 @@ interface PaymentOrder {
 interface PaymentResult {
   status: string;
   paymentStatus: string;
+  fraudStatus?: number;
   token: string;
   basketId: string;
   price: string;
   paidPrice: string;
+}
+
+interface ProviderItemTransaction {
+  itemId?: string;
+  paymentTransactionId?: string;
+}
+
+interface PaymentOrderItem {
+  id: number;
+  productId: number;
+  paymentItemRef: string | null;
+}
+
+export interface VerifiedPaymentItem {
+  orderItemId: number;
+  paymentTransactionId: string;
+}
+
+export function verifyPaymentItemTransactions(
+  providerItems: ProviderItemTransaction[] | undefined,
+  orderItems: PaymentOrderItem[],
+): VerifiedPaymentItem[] | null {
+  if (!providerItems || providerItems.length !== orderItems.length || orderItems.length === 0) return null;
+  const byProviderId = new Map<string, string>();
+  for (const item of providerItems) {
+    if (!item.itemId || !item.paymentTransactionId || byProviderId.has(item.itemId)) return null;
+    byProviderId.set(item.itemId, item.paymentTransactionId);
+  }
+
+  const modern = orderItems.every((item) => item.paymentItemRef);
+  const legacyProductIdsAreUnique = new Set(orderItems.map((item) => item.productId)).size === orderItems.length;
+  if (!modern && !legacyProductIdsAreUnique) return null;
+
+  const mapped: VerifiedPaymentItem[] = [];
+  for (const item of orderItems) {
+    const key = modern ? item.paymentItemRef! : String(item.productId);
+    const paymentTransactionId = byProviderId.get(key);
+    if (!paymentTransactionId) return null;
+    mapped.push({ orderItemId: item.id, paymentTransactionId });
+  }
+  return mapped;
 }
 
 // Para string'ini tam sayı kuruşa çevirir. En fazla 2 ondalık; "149.900"
@@ -41,6 +83,8 @@ export function isVerifiedSuccessfulPayment(result: PaymentResult, order: Paymen
   return (
     result.status === "success"
     && result.paymentStatus === "SUCCESS"
+    // iyzico: yalnizca fraudStatus=1 olan odeme sevk/teslim edilmeli.
+    && result.fraudStatus === 1
     && result.token === order.paymentRef
     && result.basketId === order.orderNumber
     && resultPrice !== null

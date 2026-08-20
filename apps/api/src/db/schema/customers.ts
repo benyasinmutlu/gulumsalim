@@ -1,5 +1,14 @@
-import { bigint, boolean, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { vendors } from "./vendors";
+
+// Müşterinin kayıtlı beden tercihleri (profilde düzenlenebilir). "Bedenime
+// uygun göster" filtresi bunları kullanır: her tip ayrı tutulur çünkü komşu
+// beden (±1) adımı tipe göre değişir (ayakkabı 37-38-39 vs kadın 38-40-42).
+export type SizePrefs = {
+  kadinBeden?: string[]; // "S","M","L" / "38","40"
+  ayakkabiNo?: number[]; // 37, 38, 39
+  cocukBeden?: string[]; // "5-6 yaş" / "104"
+};
 
 // age/heightCm/weightKg: gulumsalim.com'daki hesabım/profil formunun beden
 // önerisi için topladığı bilgiler - şu an bunu kullanan bir öneri özelliği
@@ -23,6 +32,8 @@ export const customers = pgTable("customers", {
   age: integer("age"),
   heightCm: integer("height_cm"),
   weightKg: integer("weight_kg"),
+  // Beden tercihleri (profil formundan yazılır, "bedenime uygun" filtresi okur).
+  sizePrefs: jsonb("size_prefs").$type<SizePrefs>(),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true, precision: 3 }),
   // bkz. kullanıcı isteği: "email doğrulamayı hem müşteri hem de satıcı için
   // zorunlu olmalı" - passwordResetTokenHash ile aynı desen (ham token

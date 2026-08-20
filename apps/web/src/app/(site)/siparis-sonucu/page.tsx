@@ -2,7 +2,7 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 interface Props {
-  searchParams: Promise<{ order?: string; success?: string }>;
+  searchParams: Promise<{ order?: string; success?: string; access?: string }>;
 }
 
 interface OrderSummary {
@@ -11,8 +11,9 @@ interface OrderSummary {
   status: string;
 }
 
-async function getOrder(orderNumber: string): Promise<OrderSummary | null> {
-  const res = await apiFetch(`/orders/${orderNumber}`);
+async function getOrder(orderNumber: string, access?: string): Promise<OrderSummary | null> {
+  const query = access ? `?access=${encodeURIComponent(access)}` : "";
+  const res = await apiFetch(`/orders/${encodeURIComponent(orderNumber)}${query}`);
   if (!res.ok) return null;
   return res.json();
 }
@@ -22,8 +23,8 @@ async function getOrder(orderNumber: string): Promise<OrderSummary | null> {
 // genelindeki .cart-section / .empty-state diliyle tutarlı bir sonuç
 // ekranı kuruldu.
 export default async function OrderResultPage({ searchParams }: Props) {
-  const { order: orderNumber, success } = await searchParams;
-  const order = orderNumber ? await getOrder(orderNumber) : null;
+  const { order: orderNumber, success, access } = await searchParams;
+  const order = orderNumber ? await getOrder(orderNumber, access) : null;
   const isSuccess = success === "true" && order !== null;
 
   return (

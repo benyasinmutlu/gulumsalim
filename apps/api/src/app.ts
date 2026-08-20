@@ -27,6 +27,8 @@ import adminPagesRoutes from "./modules/admin/admin-pages.routes";
 import adminSlidersRoutes from "./modules/admin/admin-sliders.routes";
 import adminPromoBannersRoutes from "./modules/admin/admin-promo-banners.routes";
 import adminCouponsRoutes from "./modules/admin/admin-coupons.routes";
+import adminCampaignsRoutes from "./modules/admin/admin-campaigns.routes";
+import campaignsRoutes from "./modules/orders/campaigns.routes";
 import adminHomepageSectionsRoutes from "./modules/admin/admin-homepage-sections.routes";
 import contentRoutes from "./modules/content/content.routes";
 import discoveryRoutes from "./modules/discovery/discovery.routes";
@@ -56,6 +58,7 @@ import customerNotificationsRoutes from "./modules/notifications/customer-notifi
 import vendorCollectionsRoutes from "./modules/vendors/vendor-collections.routes";
 import vendorCategoriesRoutes from "./modules/vendors/vendor-categories.routes";
 import vendorBulkImportRoutes from "./modules/vendors/vendor-bulk-import.routes";
+import integrationsRoutes from "./modules/integrations/integrations.routes";
 import vendorStoreLayoutRoutes from "./modules/vendors/vendor-store-layout.routes";
 import vendorStoreContentRoutes from "./modules/vendors/vendor-store-content.routes";
 import vendorDashboardRoutes from "./modules/vendors/vendor-dashboard.routes";
@@ -118,6 +121,8 @@ export function buildApp() {
   app.register(adminSlidersRoutes);
   app.register(adminPromoBannersRoutes);
   app.register(adminCouponsRoutes);
+  app.register(adminCampaignsRoutes);
+  app.register(campaignsRoutes);
   app.register(adminHomepageSectionsRoutes);
   app.register(contentRoutes);
   app.register(discoveryRoutes);
@@ -125,7 +130,7 @@ export function buildApp() {
   // /discover davranışını değiştirmez; yalnız DISCOVER_V1_ENABLED=true iken
   // /v1/discover ek endpoint'i açılır (allowlist/test hesabı ile doğrulama).
   if (process.env.DISCOVER_V1_ENABLED === "true") {
-    app.register(discoverV1Routes, { runtime: buildProductionDiscoverRuntime() });
+    app.register(discoverV1Routes, { runtime: buildProductionDiscoverRuntime(app.redis) });
   }
   app.register(reviewsRoutes);
   app.register(vendorReviewsRoutes);
@@ -150,6 +155,7 @@ export function buildApp() {
   app.register(vendorCollectionsRoutes);
   app.register(vendorCategoriesRoutes);
   app.register(vendorBulkImportRoutes);
+  app.register(integrationsRoutes);
   app.register(vendorStoreLayoutRoutes);
   app.register(vendorStoreContentRoutes);
   app.register(vendorDashboardRoutes);

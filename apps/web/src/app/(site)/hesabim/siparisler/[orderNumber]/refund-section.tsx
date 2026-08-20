@@ -11,6 +11,7 @@ const STATUS_LABEL: Record<CustomerRefund["status"], string> = {
   approved: "İade onaylandı — ürünü kargolayıp takip kodunu aşağıya girin",
   rejected: "İade talebiniz reddedildi",
   item_received: "Ürün satıcıya ulaştı, para iadeniz işleme alınıyor",
+  refunding: "Para iadeniz ödeme kuruluşunda kontrol ediliyor",
   refunded: "Para iadeniz tamamlandı",
 };
 

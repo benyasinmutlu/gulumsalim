@@ -1,10 +1,17 @@
 import { z } from "zod";
 
+const emailSchema = z.string().trim().email().max(254).transform((value) => value.toLowerCase());
+const passwordSchema = z
+  .string()
+  .min(8, "Şifre en az 8 karakter olmalı")
+  .max(72, "Şifre en fazla 72 karakter olabilir")
+  .refine((value) => Buffer.byteLength(value, "utf8") <= 72, "Şifre en fazla 72 bayt olabilir");
+
 export const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, "Şifre en az 8 karakter olmalı"),
-  fullName: z.string().min(2),
-  phone: z.string().optional(),
+  email: emailSchema,
+  password: passwordSchema,
+  fullName: z.string().trim().min(2).max(120),
+  phone: z.string().trim().max(30).optional(),
   // Üyelik Sözleşmesi + KVKK Aydınlatma Metni - zorunlu. marketingConsent
   // (Ticari Elektronik İleti Onayı) ve analyticsConsent (Açık Rıza Metni)
   // opsiyonel, işaretlenmezse consentAt alanları null kalır.
@@ -16,8 +23,8 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: emailSchema,
+  password: z.string().min(1).max(72),
 });
 
 export const googleLoginSchema = z.object({
@@ -32,26 +39,36 @@ export const completeConsentSchema = z.object({
   }),
   marketingConsent: z.boolean().default(false),
   analyticsConsent: z.boolean().default(false),
-  phone: z.string().optional(),
+  phone: z.string().trim().max(30).optional(),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
 });
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(8, "Şifre en az 8 karakter olmalı"),
+  password: passwordSchema,
+});
+
+// Beden tercihleri profilde düzenlenebilir ve ürün filtreleme/fit motorunun
+// kullanıcı tarafından beyan edilen kaynağıdır. Dizi sınırları şişirme ve
+// kötüye kullanımı önler.
+export const sizePrefsSchema = z.object({
+  kadinBeden: z.array(z.string().trim().min(1).max(10)).max(12).optional(),
+  ayakkabiNo: z.array(z.coerce.number().int().min(15).max(50)).max(12).optional(),
+  cocukBeden: z.array(z.string().trim().min(1).max(12)).max(12).optional(),
 });
 
 export const updateProfileSchema = z.object({
-  fullName: z.string().min(2),
-  phone: z.string().optional(),
+  fullName: z.string().trim().min(2).max(120),
+  phone: z.string().trim().max(30).optional(),
   age: z.coerce.number().int().min(10).max(100).optional(),
   heightCm: z.coerce.number().int().min(100).max(230).optional(),
   weightKg: z.coerce.number().int().min(30).max(250).optional(),
-  currentPassword: z.string().optional(),
-  newPassword: z.string().min(8, "Şifre en az 8 karakter olmalı").optional(),
+  sizePrefs: sizePrefsSchema.optional(),
+  currentPassword: z.string().max(72).optional(),
+  newPassword: passwordSchema.optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

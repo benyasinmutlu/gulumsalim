@@ -8,8 +8,18 @@ import { recordContentEvent, recordSearchQuery } from "../analytics/content-anal
 import { getSearchMatches, getSearchSuggestions } from "./search-suggest.service";
 import { listProductsQuerySchema, productSlugParamsSchema, toggleFavoriteSchema } from "./catalog.schemas";
 import { getCategories, getProductBySlug, getProductFacets, getProducts } from "./catalog.service";
+import { findCustomerById } from "../auth/auth.repository";
+import type { SizePrefs } from "../../db/schema/customers";
+import { computeFit, normalizeProductChart, aggregateFeedback, learnedChart, mergeCharts, sizeLabelToNumeric } from "../fit";
+import { recordFitFeedback, getProductFeedbackRows } from "../fit/fit-feedback.repository";
 
 const searchSuggestQuerySchema = z.object({ q: z.string().trim().min(1).max(80) });
+
+// Fit-Zekâsı Faz 5: satın alma sonrası kalıp geri bildirimi gövdesi.
+const fitFeedbackSchema = z.object({
+  size: z.string().trim().min(1).max(6),
+  verdict: z.enum(["cok_dar", "dar", "tam", "bol", "cok_bol"]),
+});
 
 const catalogRoutes: FastifyPluginAsync = async (app) => {
   app.get("/categories", async (_request, reply) => {
@@ -37,7 +47,14 @@ const catalogRoutes: FastifyPluginAsync = async (app) => {
     if (query.search) {
       recordSearchQuery(query.search).catch(() => {});
     }
-    const result = await getProducts(query);
+    // "Bedenime uygun" açık + giriş yapılmışsa profildeki bedenleri al (tek
+    // kaynak profil; giriş yoksa/beden yoksa sessizce normal gözatmaya döner).
+    let sizePrefs: SizePrefs | null = null;
+    if (query.fitToMe && request.session.customerId) {
+      const customer = await findCustomerById(request.session.customerId);
+      sizePrefs = customer?.sizePrefs ?? null;
+    }
+    const result = await getProducts(query, sizePrefs);
     // Sepet sayısı (bkz. lib/cart-product-index.ts) Redis'teki ürün->oturum
     // ters indeksinden geliyor, SQL/Meilisearch sonuçlarının hiçbirinde yok
     // - route seviyesinde (app.redis burada erişilebilir) sonradan eklenir.
@@ -78,6 +95,41 @@ const catalogRoutes: FastifyPluginAsync = async (app) => {
     }
     const related = await listActiveProducts({ categoryIds: [product.categoryId], limit: 9 });
     return reply.send(related.filter((p) => p.id !== product.id).slice(0, 8));
+  });
+
+  // Fit-Zekâsı: "Sana Oturur mu?" — giriş yapmış müşterinin bedeni/boyu ile bu
+  // ürünün beden önerisi + boyut-boyut fit. Kişisel → cache'lenmez.
+  app.get("/products/:slug/fit", { preHandler: app.requireCustomer }, async (request, reply) => {
+    const { slug } = productSlugParamsSchema.parse(request.params);
+    const product = await getProductBySlug(slug);
+    if (!product) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+    const customer = await findCustomerById(request.session.customerId!);
+    const sizes = [...new Set(product.variants.map((v) => v.size).filter((s): s is string => !!s))];
+    // Faz 4: satıcının ölçtüğü tablo (kesin) + Faz 5: geri bildirimden öğrenilen
+    // kalıp. Satıcı açıkça girdiği boyut kazanır, girmediğinde öğrenilmiş devreye
+    // girer, o da yoksa standart tabloya düşülür (mergeCharts + matchFit).
+    const vendorChart = normalizeProductChart(product.sizeChart);
+    const learned = learnedChart(aggregateFeedback(await getProductFeedbackRows(product.id)));
+    const outcome = computeFit(
+      { kadinBeden: customer?.sizePrefs?.kadinBeden, heightCm: customer?.heightCm, weightKg: customer?.weightKg },
+      sizes,
+      product.name,
+      mergeCharts(learned, vendorChart),
+    );
+    return reply.send(outcome);
+  });
+
+  // Fit-Zekâsı Faz 5: müşteri satın aldıktan sonra "geldi: dar/tam/bol" der.
+  // Ürünün kalıbı bu sinyallerden öğrenilir (bkz. /fit route mergeCharts).
+  app.post("/products/:slug/fit/feedback", { preHandler: [app.requireCustomer, app.csrfProtection] }, async (request, reply) => {
+    const { slug } = productSlugParamsSchema.parse(request.params);
+    const { size, verdict } = fitFeedbackSchema.parse(request.body);
+    const product = await getProductBySlug(slug);
+    if (!product) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+    const sizeNumeric = sizeLabelToNumeric(size);
+    if (sizeNumeric == null) return reply.status(400).send({ error: { message: "Geçersiz beden" } });
+    await recordFitFeedback({ productId: product.id, customerId: request.session.customerId!, sizeNumeric, verdict });
+    return reply.send({ ok: true });
   });
 
   app.get("/search-suggest", async (request, reply) => {

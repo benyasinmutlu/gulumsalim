@@ -1,5 +1,6 @@
-import { bigint, boolean, index, integer, jsonb, numeric, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import { couponTypeEnum, orderRefundStatusEnum, orderStatusEnum, paymentStatusEnum } from "./enums";
+import { sql } from "drizzle-orm";
+import { bigint, boolean, check, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { campaignScopeEnum, campaignTypeEnum, couponTypeEnum, orderRefundStatusEnum, orderStatusEnum, paymentStatusEnum } from "./enums";
 import { customers } from "./customers";
 import { products, productVariants } from "./catalog";
 import { vendors } from "./vendors";
@@ -26,7 +27,32 @@ export const coupons = pgTable("coupons", {
   // hepsini listelemek yerine admin'in öne çıkardığı TEK kupon gösterilir.
   isFeatured: boolean("is_featured").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
-});
+}, (table) => ({
+  valueCheck: check("coupon_value_check", sql`(${table.type} = 'percent' AND ${table.value} > 0 AND ${table.value} <= 100) OR (${table.type} = 'fixed' AND ${table.value} > 0)`),
+  minimumCheck: check("coupon_minimum_check", sql`${table.minOrderAmount} IS NULL OR ${table.minOrderAmount} > 0`),
+  usageCheck: check("coupon_usage_check", sql`${table.maxUsesPerCustomer} > 0 AND ${table.usedCount} >= 0 AND (${table.maxUsesTotal} IS NULL OR (${table.maxUsesTotal} > 0 AND ${table.usedCount} <= ${table.maxUsesTotal}))`),
+  dateCheck: check("coupon_date_check", sql`${table.startsAt} IS NULL OR ${table.endsAt} IS NULL OR ${table.endsAt} > ${table.startsAt}`),
+}));
+
+export const campaigns = pgTable("campaigns", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  type: campaignTypeEnum("type").notNull(),
+  scope: campaignScopeEnum("scope").notNull().default("all"),
+  scopeId: bigint("scope_id", { mode: "number" }),
+  value: numeric("value", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  minOrderAmount: numeric("min_order_amount", { precision: 10, scale: 2 }),
+  startsAt: timestamp("starts_at", { withTimezone: true, precision: 3 }),
+  endsAt: timestamp("ends_at", { withTimezone: true, precision: 3 }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  activeIdx: index("idx_campaigns_active").on(table.isActive, table.endsAt),
+  scopeTargetCheck: check("campaign_scope_target_check", sql`(${table.scope} = 'all' AND ${table.scopeId} IS NULL) OR (${table.scope} <> 'all' AND ${table.scopeId} IS NOT NULL)`),
+  valueCheck: check("campaign_value_check", sql`(${table.type} = 'percent' AND ${table.value} > 0 AND ${table.value} <= 100) OR (${table.type} = 'free_shipping' AND ${table.value} = 0)`),
+  dateCheck: check("campaign_date_check", sql`${table.startsAt} IS NULL OR ${table.endsAt} IS NULL OR ${table.endsAt} > ${table.startsAt}`),
+  minimumCheck: check("campaign_minimum_check", sql`${table.minOrderAmount} IS NULL OR ${table.minOrderAmount} > 0`),
+}));
 
 export const orders = pgTable("orders", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
@@ -49,6 +75,7 @@ export const orders = pgTable("orders", {
   // değişse bile bu sipariş için sabit kalır - product_name_snapshot ile
   // aynı "donmuş kopya" mantığı).
   couponId: bigint("coupon_id", { mode: "number" }).references(() => coupons.id),
+  campaignId: bigint("campaign_id", { mode: "number" }).references(() => campaigns.id),
   discountAmount: numeric("discount_amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   shippingAddress: jsonb("shipping_address").notNull(),
@@ -63,6 +90,8 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   customerIdx: index("idx_orders_customer").on(table.customerId, table.createdAt),
+  paymentRefUnique: uniqueIndex("uniq_orders_payment_ref").on(table.paymentRef),
+  moneyCheck: check("order_money_check", sql`${table.subtotal} >= 0 AND ${table.shippingFee} >= 0 AND ${table.discountAmount} >= 0 AND ${table.discountAmount} <= ${table.subtotal} AND ${table.total} = ${table.subtotal} - ${table.discountAmount} + ${table.shippingFee}`),
 }));
 
 // Bir müşterinin bir kuponu kaç kez kullandığını (maxUsesPerCustomer
@@ -75,6 +104,7 @@ export const couponRedemptions = pgTable("coupon_redemptions", {
   redeemedAt: timestamp("redeemed_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   couponCustomerIdx: index("idx_coupon_redemptions_coupon_customer").on(table.couponId, table.customerId),
+  orderUnique: uniqueIndex("uniq_coupon_redemptions_order").on(table.orderId),
 }));
 
 // Bir sipariş birden fazla satıcıya yayılabilir; her satır tek bir
@@ -86,6 +116,11 @@ export const orderItems = pgTable("order_items", {
   orderId: bigint("order_id", { mode: "number" }).notNull().references(() => orders.id),
   vendorId: bigint("vendor_id", { mode: "number" }).notNull().references(() => vendors.id),
   productId: bigint("product_id", { mode: "number" }).notNull().references(() => products.id),
+  // iyzico basket item kimligi ve provider transaction kimligi. Birincisi
+  // checkout baslatmadan once UUID olarak uretilir; ikincisi basarili CF
+  // Retrieve sonucundan yazilir ve parcali iade bu deger uzerinden yapilir.
+  paymentItemRef: text("payment_item_ref"),
+  paymentTransactionId: text("payment_transaction_id"),
   variantId: bigint("variant_id", { mode: "number" }).references(() => productVariants.id),
   productNameSnapshot: text("product_name_snapshot").notNull(),
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
@@ -101,6 +136,8 @@ export const orderItems = pgTable("order_items", {
 }, (table) => ({
   vendorIdx: index("idx_order_items_vendor").on(table.vendorId, table.vendorStatus),
   orderIdx: index("idx_order_items_order").on(table.orderId),
+  paymentItemRefUnique: uniqueIndex("uniq_order_items_payment_item_ref").on(table.paymentItemRef),
+  moneyCheck: check("order_item_money_check", sql`${table.quantity} > 0 AND ${table.unitPrice} >= 0 AND ${table.total} = ${table.unitPrice} * ${table.quantity}`),
 }));
 
 // Müşterinin bir sipariş kalemi için iade talebi - bkz. kullanıcı isteği:
@@ -140,6 +177,9 @@ export const orderRefunds = pgTable("order_refunds", {
 }, (table) => ({
   statusIdx: index("idx_refunds_status").on(table.status),
   vendorIdx: index("idx_refunds_vendor").on(table.vendorId),
+  activeRequestUnique: uniqueIndex("uniq_active_refund_per_order_item")
+    .on(table.orderItemId)
+    .where(sql`${table.status} <> 'rejected'`),
 }));
 
 export const vendorEarnings = pgTable("vendor_earnings", {
@@ -152,4 +192,5 @@ export const vendorEarnings = pgTable("vendor_earnings", {
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
   vendorIdx: index("idx_earnings_vendor").on(table.vendorId),
+  moneyCheck: check("vendor_earning_money_check", sql`${table.grossAmount} >= 0 AND ${table.commissionAmount} >= 0 AND ${table.commissionAmount} <= ${table.grossAmount} AND ${table.netAmount} >= 0`),
 }));

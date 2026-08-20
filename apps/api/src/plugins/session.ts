@@ -2,6 +2,7 @@ import fp from "fastify-plugin";
 import { FastifyPluginAsync } from "fastify";
 import cookie from "@fastify/cookie";
 import fastifySession from "@fastify/session";
+import type { FastifySessionOptions, SessionStore } from "@fastify/session";
 import { env } from "../config/env";
 import type { CartLine } from "../modules/cart/cart.types";
 import { RedisSessionStore } from "./redis-session-store";
@@ -31,34 +32,32 @@ declare module "fastify" {
 // yapamazdı.
 const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
 
+export type { SessionStore };
+
+export function sessionRegisterOptions(store: SessionStore): FastifySessionOptions {
+  return {
+    store,
+    secret: env.SESSION_SECRET,
+    cookieName: "gs_sid",
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: SESSION_MAX_AGE_MS,
+    },
+  };
+}
+
 const sessionPlugin: FastifyPluginAsync = async (app) => {
   await app.register(cookie);
 
   const store = new RedisSessionStore(app.redis, "sess:", SESSION_MAX_AGE_MS / 1000);
 
-  await app.register(fastifySession, {
-    store,
-    secret: env.SESSION_SECRET,
-    cookieName: "gs_sid",
-    cookie: {
-      httpOnly: true,
-      // sameSite:"none" YALNIZCA prod'da (secure:true zorunlu kılıyor,
-      // http'de tarayıcı çerezi tamamen reddeder) - bkz. checkout.routes.ts
-      // /payment-callback: iyzico ödeme sonrası tarayıcıyı buraya form-
-      // encoded POST ile geri yönlendiriyor, bu siteler-arası bir POST.
-      // sameSite:"lax" bu istekte oturum çerezini tarayıcıdan hiç
-      // göndermiyordu, sunucu da "oturum yok" sanıp SIFIRDAN anonim bir
-      // oturum açıp cevaba yeni (boş) çerez yazıyordu - kullanıcı sipariş
-      // sonrası oturumdan atılmış gibi görünüyordu (bkz. kullanıcı
-      // bildirimi: "siparişiniz alındı diyince hesaptan çıkış yapıyor").
-      // Bu değişiklik güvenli: state-değiştiren uçlar zaten kendi CSRF
-      // token korumasına (app.csrfProtection, bkz. csrf.ts) sahip,
-      // SameSite'a bağımlı değil.
-      secure: env.NODE_ENV === "production",
-      sameSite: env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: SESSION_MAX_AGE_MS,
-    },
-  });
+  // sameSite:"none" yalnızca prod'da: iyzico'nun siteler-arası POST callback'i
+  // mevcut oturumu taşıyabilsin. saveUninitialized:false ise callback çerez
+  // taşımadığında yeni boş bir gs_sid basıp tarayıcıdaki oturumu ezmesini önler.
+  await app.register(fastifySession, sessionRegisterOptions(store));
 };
 
 export default fp(sessionPlugin, { name: "session", dependencies: ["redis"] });

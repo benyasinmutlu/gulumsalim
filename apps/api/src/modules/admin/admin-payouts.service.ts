@@ -1,21 +1,23 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { vendorPayouts, vendors } from "../../db/schema/index";
-import { findPayoutById } from "./admin-payouts.repository";
 
 export class PayoutNotFoundError extends Error {}
 export class PayoutAlreadyProcessedError extends Error {}
 
-export async function approvePayout(payoutId: number, adminId: number) {
-  const payout = await findPayoutById(payoutId);
-  if (!payout) throw new PayoutNotFoundError();
-  if (payout.status !== "pending") throw new PayoutAlreadyProcessedError();
+async function throwPayoutTransitionError(payoutId: number) {
+  const [existing] = await db.select({ id: vendorPayouts.id }).from(vendorPayouts).where(eq(vendorPayouts.id, payoutId)).limit(1);
+  if (!existing) throw new PayoutNotFoundError();
+  throw new PayoutAlreadyProcessedError();
+}
 
+export async function approvePayout(payoutId: number, adminId: number, transferReference: string) {
   const [updated] = await db
     .update(vendorPayouts)
-    .set({ status: "paid", processedAt: new Date(), processedBy: adminId })
-    .where(eq(vendorPayouts.id, payoutId))
+    .set({ status: "paid", processedAt: new Date(), processedBy: adminId, transferReference: transferReference.trim() })
+    .where(and(eq(vendorPayouts.id, payoutId), eq(vendorPayouts.status, "pending")))
     .returning();
+  if (!updated) return throwPayoutTransitionError(payoutId);
   return updated;
 }
 
@@ -24,21 +26,23 @@ export async function approvePayout(payoutId: number, adminId: number) {
 // tarafından aynı anda harcanmasını önlemek için). Reddedilince bu
 // tutar simetrik olarak geri eklenir.
 export async function rejectPayout(payoutId: number, adminId: number, reason?: string) {
-  const payout = await findPayoutById(payoutId);
-  if (!payout) throw new PayoutNotFoundError();
-  if (payout.status !== "pending") throw new PayoutAlreadyProcessedError();
-
   return db.transaction(async (tx) => {
     const [updated] = await tx
       .update(vendorPayouts)
       .set({ status: "rejected", processedAt: new Date(), processedBy: adminId, rejectionReason: reason })
-      .where(eq(vendorPayouts.id, payoutId))
+      .where(and(eq(vendorPayouts.id, payoutId), eq(vendorPayouts.status, "pending")))
       .returning();
+
+    if (!updated) {
+      const [existing] = await tx.select({ id: vendorPayouts.id }).from(vendorPayouts).where(eq(vendorPayouts.id, payoutId)).limit(1);
+      if (!existing) throw new PayoutNotFoundError();
+      throw new PayoutAlreadyProcessedError();
+    }
 
     await tx
       .update(vendors)
-      .set({ walletBalance: sql`${vendors.walletBalance} + ${payout.amount}` })
-      .where(eq(vendors.id, payout.vendorId));
+      .set({ walletBalance: sql`${vendors.walletBalance} + ${updated.amount}` })
+      .where(eq(vendors.id, updated.vendorId));
 
     return updated;
   });

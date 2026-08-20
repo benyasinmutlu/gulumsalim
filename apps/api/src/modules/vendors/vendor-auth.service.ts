@@ -5,8 +5,9 @@ import { emailButton, emailHeading, emailMuted, renderEmailLayout, sendMail } fr
 import { slugify } from "../../lib/slugify";
 import { findCustomerById } from "../auth/auth.repository";
 import { deleteVendorIfNoProducts } from "../admin/admin-vendors.repository";
+import { notifyVendorActivated } from "../notifications/vendor-activation-notification.service";
 import {
-  clearVendorResetToken,
+  consumeVendorResetToken,
   closeVendorAccount,
   countOpenOrderItemsForVendor,
   createIndividualVendor,
@@ -17,7 +18,6 @@ import {
   findVendorById,
   findVendorBySlug,
   findVendorByValidEmailVerificationToken,
-  findVendorByValidResetToken,
   markVendorEmailVerified,
   setVendorEmailVerificationToken,
   setVendorResetToken,
@@ -92,12 +92,9 @@ export async function requestVendorPasswordReset(email: string) {
 }
 
 export async function resetVendorPasswordWithToken(token: string, newPassword: string) {
-  const vendor = await findVendorByValidResetToken(hashResetToken(token));
-  if (!vendor) throw new InvalidResetTokenError();
-
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  await updateVendorProfile(vendor.id, { passwordHash });
-  await clearVendorResetToken(vendor.id);
+  const consumed = await consumeVendorResetToken(hashResetToken(token), passwordHash);
+  if (!consumed) throw new InvalidResetTokenError();
 }
 
 export async function registerVendor(input: VendorRegisterInput) {
@@ -146,7 +143,7 @@ export async function becomeIndividualSeller(customerId: number, input: BecomeIn
   const customer = await findCustomerById(customerId);
   if (!customer) throw new CustomerNotFoundError();
 
-  const baseSlug = slugify(customer.fullName) || "satici";
+  const baseSlug = slugify(input.storeName) || "satici";
   let storeSlug = `${baseSlug}-${randomBytes(3).toString("hex")}`;
   while (await findVendorBySlug(storeSlug)) {
     storeSlug = `${baseSlug}-${randomBytes(3).toString("hex")}`;
@@ -175,7 +172,7 @@ export async function becomeIndividualSeller(customerId: number, input: BecomeIn
   // hesaba "Şifremi Unuttum" ile kendi şifresini belirleyerek girer.
   const vendorPasswordHash = customer.passwordHash ?? (await bcrypt.hash(randomBytes(32).toString("hex"), SALT_ROUNDS));
   const vendor = await createIndividualVendor({
-    storeName: customer.fullName,
+    storeName: input.storeName,
     storeSlug,
     email,
     passwordHash: vendorPasswordHash,
@@ -187,6 +184,7 @@ export async function becomeIndividualSeller(customerId: number, input: BecomeIn
     vendorConsentAt: new Date(),
   });
   await markVendorEmailVerified(vendor.id);
+  await notifyVendorActivated(vendor);
   return vendor;
 }
 

@@ -1,6 +1,6 @@
-// @ts-nocheck
-"use client"; 
 /* eslint-disable */
+// @ts-nocheck -- vendored OGL bileşeni; upstream JavaScript API'si tip taşımıyor.
+"use client";
 // Vendored from reactbits.dev — CircularGallery (OGL WebGL).
 import { Camera, Mesh, Plane, Program, Renderer, Texture, Transform } from 'ogl';
 import { useEffect, useRef } from 'react';

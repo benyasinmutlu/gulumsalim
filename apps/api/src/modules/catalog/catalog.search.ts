@@ -5,6 +5,10 @@ export interface SearchProductsParams {
   categoryIds?: number[];
   vendorId?: number;
   size?: string;
+  // "Bedenime uygun göster": kullanıcının profildeki bedenleri + ±1 komşuları,
+  // stok-farkında (inStockSizes) eşleşir. size (tekil facet) ile birlikte de
+  // gelebilir; ikisi AND'lenir.
+  sizes?: string[];
   color?: string;
   brand?: string;
   minRating?: number;
@@ -25,6 +29,7 @@ export function needsSearchIndex(params: Omit<SearchProductsParams, "page" | "li
   return Boolean(
     params.search ||
       params.size ||
+      params.sizes?.length ||
       params.color ||
       params.brand ||
       params.vendorId ||
@@ -54,6 +59,7 @@ export async function getProductFacets(params: Omit<SearchProductsParams, "page"
   if (params.categoryIds?.length) filters.push(`categoryId IN [${params.categoryIds.join(",")}]`);
   if (params.vendorId !== undefined) filters.push(`vendorId = ${params.vendorId}`);
   if (params.size) filters.push(`sizes = ${JSON.stringify(params.size)}`);
+  if (params.sizes?.length) filters.push(`inStockSizes IN [${params.sizes.map((s) => JSON.stringify(s)).join(", ")}]`);
   if (params.minRating !== undefined) filters.push(`avgRating >= ${params.minRating}`);
   if (params.minPrice !== undefined) filters.push(`basePrice >= ${params.minPrice}`);
   if (params.maxPrice !== undefined) filters.push(`basePrice <= ${params.maxPrice}`);
@@ -80,6 +86,8 @@ export async function searchProducts(params: SearchProductsParams) {
   if (params.categoryIds?.length) filters.push(`categoryId IN [${params.categoryIds.join(",")}]`);
   if (params.vendorId !== undefined) filters.push(`vendorId = ${params.vendorId}`);
   if (params.size) filters.push(`sizes = ${JSON.stringify(params.size)}`);
+  // Bedenime uygun: stoğu olan bedenlerden herhangi biri eşleşsin (OR).
+  if (params.sizes?.length) filters.push(`inStockSizes IN [${params.sizes.map((s) => JSON.stringify(s)).join(", ")}]`);
   if (params.color) filters.push(`colors = ${JSON.stringify(params.color)}`);
   if (params.brand) filters.push(`brand = ${JSON.stringify(params.brand)}`);
   if (params.minRating !== undefined) filters.push(`avgRating >= ${params.minRating}`);

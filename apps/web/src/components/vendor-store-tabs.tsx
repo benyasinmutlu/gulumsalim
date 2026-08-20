@@ -20,6 +20,7 @@ export default function VendorStoreTabs({
   showProducts = true,
   showAbout = true,
   showCampaigns = false,
+  defaultTab = "vitrin",
 }: {
   productCount: number;
   reviewCount: number;
@@ -31,12 +32,13 @@ export default function VendorStoreTabs({
   about: ReactNode;
   showProducts?: boolean;
   showAbout?: boolean;
+  defaultTab?: "vitrin" | "products";
   // bkz. kullanıcı isteği (mockup): "Kampanyalar" sekmesi - satıcının
   // onaylanmış/aktif banner'ı VARSA gösterilir, yoksa hiç render edilmez
   // (boş bir sekme sahte olur).
   showCampaigns?: boolean;
 }) {
-  const [tab, setTab] = useState<TabKey>("vitrin");
+  const [tab, setTab] = useState<TabKey>(defaultTab);
 
   // bkz. kullanıcı isteği: "satıcı panelinden yapılan ayarların hepsi
   // buraya yansıyacak" - satıcı, mağaza düzeni panelinde "Ürünler" ve

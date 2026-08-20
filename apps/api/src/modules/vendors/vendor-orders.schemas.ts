@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+const optionalQueryText = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().max(100).optional(),
+);
+
+export const orderListQuerySchema = z.object({
+  search: optionalQueryText,
+  status: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.enum(["pending", "processing", "shipped", "delivered", "cancelled", "refunded"]).optional(),
+  ),
+  sort: z.preprocess((value) => (value === "" || value == null ? "newest" : value), z.enum(["newest", "oldest"])),
+});
+
 // bkz. kullanıcı isteği: "satıcı takip kodunu sisteme girecek hem müşteri
 // hem de admin görebilecek" - "shipped" durumuna geçerken kargo firması +
 // takip numarası zorunlu, diğer durum geçişlerinde alakasız/gönderilmez.

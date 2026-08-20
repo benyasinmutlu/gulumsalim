@@ -1,11 +1,11 @@
 import { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
 import { findCustomerById, setCustomerAvatar } from "./auth.repository";
 import { completeConsentSchema, forgotPasswordSchema, googleLoginSchema, loginSchema, registerSchema, resetPasswordSchema, updateProfileSchema } from "./auth.schemas";
 import { GoogleAuthNotConfiguredError, InvalidGoogleTokenError } from "../../lib/google-auth";
 import { InvalidImageError, saveImage } from "../../lib/image-upload";
 import { deleteObject } from "../../lib/storage";
 import { findVendorByCustomerId } from "../vendors/vendor.repository";
+import type { SizePrefs } from "../../db/schema/customers";
 import {
   completeGoogleConsent,
   deleteCustomerAccount,
@@ -33,6 +33,7 @@ function publicCustomer(c: {
   age: number | null;
   heightCm: number | null;
   weightKg: number | null;
+  sizePrefs: SizePrefs | null;
   membershipConsentAt: Date | null;
   avatarUrl: string | null;
 }) {
@@ -44,6 +45,7 @@ function publicCustomer(c: {
     age: c.age,
     heightCm: c.heightCm,
     weightKg: c.weightKg,
+    sizePrefs: c.sizePrefs ?? null,
     avatarUrl: c.avatarUrl,
     // bkz. auth.service.ts loginWithGoogle yorumu - true ise frontend
     // kullanıcıyı uyelik-tamamla sayfasına yönlendirir.
@@ -147,7 +149,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   // yeniden gonderilebilsin - e-posta enumeration'a karsi her zaman ayni
   // genel yanit doner (bkz. forgot-password ile ayni desen).
   app.post("/auth/resend-verification", { preHandler: app.csrfProtection }, async (request, reply) => {
-    const { email } = z.object({ email: z.string().email() }).parse(request.body);
+    const { email } = forgotPasswordSchema.parse(request.body);
     await resendCustomerVerificationEmail(email);
     return reply.send({ ok: true });
   });

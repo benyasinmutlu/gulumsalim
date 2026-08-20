@@ -56,6 +56,10 @@ export default function AdminSidebarNav() {
           <i className="fas fa-ticket-alt" />
           <span>Kuponlar</span>
         </Link>
+        <Link href="/admin/panel/kampanyalar" className={cls("/admin/panel/kampanyalar")}>
+          <i className="fas fa-bullhorn" />
+          <span>Kampanyalar</span>
+        </Link>
       </div>
 
       <div className="sidebar-section">

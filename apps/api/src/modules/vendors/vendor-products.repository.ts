@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import {
   collectionProducts,
@@ -29,6 +29,7 @@ export async function listVendorProducts(vendorId: number) {
       name: products.name,
       slug: products.slug,
       description: products.description,
+      attributes: products.attributes,
       brand: products.brand,
       basePrice: products.basePrice,
       compareAtPrice: products.compareAtPrice,
@@ -75,11 +76,24 @@ export async function findProductBySlugAnyVendor(slug: string) {
   return row ?? null;
 }
 
+// Bir satıcının (dolu) ürün parmak izlerini set olarak döndürür - toplu/tekli
+// girişte kopya tespiti için O(1) kontrol sağlar (satır başına DB sorgusu yok).
+export async function findVendorProductFingerprints(vendorId: number): Promise<Set<string>> {
+  const rows = await db
+    .select({ fingerprint: products.fingerprint })
+    .from(products)
+    .where(and(eq(products.vendorId, vendorId), isNotNull(products.fingerprint)));
+  return new Set(rows.map((r) => r.fingerprint).filter((f): f is string => !!f));
+}
+
+type ProductSizeChartInput = Record<string, { bust?: number; waist?: number; hip?: number }>;
+
 interface ProductWriteInput {
   categoryId?: number;
   name?: string;
   slug?: string;
   description?: string;
+  attributes?: Record<string, string>;
   brand?: string;
   basePrice?: string;
   compareAtPrice?: string;
@@ -88,6 +102,7 @@ interface ProductWriteInput {
   isSecondHand?: boolean;
   videoUrl?: string | null;
   stock?: number;
+  sizeChart?: ProductSizeChartInput;
 }
 
 interface ProductCreateInput {
@@ -95,6 +110,7 @@ interface ProductCreateInput {
   name: string;
   slug: string;
   description?: string;
+  attributes?: Record<string, string>;
   brand?: string;
   basePrice: string;
   compareAtPrice?: string;
@@ -104,6 +120,10 @@ interface ProductCreateInput {
   // belirtilmezse şema varsayılanı "draft" kalır.
   status?: "draft" | "pending";
   stock?: number;
+  sizeChart?: ProductSizeChartInput;
+  // Ürün-zeka yakın-kopya parmak izi (product-intelligence/dedupe). Kopya
+  // tespiti için insert'te saklanır; opsiyonel (eski akışlar boş bırakabilir).
+  fingerprint?: string;
 }
 
 export async function insertVendorProduct(vendorId: number, data: ProductCreateInput) {
@@ -238,8 +258,27 @@ function slugifyPart(value: string | undefined, fallback: string): string {
 function generateVariantSku(productId: number, size?: string, color?: string): string {
   const sizePart = slugifyPart(size, "STD");
   const colorPart = color ? slugifyPart(color, "") : "";
-  const randomPart = randomBytes(3).toString("hex").toUpperCase();
+  const randomPart = randomBytes(8).toString("hex").toUpperCase();
   return [productId, sizePart, colorPart, randomPart].filter(Boolean).join("-");
+}
+
+// Toplu aktarimda urun ve beden varyantlari tek atomik birimdir. Herhangi bir
+// varyant yazilamazsa urun de rollback olur; retry sonrasinda eksik varyantli
+// yarim bir urunun "kopya" sanilip atlanmasi engellenir.
+export async function insertVendorProductWithVariants(
+  vendorId: number,
+  data: ProductCreateInput,
+  variants: VariantWriteInput[],
+) {
+  return db.transaction(async (tx) => {
+    const [product] = await tx.insert(products).values({ ...data, vendorId }).returning();
+    if (!product) throw new Error("Ürün oluşturulamadı");
+    for (const variant of variants) {
+      const sku = variant.sku?.trim() || generateVariantSku(product.id, variant.size, variant.color);
+      await tx.insert(productVariants).values({ ...variant, sku, productId: product.id });
+    }
+    return product;
+  });
 }
 
 // SKU'nun UNIQUE kısıtlaması var - rastgele son ek çakışması istatistiksel

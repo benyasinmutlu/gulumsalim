@@ -1,5 +1,5 @@
-import { refundPayment } from "../orders/iyzico.client";
-import { commitRefundRelease, getRefundForRelease, MissingPaymentInfoError } from "./admin-refunds.repository";
+import { refundItemPayment, refundPayment, verifyRefundSignature } from "../orders/iyzico.client";
+import { claimRefundForRelease, commitRefundRelease, resetRefundReleaseClaim, MissingPaymentInfoError } from "./admin-refunds.repository";
 
 export class RefundApiError extends Error {}
 
@@ -11,16 +11,25 @@ export class RefundApiError extends Error {}
 // (önce DB, sonra iyzico) tutarsız bir duruma yol açardı - iyzico çağrısı
 // başarısız olsa bile veritabanı "iade edildi" derdi.
 export async function releaseRefund(refundId: number, adminIp: string) {
-  const info = await getRefundForRelease(refundId);
+  const info = await claimRefundForRelease(refundId);
 
   let result;
   try {
-    result = await refundPayment({ paymentId: info.paymentTransactionId, price: info.itemTotal, ip: adminIp });
+    result = info.refundTarget.mode === "item"
+      ? await refundItemPayment({ paymentTransactionId: info.refundTarget.id, price: info.itemTotal, ip: adminIp })
+      : await refundPayment({ paymentId: info.refundTarget.id, price: info.itemTotal, ip: adminIp });
   } catch {
-    throw new RefundApiError("Ödeme sağlayıcısına ulaşılamadı, lütfen birazdan tekrar deneyin");
+    // iyzico iade servisleri idempotent degildir. Ag hatasinda istegin bankada
+    // islenip islenmedigi bilinemez; otomatik tekrar cift iadeye yol acabilecegi
+    // icin kayit 'refunding' kalir ve saglayici panelinde kontrol gerekir.
+    throw new RefundApiError("İade sonucu belirsiz. Tekrar denemeden önce iyzico panelinden işlemi kontrol edin.");
   }
   if (result.status !== "success") {
+    if (result.retryable === true) await resetRefundReleaseClaim(info.refundId);
     throw new RefundApiError(result.errorMessage ?? "İade işlemi başarısız oldu");
+  }
+  if (!verifyRefundSignature(result)) {
+    throw new RefundApiError("İade yanıtının imzası doğrulanamadı. iyzico panelinden işlemi kontrol edin.");
   }
 
   return commitRefundRelease(info.refundId, info.orderItemId, info.vendorId, info.vendorNetEarning);

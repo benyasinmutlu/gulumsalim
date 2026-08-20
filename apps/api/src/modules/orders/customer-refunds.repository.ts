@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { orderItems, orderRefunds, orders, vendors } from "../../db/schema/index";
 
@@ -31,10 +31,16 @@ export async function createCustomerRefundRequest(customerId: number, orderItemI
     .limit(1);
   if (existing) throw new DuplicateRefundRequestError();
 
-  const [row] = await db
-    .insert(orderRefunds)
-    .values({ orderItemId, customerId, vendorId: item.vendorId, reason })
-    .returning();
+  let row;
+  try {
+    [row] = await db
+      .insert(orderRefunds)
+      .values({ orderItemId, customerId, vendorId: item.vendorId, reason })
+      .returning();
+  } catch (error) {
+    if ((error as { code?: string })?.code === "23505") throw new DuplicateRefundRequestError();
+    throw error;
+  }
   if (!row) throw new Error("İade talebi oluşturulamadı");
   return row;
 }
@@ -44,17 +50,22 @@ export async function createCustomerRefundRequest(customerId: number, orderItemI
 // multipart istekte hem metin hem birden fazla dosya taşımak yerine).
 // Sadece talep sahibi müşteri, talep hâlâ "pending" iken fotoğraf ekleyebilir.
 export async function addRefundPhoto(customerId: number, refundId: number, photoUrl: string) {
-  const [refund] = await db
-    .select({ photos: orderRefunds.photos, status: orderRefunds.status })
-    .from(orderRefunds)
-    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.customerId, customerId)))
-    .limit(1);
-  if (!refund) throw new RefundNotFoundError();
-  if (refund.status !== "pending") throw new InvalidRefundStateError();
-
-  const photos = [...((refund.photos as string[]) ?? []), photoUrl].slice(0, 6);
-  const [row] = await db.update(orderRefunds).set({ photos }).where(eq(orderRefunds.id, refundId)).returning();
-  return row ?? null;
+  const [row] = await db
+    .update(orderRefunds)
+    .set({ photos: sql`COALESCE(${orderRefunds.photos}, '[]'::jsonb) || jsonb_build_array(${photoUrl})` })
+    .where(and(
+      eq(orderRefunds.id, refundId),
+      eq(orderRefunds.customerId, customerId),
+      eq(orderRefunds.status, "pending"),
+      sql`jsonb_array_length(COALESCE(${orderRefunds.photos}, '[]'::jsonb)) < 6`,
+    ))
+    .returning();
+  if (row) return row;
+  const [existing] = await db.select({ status: orderRefunds.status }).from(orderRefunds)
+    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.customerId, customerId))).limit(1);
+  if (!existing) throw new RefundNotFoundError();
+  if (existing.status !== "pending") throw new InvalidRefundStateError();
+  return null;
 }
 
 // bkz. kullanıcı isteği: "iade ederken müşteri kargolayacağı için müşteri
@@ -62,20 +73,20 @@ export async function addRefundPhoto(customerId: number, refundId: number, photo
 // "approved") sonra girilebilir, henüz karar verilmemiş/reddedilmiş bir
 // talebe takip kodu eklemek anlamsız.
 export async function submitReturnTracking(customerId: number, refundId: number, carrier: string, trackingNumber: string) {
-  const [refund] = await db
-    .select({ status: orderRefunds.status })
-    .from(orderRefunds)
-    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.customerId, customerId)))
-    .limit(1);
-  if (!refund) throw new RefundNotFoundError();
-  if (refund.status !== "approved") throw new InvalidRefundStateError();
-
   const [row] = await db
     .update(orderRefunds)
     .set({ returnTrackingCarrier: carrier, returnTrackingNumber: trackingNumber, returnShippedAt: new Date() })
-    .where(eq(orderRefunds.id, refundId))
+    .where(and(
+      eq(orderRefunds.id, refundId),
+      eq(orderRefunds.customerId, customerId),
+      eq(orderRefunds.status, "approved"),
+    ))
     .returning();
-  return row ?? null;
+  if (row) return row;
+  const [existing] = await db.select({ status: orderRefunds.status }).from(orderRefunds)
+    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.customerId, customerId))).limit(1);
+  if (!existing) throw new RefundNotFoundError();
+  throw new InvalidRefundStateError();
 }
 
 export async function listCustomerRefunds(customerId: number) {

@@ -159,12 +159,12 @@ export default function RegisterForm() {
 
       <label className="ga-consent">
         <input type="checkbox" checked={marketingConsent} onChange={(e) => setMarketingConsent(e.target.checked)} />
-        <a href="/ticari-elektronik-ileti-onayi" target="_blank" rel="noopener noreferrer">Ticari Elektronik İleti Onayı'nı</a> okudum, kampanya/fırsat bildirimlerini (SMS/e-posta) almak istiyorum.
+        <a href="/ticari-elektronik-ileti-onayi" target="_blank" rel="noopener noreferrer">Ticari Elektronik İleti Onayı&apos;nı</a> okudum, kampanya/fırsat bildirimlerini (SMS/e-posta) almak istiyorum.
       </label>
 
       <label className="ga-consent">
         <input type="checkbox" checked={analyticsConsent} onChange={(e) => setAnalyticsConsent(e.target.checked)} />
-        <a href="/acik-riza-metni" target="_blank" rel="noopener noreferrer">Açık Rıza Metni'ni</a> okudum, kişiselleştirilmiş ürün önerileri gösterilmesini istiyorum.
+        <a href="/acik-riza-metni" target="_blank" rel="noopener noreferrer">Açık Rıza Metni&apos;ni</a> okudum, kişiselleştirilmiş ürün önerileri gösterilmesini istiyorum.
       </label>
 
       <button className="ga-submit" type="submit" disabled={loading}>

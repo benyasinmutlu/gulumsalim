@@ -9,14 +9,14 @@ import { reportDwell } from "@/lib/client-api";
 // kaybolup tekrar geri gelirse (ör. sekme değiştirme) süre birikmeye devam
 // eder, sıfırlanmaz - sadece gerçekten sayfadan ayrılınca gönderilir.
 export default function DwellTracker({ productId }: { productId: number }) {
-  const startedAtRef = useRef(Date.now());
+  const startedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     startedAtRef.current = Date.now();
 
     function flush() {
       const now = Date.now();
-      const ms = now - startedAtRef.current;
+      const ms = startedAtRef.current === null ? 0 : now - startedAtRef.current;
       startedAtRef.current = now;
       if (ms > 0) reportDwell(productId, ms);
     }

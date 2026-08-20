@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
 
 export default function ResetPasswordForm() {
@@ -44,9 +45,9 @@ export default function ResetPasswordForm() {
     return (
       <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
         <i className="fas fa-check-circle" /> Şifreniz güncellendi. Artık yeni şifrenizle{" "}
-        <a href="/giris" style={{ textDecoration: "underline" }}>
+        <Link href="/giris" style={{ textDecoration: "underline" }}>
           giriş yapabilirsiniz
-        </a>
+        </Link>
         .
       </div>
     );

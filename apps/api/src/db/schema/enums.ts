@@ -81,6 +81,7 @@ export const orderRefundStatusEnum = pgEnum("order_refund_status", [
   "approved",
   "rejected",
   "item_received",
+  "refunding",
   "refunded",
 ]);
 
@@ -125,3 +126,6 @@ export const sectionAlgoEnum = pgEnum("section_algo", [
 // bkz. kullanıcı isteği: "kupon kodu... admin panelde kontrol edebilelim" -
 // yüzde (ör. %10) ya da sabit tutar (ör. 100 TL) indirim.
 export const couponTypeEnum = pgEnum("coupon_type", ["percent", "fixed"]);
+
+export const campaignTypeEnum = pgEnum("campaign_type", ["percent", "free_shipping"]);
+export const campaignScopeEnum = pgEnum("campaign_scope", ["all", "category", "vendor", "product"]);

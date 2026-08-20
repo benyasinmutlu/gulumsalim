@@ -21,11 +21,11 @@ const adminPayoutsRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch("/admin/payouts/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { id } = payoutIdParamsSchema.parse(request.params);
-    const { action, reason } = processPayoutSchema.parse(request.body);
+    const { action, reason, transferReference } = processPayoutSchema.parse(request.body);
     try {
       const updated =
         action === "approve"
-          ? await approvePayout(id, request.session.adminId!)
+          ? await approvePayout(id, request.session.adminId!, transferReference!)
           : await rejectPayout(id, request.session.adminId!, reason);
       return reply.send(updated);
     } catch (err) {

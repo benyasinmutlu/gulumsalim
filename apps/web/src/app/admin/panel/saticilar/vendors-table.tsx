@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchJson, mutateJson } from "@/lib/client-api";
+import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { AdminVendorRow, AdminVendorsResponse } from "@/lib/types";
 
 const STATUS_LABEL: Record<AdminVendorRow["status"], string> = {
@@ -72,6 +72,8 @@ export default function VendorsTable() {
     try {
       await mutateJson(`/admin/vendors/${id}`, "DELETE");
       await load(filter, typeFilter);
+    } catch (err) {
+      alert(err instanceof ClientApiError ? err.message : "Silme başarısız oldu");
     } finally {
       setBusyId(null);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { ClientApiError, fetchJson, mutateJson, uploadFile } from "@/lib/client-api";
 import type { VendorCollection, VendorCollectionProduct, VendorProduct, VendorProfile } from "@/lib/types";
 
@@ -335,9 +336,9 @@ export default function CollectionsManager() {
             {products.length === 0 ? (
               <div className="alert alert-wa" style={{ marginBottom: 16 }}>
                 <i className="fas fa-circle-info" /> Koleksiyona ürün ekleyebilmek için önce{" "}
-                <a href="/satici/panel/urunler/yeni" style={{ color: "var(--pr)", fontWeight: 600 }}>
+                <Link href="/satici/panel/urunler/yeni" style={{ color: "var(--pr)", fontWeight: 600 }}>
                   ürün eklemelisiniz
-                </a>
+                </Link>
                 .
               </div>
             ) : (

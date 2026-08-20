@@ -2,6 +2,7 @@ import Link from "next/link";
 import { apiFetchJson, publicFetchJson } from "@/lib/api";
 import type {
   AdminSlider,
+  CampaignVendor,
   Category,
   CustomerProfile,
   FeaturedCoupon,
@@ -12,6 +13,7 @@ import type {
   SiteSettings,
 } from "@/lib/types";
 import PopularVendorsSection from "@/components/popular-vendors-section";
+import CampaignVendorsSection from "@/components/campaign-vendors-section";
 import HeroSlider from "@/components/hero-slider";
 import CategorySidebar from "@/components/category-sidebar";
 import HomeHeroCards from "@/components/home-hero-cards";
@@ -261,8 +263,16 @@ async function getVendors(): Promise<PublicVendorListItem[]> {
   }
 }
 
+async function getCampaignVendors(): Promise<CampaignVendor[]> {
+  try {
+    return await apiFetchJson<CampaignVendor[]>("/campaigns/vendors");
+  } catch {
+    return [];
+  }
+}
+
 export default async function Home() {
-  const [categories, sliders, discover, sections, saleProducts, homepageCollections, settings, customer, featuredCoupon, vendors] =
+  const [categories, sliders, discover, sections, saleProducts, homepageCollections, settings, customer, featuredCoupon, vendors, campaignVendors] =
     await Promise.all([
       getCategories(),
       getSliders(),
@@ -274,6 +284,7 @@ export default async function Home() {
       getCurrentCustomer(),
       getFeaturedCoupon(),
       getVendors(),
+      getCampaignVendors(),
     ]);
   const heroIntervalMs = settings.hero_interval_ms ? Number(settings.hero_interval_ms) : undefined;
 
@@ -363,6 +374,10 @@ export default async function Home() {
 
       {/* Yuvarlak "Popüler Kategoriler" satırı kaldırıldı - aşağıdaki fotoğraflı
           "Kategorilere Göre Alışveriş" ile duplicate + görsel olarak daha zayıftı. */}
+      <ScrollReveal anim="fade-up">
+        <CampaignVendorsSection vendors={campaignVendors} />
+      </ScrollReveal>
+
       <ScrollReveal anim="fade-up">
         <PopularVendorsSection vendors={vendors} />
       </ScrollReveal>

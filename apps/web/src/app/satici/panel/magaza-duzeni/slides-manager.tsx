@@ -65,11 +65,11 @@ export default function SlidesManager({ onSaved }: Props) {
   return (
     <div className="card">
       <div className="ch">
-        <h3>Mağaza Slider'ı</h3>
+        <h3>Mağaza Slider&apos;ı</h3>
       </div>
       <div className="card-body">
         <p style={{ fontSize: "0.85rem", color: "var(--tx3)", marginBottom: 16 }}>
-          Mağaza sayfanızın "Slider" bölümü görünür olduğunda üstte gösterilecek slaytlar.
+          Mağaza sayfanızın &quot;Slider&quot; bölümü görünür olduğunda üstte gösterilecek slaytlar.
         </p>
 
         {slides === null ? (

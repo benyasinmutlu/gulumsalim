@@ -63,7 +63,7 @@ export default async function CheckoutPage({ searchParams }: Props) {
 
   const shippingFee = Number(cart.shippingFee);
   const discountAmount = Number(cart.discountAmount);
-  const total = Number(cart.subtotal) - discountAmount + shippingFee;
+  const total = Number(cart.total);
 
   return (
     <main className="main-content">
@@ -109,10 +109,18 @@ export default async function CheckoutPage({ searchParams }: Props) {
                   <span>{Number(item.lineTotal).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
                 </div>
               ))}
-              {cart.couponCode && discountAmount > 0 && (
+              {cart.discountSource === "coupon" && cart.appliedCouponCode && discountAmount > 0 && (
                 <div className="summary-row coupon-discount-row">
                   <span>
-                    <i className="fas fa-tag" /> Kupon ({cart.couponCode})
+                    <i className="fas fa-tag" /> Kupon ({cart.appliedCouponCode})
+                  </span>
+                  <span>-{discountAmount.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+                </div>
+              )}
+              {cart.discountSource === "campaign" && discountAmount > 0 && (
+                <div className="summary-row coupon-discount-row">
+                  <span>
+                    <i className="fas fa-bullhorn" /> Kampanya indirimi
                   </span>
                   <span>-{discountAmount.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
                 </div>

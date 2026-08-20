@@ -1,5 +1,4 @@
 import { FastifyPluginAsync } from "fastify";
-import { z } from "zod";
 import { InvalidImageError, saveImage } from "../../lib/image-upload";
 import { findVendorByCustomerId, findVendorById, updateVendorProfile } from "./vendor.repository";
 import {
@@ -118,7 +117,7 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/vendor/auth/resend-verification", { preHandler: app.csrfProtection }, async (request, reply) => {
-    const { email } = z.object({ email: z.string().email() }).parse(request.body);
+    const { email } = vendorForgotPasswordSchema.parse(request.body);
     await resendVendorVerificationEmail(email);
     return reply.send({ ok: true });
   });

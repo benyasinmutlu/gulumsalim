@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "uniq_coupon_redemptions_order" ON "coupon_redemptions" USING btree ("order_id");

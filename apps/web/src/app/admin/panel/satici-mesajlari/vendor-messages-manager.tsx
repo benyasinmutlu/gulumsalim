@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchJson, mutateJson } from "@/lib/client-api";
+import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { AdminVendorsResponse, ThreadMessage, VendorConversation } from "@/lib/types";
 
 function initials(name: string) {
@@ -52,12 +52,16 @@ export default function VendorMessagesManager() {
 
   async function handleDeleteThread(vendorId: number, storeName: string) {
     if (!confirm(`${storeName} ile olan tüm yazışma silinsin mi? Bu işlem geri alınamaz.`)) return;
-    await mutateJson(`/admin/vendor-messages/${vendorId}`, "DELETE");
-    if (selectedVendorId === vendorId) {
-      setSelectedVendorId(null);
-      setThread([]);
+    try {
+      await mutateJson(`/admin/vendor-messages/${vendorId}`, "DELETE");
+      if (selectedVendorId === vendorId) {
+        setSelectedVendorId(null);
+        setThread([]);
+      }
+      await loadConversations();
+    } catch (err) {
+      alert(err instanceof ClientApiError ? err.message : "Silme başarısız oldu");
     }
-    await loadConversations();
   }
 
   const filteredConversations = useMemo(() => {
@@ -70,7 +74,6 @@ export default function VendorMessagesManager() {
   const activeVendor = vendors.find((v) => v.id === selectedVendorId);
   const totalUnread = conversations?.reduce((sum, c) => sum + c.unreadCount, 0) ?? 0;
 
-  let lastDay: string | null = null;
 
   return (
     <div className="admin-card" style={{ padding: 0, overflow: "hidden" }}>
@@ -170,10 +173,10 @@ export default function VendorMessagesManager() {
               </div>
 
               <div ref={threadRef} style={{ flex: 1, overflowY: "auto", padding: 22, display: "flex", flexDirection: "column", minHeight: 420, maxHeight: 520, background: "var(--admin-bg)" }}>
-                {thread.map((m) => {
+                {thread.map((m, index) => {
                   const day = new Date(m.createdAt).toDateString();
-                  const showDaySep = day !== lastDay;
-                  lastDay = day;
+                  const previousDay = index > 0 ? new Date(thread[index - 1].createdAt).toDateString() : null;
+                  const showDaySep = day !== previousDay;
                   const isAdmin = m.sender === "admin";
                   return (
                     <div key={m.id}>

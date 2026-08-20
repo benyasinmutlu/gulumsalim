@@ -53,7 +53,7 @@ export default function CookieConsentBanner() {
       <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center" }}>
         <p style={{ flex: "1 1 320px", margin: 0, fontSize: 13, color: "var(--color-text-light)" }}>
           Sitede deneyimi iyileştirmek için çerezler kullanıyoruz. Zorunlu çerezler her zaman aktiftir.{" "}
-          <a href="/cerez-politikasi" target="_blank" rel="noopener noreferrer">Çerez Politikası</a>'nı inceleyebilirsiniz.
+          <a href="/cerez-politikasi" target="_blank" rel="noopener noreferrer">Çerez Politikası</a>&apos;nı inceleyebilirsiniz.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPreferencesOpen((v) => !v)}>

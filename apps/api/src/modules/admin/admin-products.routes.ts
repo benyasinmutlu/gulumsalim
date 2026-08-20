@@ -2,7 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { findProductsByIds } from "../catalog/catalog.repository";
 import { removeProductFromIndex, syncProductToIndex } from "../catalog/search-index.service";
-import { countProductsByStatus, deleteProduct, listAllProducts, updateProductStatus } from "./admin-products.repository";
+import { countProductsByStatus, deleteProduct, listAllProducts, ProductHasOrdersError, updateProductStatus } from "./admin-products.repository";
 import { productIdParamsSchema, productListQuerySchema, updateProductStatusSchema } from "./admin-products.schemas";
 
 const byIdsQuerySchema = z.object({ ids: z.string().min(1) });
@@ -33,10 +33,17 @@ const adminProductsRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete("/admin/products/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { id } = productIdParamsSchema.parse(request.params);
-    const deleted = await deleteProduct(id);
-    if (!deleted) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
-    removeProductFromIndex(id).catch(() => {});
-    return reply.send({ ok: true });
+    try {
+      const deleted = await deleteProduct(id);
+      if (!deleted) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+      removeProductFromIndex(id).catch(() => {});
+      return reply.send({ ok: true });
+    } catch (err) {
+      if (err instanceof ProductHasOrdersError) {
+        return reply.status(409).send({ error: { message: "Bu ürünün sipariş geçmişi var, kalıcı olarak silinemez. Bunun yerine pasife alabilirsiniz." } });
+      }
+      throw err;
+    }
   });
 };
 

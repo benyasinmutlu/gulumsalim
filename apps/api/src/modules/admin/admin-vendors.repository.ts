@@ -1,6 +1,22 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { products, vendors } from "../../db/schema/index";
+import {
+  customerVendorMessages,
+  discoverEvents,
+  orderItems,
+  products,
+  promoBanners,
+  vendorAdminMessages,
+  vendorChannelCredentials,
+  vendorComplaints,
+  vendorFollowers,
+  vendorNotifications,
+  vendorPayouts,
+  vendorReviews,
+  vendorSocialPosts,
+  vendorStoreSlides,
+  vendors,
+} from "../../db/schema/index";
 import { outer } from "../../lib/sql-helpers";
 
 type VendorStatus = "pending" | "active" | "suspended" | "banned" | "closed";
@@ -53,11 +69,15 @@ async function findVendorProductCount(vendorId: number) {
   return Number(row?.count ?? 0);
 }
 
-export async function updateVendorStatus(vendorId: number, status: Exclude<VendorStatus, "pending">) {
+export async function updateVendorStatus(
+  vendorId: number,
+  status: Exclude<VendorStatus, "pending">,
+  expectedStatus?: VendorStatus,
+) {
   const [row] = await db
     .update(vendors)
     .set({ status })
-    .where(eq(vendors.id, vendorId))
+    .where(expectedStatus ? and(eq(vendors.id, vendorId), eq(vendors.status, expectedStatus)) : eq(vendors.id, vendorId))
     .returning({
       id: vendors.id,
       storeName: vendors.storeName,
@@ -83,12 +103,33 @@ export async function updateVendorCommission(vendorId: number, commissionRate: n
   return row ?? null;
 }
 
-// Sadece ürünü olmayan satıcılar silinebilir - aksi halde satıcıya bağlı
-// ürünler/siparişler referans bütünlüğünü bozardı. Ürünü olan bir satıcıyı
-// kalıcı olarak kapatmak için "banned" durumu kullanılmalı.
+// Sadece ürünü (ve dolayısıyla siparişi) olmayan satıcılar silinebilir -
+// aksi halde referans bütünlüğü bozulurdu. Ürünü olan bir satıcıyı kalıcı
+// olarak kapatmak için "banned" durumu kullanılmalı. Ürünü hiç olmamış bir
+// satıcının mağaza profiliyle ilgili TÜM bağımlı satırları (slider, sosyal
+// gönderi, admin/müşteri mesajları, değerlendirme, şikayet, bildirim, ödeme
+// talebi, takipçi, banner, kanal kimlik bilgisi) tek transaction'da
+// temizlenip asıl satır silinir.
 export async function deleteVendorIfNoProducts(vendorId: number) {
   const count = await findVendorProductCount(vendorId);
   if (count > 0) return false;
-  const result = await db.delete(vendors).where(eq(vendors.id, vendorId)).returning({ id: vendors.id });
-  return result.length > 0;
+  const [orderRow] = await db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.vendorId, vendorId)).limit(1);
+  if (orderRow) return false;
+
+  return db.transaction(async (tx) => {
+    await tx.delete(vendorStoreSlides).where(eq(vendorStoreSlides.vendorId, vendorId));
+    await tx.delete(vendorSocialPosts).where(eq(vendorSocialPosts.vendorId, vendorId));
+    await tx.delete(vendorAdminMessages).where(eq(vendorAdminMessages.vendorId, vendorId));
+    await tx.delete(customerVendorMessages).where(eq(customerVendorMessages.vendorId, vendorId));
+    await tx.delete(vendorReviews).where(eq(vendorReviews.vendorId, vendorId));
+    await tx.delete(vendorComplaints).where(eq(vendorComplaints.vendorId, vendorId));
+    await tx.delete(vendorNotifications).where(eq(vendorNotifications.vendorId, vendorId));
+    await tx.delete(vendorPayouts).where(eq(vendorPayouts.vendorId, vendorId));
+    await tx.delete(vendorFollowers).where(eq(vendorFollowers.vendorId, vendorId));
+    await tx.delete(promoBanners).where(eq(promoBanners.vendorId, vendorId));
+    await tx.delete(vendorChannelCredentials).where(eq(vendorChannelCredentials.vendorId, vendorId));
+    await tx.delete(discoverEvents).where(eq(discoverEvents.vendorId, vendorId));
+    const result = await tx.delete(vendors).where(eq(vendors.id, vendorId)).returning({ id: vendors.id });
+    return result.length > 0;
+  });
 }

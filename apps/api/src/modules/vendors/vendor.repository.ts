@@ -203,17 +203,15 @@ export async function setVendorResetToken(id: number, tokenHash: string, expires
   await db.update(vendors).set({ passwordResetTokenHash: tokenHash, passwordResetExpiresAt: expiresAt }).where(eq(vendors.id, id));
 }
 
-export async function findVendorByValidResetToken(tokenHash: string) {
+// Müşteri akışıyla aynı atomik tüketim: token iki paralel istekte yalnızca
+// bir kez kullanılabilir ve şifre/token değişimi birbirinden ayrı kalmaz.
+export async function consumeVendorResetToken(tokenHash: string, passwordHash: string) {
   const [row] = await db
-    .select()
-    .from(vendors)
+    .update(vendors)
+    .set({ passwordHash, passwordResetTokenHash: null, passwordResetExpiresAt: null })
     .where(and(eq(vendors.passwordResetTokenHash, tokenHash), gt(vendors.passwordResetExpiresAt, new Date())))
-    .limit(1);
+    .returning({ id: vendors.id });
   return row ?? null;
-}
-
-export async function clearVendorResetToken(id: number) {
-  await db.update(vendors).set({ passwordResetTokenHash: null, passwordResetExpiresAt: null }).where(eq(vendors.id, id));
 }
 
 // E-posta doğrulama - passwordReset* alan çiftiyle birebir aynı desen.

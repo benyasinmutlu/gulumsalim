@@ -7,6 +7,7 @@ import {
   hydrateContentStats,
 } from "../analytics/content-analytics.repository";
 import { getTopPromoBanners } from "./admin-content.repository";
+import { getDiscoverCtr } from "../recommendation/discover/tracking.repository";
 
 const queryPeriodSchema = z.object({ period: z.enum(["day", "week", "month"]).default("day") });
 
@@ -87,6 +88,14 @@ const adminContentAnalyticsRoutes: FastifyPluginAsync = async (app) => {
       banners,
       searchQueries,
     });
+  });
+
+  // Keşif motoru CTR (tıklama oranı) — kaynak başına gösterim/tıklama. A/B
+  // değerlendirme + motorun etkisini ölçmek için (discover_events'ten).
+  app.get("/admin/discover/ctr", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const days = Math.min(90, Math.max(1, Number((request.query as { days?: string }).days) || 7));
+    const report = await getDiscoverCtr(Date.now() - days * 86_400_000);
+    return reply.send({ days, ...report });
   });
 };
 

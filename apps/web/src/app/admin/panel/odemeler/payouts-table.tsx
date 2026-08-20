@@ -16,6 +16,7 @@ export default function PayoutsTable() {
   const [processed, setProcessed] = useState<AdminPayoutRow[] | null>(null);
   const [overview, setOverview] = useState<AdminFinanceOverview | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [transferRefs, setTransferRefs] = useState<Record<number, string>>({});
 
   async function load() {
     setPayouts(await fetchJson<AdminPayoutRow[]>("/admin/payouts?status=pending"));
@@ -28,9 +29,12 @@ export default function PayoutsTable() {
   }, []);
 
   async function approve(id: number) {
+    const transferReference = transferRefs[id]?.trim();
+    if (!transferReference) return;
+    if (!window.confirm("Banka transferini gerçekten yaptığınızı ve referansın doğru olduğunu onaylıyor musunuz?")) return;
     setBusyId(id);
     try {
-      await mutateJson(`/admin/payouts/${id}`, "PATCH", { action: "approve" });
+      await mutateJson(`/admin/payouts/${id}`, "PATCH", { action: "approve", transferReference });
       await load();
     } finally {
       setBusyId(null);
@@ -105,7 +109,9 @@ export default function PayoutsTable() {
                 <th>Satıcı</th>
                 <th>Tutar</th>
                 <th>IBAN</th>
+                <th>Hesap Sahibi</th>
                 <th>Not</th>
+                <th>Transfer Referansı</th>
                 <th></th>
               </tr>
             </thead>
@@ -115,11 +121,21 @@ export default function PayoutsTable() {
                   <td>{p.vendorStoreName}</td>
                   <td>{tl(p.amount)}</td>
                   <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{p.iban}</td>
+                  <td>{p.accountHolder || "—"}</td>
                   <td style={{ fontSize: "0.85rem", color: "var(--admin-text-muted)" }}>{p.note || "—"}</td>
+                  <td>
+                    <input
+                      className="admin-form-control"
+                      value={transferRefs[p.id] ?? ""}
+                      onChange={(event) => setTransferRefs((current) => ({ ...current, [p.id]: event.target.value }))}
+                      placeholder="Dekont / banka işlem no"
+                      maxLength={120}
+                    />
+                  </td>
                   <td style={{ textAlign: "right" }}>
                     <div style={{ display: "flex", gap: "0.4rem", justifyContent: "flex-end" }}>
-                      <button className="admin-btn admin-btn-success admin-btn-sm" disabled={busyId === p.id} onClick={() => approve(p.id)}>
-                        Onayla
+                      <button className="admin-btn admin-btn-success admin-btn-sm" disabled={busyId === p.id || !transferRefs[p.id]?.trim()} onClick={() => approve(p.id)}>
+                        Transfer Yapıldı
                       </button>
                       <button className="admin-btn admin-btn-danger admin-btn-sm" disabled={busyId === p.id} onClick={() => reject(p.id)}>
                         Reddet
@@ -223,6 +239,7 @@ export default function PayoutsTable() {
                   <th>Satıcı</th>
                   <th>Tutar</th>
                   <th>Durum</th>
+                  <th>Transfer Referansı</th>
                   <th>İşlem Tarihi</th>
                 </tr>
               </thead>
@@ -234,6 +251,7 @@ export default function PayoutsTable() {
                     <td>
                       <span className={`admin-badge admin-badge-${STATUS_CLASS[p.status] ?? "pending"}`}>{STATUS_LABEL[p.status] ?? p.status}</span>
                     </td>
+                    <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>{p.transferReference || "—"}</td>
                     <td style={{ fontSize: "0.85rem" }}>{p.processedAt ? new Date(p.processedAt).toLocaleDateString("tr-TR") : "—"}</td>
                   </tr>
                 ))}

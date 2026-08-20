@@ -1,7 +1,14 @@
 import { FastifyPluginAsync } from "fastify";
 import { countVendorsByStatus, countVendorsByType, listVendorsByStatus, updateVendorCommission } from "./admin-vendors.repository";
 import { updateVendorCommissionSchema, updateVendorStatusSchema, vendorIdParamsSchema, vendorStatusFilterSchema } from "./admin-vendors.schemas";
-import { applyVendorAction, removeVendor, VendorHasProductsError, VendorNotFoundError, VendorProfileIncompleteError } from "./admin-vendors.service";
+import {
+  applyVendorAction,
+  removeVendor,
+  VendorHasProductsError,
+  VendorNotFoundError,
+  VendorProfileIncompleteError,
+  VendorStatusChangedError,
+} from "./admin-vendors.service";
 
 const adminVendorsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/admin/vendors", { preHandler: app.requireAdmin }, async (request, reply) => {
@@ -28,6 +35,9 @@ const adminVendorsRoutes: FastifyPluginAsync = async (app) => {
         return reply
           .status(400)
           .send({ error: { message: "Satıcı vergi/TCKN no, telefon, adres ve e-posta doğrulamasını tamamlamadan aktif edilemez" } });
+      }
+      if (err instanceof VendorStatusChangedError) {
+        return reply.status(409).send({ error: { message: "Bu satıcı başvurusu başka bir yönetici tarafından zaten işlenmiş" } });
       }
       throw err;
     }

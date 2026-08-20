@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { VendorEarning, VendorFinanceRefund, VendorPayout, VendorWallet } from "@/lib/types";
 
@@ -33,22 +34,31 @@ export default function FinancePanel() {
   const [refunds, setRefunds] = useState<VendorFinanceRefund[]>([]);
   const [amount, setAmount] = useState("");
   const [iban, setIban] = useState("");
+  const [accountHolder, setAccountHolder] = useState("");
   const [note, setNote] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    const [w, e, p, r] = await Promise.all([
-      fetchJson<VendorWallet>("/vendor/wallet"),
-      fetchJson<VendorEarning[]>("/vendor/earnings"),
-      fetchJson<VendorPayout[]>("/vendor/payouts"),
-      fetchJson<VendorFinanceRefund[]>("/vendor/finance-refunds"),
-    ]);
-    setWallet(w);
-    setEarnings(e);
-    setPayouts(p);
-    setRefunds(r);
+    setLoadError(null);
+    try {
+      const [w, e, p, r] = await Promise.all([
+        fetchJson<VendorWallet>("/vendor/wallet"),
+        fetchJson<VendorEarning[]>("/vendor/earnings"),
+        fetchJson<VendorPayout[]>("/vendor/payouts"),
+        fetchJson<VendorFinanceRefund[]>("/vendor/finance-refunds"),
+      ]);
+      setWallet(w);
+      setEarnings(e);
+      setPayouts(p);
+      setRefunds(r);
+      setIban((current) => current || w.bankIban || "");
+      setAccountHolder((current) => current || w.bankAccountHolder || "");
+    } catch (err) {
+      setLoadError(err instanceof ClientApiError ? err.message : "Finans bilgileri yüklenemedi");
+    }
   }
 
   useEffect(() => {
@@ -60,7 +70,7 @@ export default function FinancePanel() {
     setError(null);
     setSuccess(null);
     const numAmount = Number(amount);
-    if (numAmount < 50) {
+    if (!Number.isFinite(numAmount) || numAmount < 50) {
       setError("Minimum ödeme talebi tutarı 50 ₺'dir.");
       return;
     }
@@ -68,12 +78,15 @@ export default function FinancePanel() {
       setError(`Yetersiz bakiye. Mevcut bakiyeniz: ${tl(wallet.walletBalance)}`);
       return;
     }
+    if (accountHolder.trim().length < 2) {
+      setError("Hesap sahibinin adını girin.");
+      return;
+    }
     setLoading(true);
     try {
-      await mutateJson("/vendor/payouts", "POST", { amount: numAmount, iban, note: note || undefined });
+      await mutateJson("/vendor/payouts", "POST", { amount: numAmount, iban, accountHolder, note: note || undefined });
       setSuccess(`${tl(String(numAmount))} tutarında ödeme talebiniz alındı. 2-3 iş günü içinde hesabınıza aktarılacaktır.`);
       setAmount("");
-      setIban("");
       setNote("");
       await load();
     } catch (err) {
@@ -83,7 +96,24 @@ export default function FinancePanel() {
     }
   }
 
-  if (wallet === null) return <div className="card"><div className="card-body">Yükleniyor...</div></div>;
+  if (wallet === null) {
+    return (
+      <div className="card">
+        <div className="card-body">
+          {loadError ? (
+            <div className="alert alert-er" role="alert">
+              <i className="fas fa-exclamation-circle" /> {loadError}
+              <button type="button" className="btn btn-sec btn-sm" onClick={() => void load()} style={{ marginLeft: 12 }}>
+                Tekrar Dene
+              </button>
+            </div>
+          ) : (
+            "Yükleniyor..."
+          )}
+        </div>
+      </div>
+    );
+  }
 
   const balance = Number(wallet.walletBalance);
 
@@ -117,7 +147,9 @@ export default function FinancePanel() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 20, alignItems: "start" }}>
+      {loadError && <div className="alert alert-er" role="alert">{loadError}</div>}
+
+      <div className="finance-layout">
         <div className="card">
           <div className="ch">
             <h3><i className="fas fa-receipt" style={{ color: "var(--pr)" }} /> Kazanç Geçmişi</h3>
@@ -171,12 +203,29 @@ export default function FinancePanel() {
               <h3><i className="fas fa-paper-plane" style={{ color: "var(--pr)" }} /> Ödeme Talebi</h3>
             </div>
             <div className="card-body fc">
-              {balance < 50 ? (
+              {balance < 50 && (
                 <div className="alert alert-wa">
                   <i className="fas fa-info-circle" /> Ödeme talebi için minimum 50 ₺ bakiyeniz olmalıdır.
                 </div>
-              ) : (
+              )}
                 <form className="fc" onSubmit={handleSubmit}>
+                  <div className="payout-account-summary">
+                    <strong>Ödeme yapılacak hesap</strong>
+                    <span>Bu bilgiler kaydedilir ve sonraki talebinizde otomatik doldurulur.</span>
+                    <Link href="/satici/panel/ayarlar">Banka ayarlarına git</Link>
+                  </div>
+                  <div className="fg">
+                    <label>Hesap Sahibi <span className="req">*</span></label>
+                    <input
+                      className="fi"
+                      required
+                      maxLength={120}
+                      autoComplete="name"
+                      value={accountHolder}
+                      onChange={(e) => setAccountHolder(e.target.value)}
+                      placeholder="Ad Soyad / Firma Unvanı"
+                    />
+                  </div>
                   <div className="fg">
                     <label>Talep Tutarı (₺) <span className="req">*</span></label>
                     <input
@@ -194,19 +243,18 @@ export default function FinancePanel() {
                   </div>
                   <div className="fg">
                     <label>IBAN <span className="req">*</span></label>
-                    <input className="fi" required value={iban} onChange={(e) => setIban(e.target.value)} placeholder="TR00 0000 0000 0000 0000 0000 00" />
+                    <input className="fi" required inputMode="text" autoComplete="off" value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} placeholder="TR00 0000 0000 0000 0000 0000 00" />
                   </div>
                   <div className="fg">
                     <label>Not</label>
                     <textarea className="fi" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="İsteğe bağlı not..." />
                   </div>
-                  {error && <p style={{ color: "var(--er)", fontSize: "0.85rem" }}>{error}</p>}
-                  {success && <p style={{ color: "var(--ok)", fontSize: "0.85rem" }}>{success}</p>}
-                  <button className="btn btn-pr" type="submit" disabled={loading}>
+                  {error && <p role="alert" style={{ color: "var(--er)", fontSize: "0.85rem" }}>{error}</p>}
+                  {success && <p aria-live="polite" style={{ color: "var(--ok)", fontSize: "0.85rem" }}>{success}</p>}
+                  <button className="btn btn-pr" type="submit" disabled={loading || balance < 50}>
                     <i className="fas fa-paper-plane" /> {loading ? "Gönderiliyor..." : "Talep Gönder"}
                   </button>
                 </form>
-              )}
             </div>
           </div>
 

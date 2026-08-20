@@ -58,20 +58,32 @@ export default function VendorLoginForm() {
       )}
 
       <div className="ga-fg">
-        <label>E-Posta Adresi</label>
+        <label htmlFor="vendor-login-email">E-Posta Adresi</label>
         <div className="ga-input-wrap">
           <i className="fas fa-envelope ga-ic" />
-          <input className="ga-input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input
+            id="vendor-login-email"
+            name="email"
+            className="ga-input"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
       </div>
 
       <div className="ga-fg">
-        <label>Şifre</label>
+        <label htmlFor="vendor-login-password">Şifre</label>
         <div className="ga-input-wrap">
           <i className="fas fa-lock ga-ic" />
           <input
+            id="vendor-login-password"
+            name="password"
             className="ga-input"
             type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -88,7 +100,7 @@ export default function VendorLoginForm() {
       </div>
 
       <button className="ga-submit" type="submit" disabled={loading} style={{ marginTop: 8 }}>
-        {loading ? "Giriş yapılıyor..." : "Satıcı Girişi Yap"}
+        {loading ? "Giriş yapılıyor..." : "Kurumsal Üye Girişi Yap"}
       </button>
     </form>
   );

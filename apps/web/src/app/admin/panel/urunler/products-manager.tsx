@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchJson, mutateJson } from "@/lib/client-api";
+import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { AdminCategory, AdminProductRow } from "@/lib/types";
 
 const STATUS_LABEL: Record<AdminProductRow["status"], string> = {
@@ -72,6 +72,8 @@ export default function ProductsManager() {
     try {
       await mutateJson(`/admin/products/${id}`, "DELETE");
       await load();
+    } catch (err) {
+      alert(err instanceof ClientApiError ? err.message : "Silme başarısız oldu");
     } finally {
       setBusyId(null);
     }

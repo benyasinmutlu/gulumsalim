@@ -19,6 +19,7 @@ const VENDOR_CONSENT_SLUGS = ["satici-uyelik-sozlesmesi", "satici-komisyon-polit
 export default function BecomeSellerButton() {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
+  const [storeName, setStoreName] = useState("");
   const [taxId, setTaxId] = useState("");
   const [legalAddress, setLegalAddress] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
@@ -35,7 +36,7 @@ export default function BecomeSellerButton() {
     setLoading(true);
     setError(null);
     try {
-      await mutateJson<VendorProfile>("/my/become-individual-seller", "POST", { taxId, legalAddress, consentAccepted });
+      await mutateJson<VendorProfile>("/my/become-individual-seller", "POST", { storeName, taxId, legalAddress, consentAccepted });
       router.push("/satici/panel/urunler/yeni");
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Bir şeyler ters gitti, tekrar deneyin");
@@ -53,6 +54,10 @@ export default function BecomeSellerButton() {
 
   return (
     <form onSubmit={handleSubmit} className="become-seller-form">
+      <div className="form-group">
+        <label>Mağaza Adı</label>
+        <input className="form-control" required value={storeName} onChange={(e) => setStoreName(e.target.value)} />
+      </div>
       <div className="form-group">
         <label>Vergi No / TCKN</label>
         <input className="form-control" required value={taxId} onChange={(e) => setTaxId(e.target.value)} />

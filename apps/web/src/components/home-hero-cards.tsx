@@ -41,7 +41,7 @@ export default function HomeHeroCards({ featuredCoupon }: { featuredCoupon: Feat
 
       <div className="home-hero-card home-hero-card-seller">
         <i className="fas fa-store home-hero-card-icon" />
-        <h3>Satıcı Ol</h3>
+        <h3>Kurumsal Üye Ol</h3>
         <p>Kendi mağazanı aç, binlerce müşteriyle buluş!</p>
         <Link href="/satici/kayit" className="btn btn-sm btn-secondary">
           Hemen Başvur <i className="fas fa-arrow-right" style={{ fontSize: 11 }} />

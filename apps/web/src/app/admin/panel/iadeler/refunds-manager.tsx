@@ -9,6 +9,7 @@ const STATUS_LABEL: Record<AdminRefundRow["status"], string> = {
   approved: "Onaylandı, Kargo Bekleniyor",
   rejected: "Reddedildi",
   item_received: "Ürün Teslim Alındı",
+  refunding: "İyzico Kontrolü Gerekli",
   refunded: "Para İade Edildi",
 };
 
@@ -17,6 +18,7 @@ const STATUS_BADGE: Record<AdminRefundRow["status"], string> = {
   approved: "active",
   rejected: "cancelled",
   item_received: "active",
+  refunding: "pending",
   refunded: "active",
 };
 
@@ -25,6 +27,7 @@ const FILTERS: { value: AdminRefundRow["status"] | ""; label: string }[] = [
   { value: "pending", label: "Satıcı Kararı Bekliyor" },
   { value: "approved", label: "Kargo Bekleniyor" },
   { value: "item_received", label: "İade Bekliyor" },
+  { value: "refunding", label: "Kontrol Gerekli" },
   { value: "refunded", label: "Tamamlandı" },
   { value: "rejected", label: "Reddedilen" },
 ];
@@ -68,6 +71,23 @@ export default function RefundsManager() {
     }
   }
 
+  async function reconcile(id: number, providerStatus: "refunded" | "not_refunded") {
+    const message = providerStatus === "refunded"
+      ? "iyzico panelinde bu iadenin gerçekten tamamlandığını gördünüz mü? Bu işlem yerel kaydı tamamlayacak ve satıcı bakiyesini düzeltecek."
+      : "iyzico panelinde para iadesinin yapılmadığını doğruladınız mı? Kayıt yeniden iade edilebilir duruma açılacak.";
+    if (!confirm(message)) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      await mutateJson(`/admin/refunds/${id}/reconcile`, "POST", { providerStatus });
+      await load();
+    } catch (err) {
+      setError(err instanceof ClientApiError ? err.message : "İade mutabakatı kaydedilemedi");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const total = data ? Object.values(data.counts).reduce((sum, n) => sum + n, 0) : 0;
 
   return (
@@ -76,6 +96,7 @@ export default function RefundsManager() {
         <div className="admin-order-stat"><strong>{total}</strong> <span style={{ color: "var(--admin-text-muted)" }}>Toplam İade</span></div>
         <div className="admin-order-stat"><strong style={{ color: "var(--admin-warning)" }}>{data?.counts.pending ?? 0}</strong> <span style={{ color: "var(--admin-text-muted)" }}>Satıcı Kararı Bekliyor</span></div>
         <div className="admin-order-stat"><strong style={{ color: "var(--admin-info)" }}>{data?.counts.item_received ?? 0}</strong> <span style={{ color: "var(--admin-text-muted)" }}>İade Bekliyor (Sizde)</span></div>
+        <div className="admin-order-stat"><strong style={{ color: "var(--admin-warning)" }}>{data?.counts.refunding ?? 0}</strong> <span style={{ color: "var(--admin-text-muted)" }}>İyzico Kontrolü</span></div>
         <div className="admin-order-stat"><strong style={{ color: "var(--admin-success)" }}>{data?.counts.refunded ?? 0}</strong> <span style={{ color: "var(--admin-text-muted)" }}>Tamamlanan</span></div>
       </div>
 
@@ -136,8 +157,9 @@ export default function RefundsManager() {
                       {r.photos.length > 0 && (
                         <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
                           {r.photos.map((p) => (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <a key={p} href={p} target="_blank" rel="noreferrer">
+                              {/* İade kanıtı dinamik upload URL'idir. */}
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={p} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />
                             </a>
                           ))}
@@ -156,6 +178,19 @@ export default function RefundsManager() {
                         <button className="admin-btn admin-btn-success admin-btn-sm" disabled={busyId === r.id} onClick={() => release(r.id)}>
                           {busyId === r.id ? "İşleniyor..." : "Parayı İade Et"}
                         </button>
+                      )}
+                      {r.status === "refunding" && (
+                        <div style={{ display: "grid", gap: 6, minWidth: 180 }}>
+                          <small style={{ color: "var(--admin-warning)", display: "block" }}>
+                            Otomatik tekrar kapalıdır. Önce iyzico panelinden kontrol edin.
+                          </small>
+                          <button className="admin-btn admin-btn-success admin-btn-sm" disabled={busyId === r.id} onClick={() => reconcile(r.id, "refunded")}>
+                            Panelde İade Edilmiş
+                          </button>
+                          <button className="admin-btn admin-btn-secondary admin-btn-sm" disabled={busyId === r.id} onClick={() => reconcile(r.id, "not_refunded")}>
+                            İade Olmamış, Yeniden Aç
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

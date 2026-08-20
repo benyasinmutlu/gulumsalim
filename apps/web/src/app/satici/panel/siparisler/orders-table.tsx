@@ -17,6 +17,7 @@ const REFUND_STATUS_LABEL: Record<VendorRefund["status"], string> = {
   approved: "Onaylandı, kargo bekleniyor",
   rejected: "İade Reddedildi",
   item_received: "Ürün Teslim Alındı",
+  refunding: "Para İadesi Kontrol Ediliyor",
   refunded: "Para İade Edildi",
 };
 
@@ -25,6 +26,7 @@ const REFUND_STATUS_CLASS: Record<VendorRefund["status"], string> = {
   approved: "info",
   rejected: "danger",
   item_received: "purple",
+  refunding: "warn",
   refunded: "success",
 };
 
@@ -406,8 +408,9 @@ export default function OrdersTable() {
                               {refund.photos.length > 0 && (
                                 <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                                   {refund.photos.map((p) => (
-                                    // eslint-disable-next-line @next/next/no-img-element
                                     <a key={p} href={p} target="_blank" rel="noreferrer">
+                                      {/* Dinamik satıcı upload URL'idir. */}
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
                                       <img src={p} alt="İade fotoğrafı" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 6 }} />
                                     </a>
                                   ))}

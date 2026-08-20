@@ -1,18 +1,18 @@
 "use client";
 
-import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 
 // gulumsalim.com'daki main.js'teki initHscrollArrows()'un birebir karşılığı:
 // masaüstünde yatay kaydırılan bir satırın sağına/soluna ok eklenir, en
 // baştayken sol ok, en sondayken sağ ok otomatik gizlenir. Mobilde CSS
 // (.hscroll-arrow media query) zaten okları hiç göstermiyor.
 export default function HscrollArrows({ children }: { children: ReactElement }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [showPrev, setShowPrev] = useState(false);
   const [showNext, setShowNext] = useState(true);
 
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = wrapperRef.current?.firstElementChild as HTMLDivElement | null;
     if (!el) return;
 
     function updateEdges() {
@@ -31,16 +31,17 @@ export default function HscrollArrows({ children }: { children: ReactElement }) 
   }, []);
 
   function scrollByPage(dir: number) {
-    const el = scrollRef.current;
+    const el = wrapperRef.current?.firstElementChild as HTMLDivElement | null;
     if (!el) return;
     el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
   }
 
-  if (!isValidElement(children)) return children;
-
   return (
-    <div className="hscroll-arrow-wrap">
-      {cloneElement(children, { ref: scrollRef } as { ref: typeof scrollRef })}
+    // Dış sarmalayıcı sunucu ve tarayıcıda her zaman aynıdır. Kaydırılacak öğe
+    // ilk çocuktır; cloneElement/ref enjeksiyonu yapılmadığı için RSC ön-render
+    // ile hydration arasında DOM farkı oluşmaz.
+    <div ref={wrapperRef} className="hscroll-arrow-wrap">
+      {children}
       <button
         type="button"
         className={`hscroll-arrow hscroll-arrow-prev${showPrev ? "" : " is-hidden"}`}

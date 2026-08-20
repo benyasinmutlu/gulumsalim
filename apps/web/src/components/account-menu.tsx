@@ -30,6 +30,8 @@ export default function AccountMenu({ customer }: { customer: CustomerProfile })
         onClick={() => setOpen((v) => !v)}
       >
         <span className="header-account-avatar">
+          {/* Dinamik kullanıcı avatar URL'si. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           {customer.avatarUrl ? <img src={customer.avatarUrl} alt="" /> : initial}
         </span>
         <span className="header-account-btn-label">
@@ -49,6 +51,7 @@ export default function AccountMenu({ customer }: { customer: CustomerProfile })
           <Link href="/hesabim/favoriler" onClick={() => setOpen(false)}>
             <i className="fas fa-heart" /> Favorilerim
           </Link>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/auth/logout" className="header-account-logout">
             <i className="fas fa-sign-out-alt" /> Çıkış Yap
           </a>

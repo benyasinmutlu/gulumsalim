@@ -19,6 +19,7 @@ import {
   moveCollectionProductSchema,
   updateCollectionSchema,
 } from "./vendor-collections.schemas";
+import { findVendorProduct } from "./vendor-products.repository";
 
 const vendorCollectionsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vendor/collections", { preHandler: app.requireVendor }, async (request, reply) => {
@@ -98,6 +99,11 @@ const vendorCollectionsRoutes: FastifyPluginAsync = async (app) => {
       const collection = await findVendorCollection(request.session.vendorId!, id);
       if (!collection) return reply.status(404).send({ error: { message: "Koleksiyon bulunamadı" } });
       const { productId, sortOrder } = addCollectionProductSchema.parse(request.body);
+      // Koleksiyonun mağazaya ait olması tek başına yeterli değil; eklenen ürün de
+      // aynı mağazaya ait olmalı. Aksi halde bir satıcı başka satıcının ürününü ID
+      // tahmin ederek kendi vitrini içinde yönetebiliyordu.
+      const product = await findVendorProduct(request.session.vendorId!, productId);
+      if (!product) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
       const row = await addProductToCollection(id, productId, sortOrder);
       return reply.status(201).send(row);
     },

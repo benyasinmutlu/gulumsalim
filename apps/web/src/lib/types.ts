@@ -64,7 +64,7 @@ export interface CustomerRefund {
   orderItemId: number;
   reason: string;
   photos: string[];
-  status: "pending" | "approved" | "rejected" | "item_received" | "refunded";
+  status: "pending" | "approved" | "rejected" | "item_received" | "refunding" | "refunded";
   vendorNote: string | null;
   returnTrackingCarrier: string | null;
   returnTrackingNumber: string | null;
@@ -189,6 +189,7 @@ export interface ProductDetail {
   name: string;
   slug: string;
   description: string | null;
+  attributes: Record<string, string>;
   brand: string | null;
   basePrice: string;
   compareAtPrice: string | null;
@@ -241,8 +242,14 @@ export interface CartResponse {
   // "hangi mağazadan ne kadar kargo" göstermek için.
   shippingBreakdown: CartShippingRow[];
   freeShippingThreshold: number;
+  // Kupon session'da kayıtlı kalabilir; kampanya daha avantajlıysa tahsilatta
+  // yalnız aşağıdaki discountSource ile belirtilen kaynak uygulanır.
   couponCode: string | null;
+  appliedCouponCode: string | null;
+  campaignId: number | null;
+  discountSource: "coupon" | "campaign" | null;
   discountAmount: string;
+  total: string;
   stockNotices: CartStockNotice[];
 }
 
@@ -269,6 +276,12 @@ export interface AdminCoupon {
   createdAt: string;
 }
 
+export interface SizePrefs {
+  kadinBeden?: string[];
+  ayakkabiNo?: number[];
+  cocukBeden?: string[];
+}
+
 export interface CustomerProfile {
   id: number;
   email: string;
@@ -277,6 +290,7 @@ export interface CustomerProfile {
   age: number | null;
   heightCm: number | null;
   weightKg: number | null;
+  sizePrefs: SizePrefs | null;
   // true = Google ile anında açılmış hesap, Üyelik Sözleşmesi/KVKK onayı
   // henüz tamamlanmadı (bkz. google-signin-button.tsx, uyelik-tamamla/page.tsx).
   needsConsent: boolean;
@@ -325,6 +339,7 @@ export interface VendorProduct {
   name: string;
   slug: string;
   description: string | null;
+  attributes: Record<string, string>;
   brand: string | null;
   basePrice: string;
   compareAtPrice: string | null;
@@ -391,6 +406,45 @@ export interface VendorWallet {
   totalPaidOut: string;
   pendingEarnings: string;
   commissionRate: number;
+  bankName: string | null;
+  bankIban: string | null;
+  bankAccountHolder: string | null;
+}
+
+export interface AdminCampaign {
+  id: number;
+  name: string;
+  type: "percent" | "free_shipping";
+  scope: "all" | "category" | "vendor" | "product";
+  scopeId: number | null;
+  value: string;
+  minOrderAmount: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ActiveCampaign {
+  id: number;
+  name: string;
+  type: "percent" | "free_shipping";
+  scope: "all" | "category" | "vendor" | "product";
+  scopeId: number | null;
+  value: number;
+  minOrderAmount: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  scopeSlug?: string | null;
+}
+
+export interface CampaignVendor {
+  vendorId: number;
+  storeName: string;
+  storeSlug: string;
+  logo: string | null;
+  campaignLabel: string;
+  campaignName: string;
 }
 
 export interface VendorEarning {
@@ -466,11 +520,13 @@ export interface VendorPayout {
   vendorId: number;
   amount: string;
   iban: string | null;
+  accountHolder: string | null;
   note: string | null;
   status: "pending" | "paid" | "rejected";
   requestedAt: string;
   processedAt: string | null;
   rejectionReason: string | null;
+  transferReference: string | null;
 }
 
 export interface AdminProfile {
@@ -507,11 +563,13 @@ export interface AdminPayoutRow {
   vendorStoreName: string;
   amount: string;
   iban: string | null;
+  accountHolder: string | null;
   note: string | null;
   status: "pending" | "paid" | "rejected";
   requestedAt: string;
   processedAt: string | null;
   rejectionReason: string | null;
+  transferReference: string | null;
 }
 
 export interface AdminFinanceStats {
@@ -792,7 +850,7 @@ export interface VendorRefund {
   orderItemId: number;
   reason: string;
   photos: string[];
-  status: "pending" | "approved" | "rejected" | "item_received" | "refunded";
+  status: "pending" | "approved" | "rejected" | "item_received" | "refunding" | "refunded";
   vendorNote: string | null;
   returnTrackingCarrier: string | null;
   returnTrackingNumber: string | null;
@@ -1117,7 +1175,7 @@ export interface AdminRefundRow {
   id: number;
   reason: string;
   photos: string[];
-  status: "pending" | "approved" | "rejected" | "item_received" | "refunded";
+  status: "pending" | "approved" | "rejected" | "item_received" | "refunding" | "refunded";
   vendorNote: string | null;
   adminNote: string | null;
   returnTrackingCarrier: string | null;

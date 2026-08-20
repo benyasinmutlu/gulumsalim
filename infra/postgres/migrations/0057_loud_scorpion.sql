@@ -1,0 +1,2 @@
+ALTER TABLE "vendor_payouts" ADD COLUMN "transfer_reference" text;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "uniq_vendor_payout_transfer_reference" ON "vendor_payouts" USING btree ("transfer_reference");

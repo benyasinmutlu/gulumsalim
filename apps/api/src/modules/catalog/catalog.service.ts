@@ -10,12 +10,24 @@ import {
   listActiveProducts,
 } from "./catalog.repository";
 import type { ListProductsQuery } from "./catalog.schemas";
+import { sizeNeighbors } from "../product-intelligence/normalize/size";
+import type { SizePrefs } from "../../db/schema/customers";
+
+// Müşterinin beden tercihlerini "bir alt + asıl + bir üst" komşularıyla
+// birlikte tek, tekil bir beden listesine açar (Meilisearch inStockSizes IN).
+function expandSizePrefs(prefs: SizePrefs): string[] {
+  const out = new Set<string>();
+  for (const s of prefs.kadinBeden ?? []) for (const n of sizeNeighbors(s, "kadinBeden")) out.add(n);
+  for (const s of prefs.ayakkabiNo ?? []) for (const n of sizeNeighbors(String(s), "ayakkabiNo")) out.add(n);
+  for (const s of prefs.cocukBeden ?? []) for (const n of sizeNeighbors(s, "cocukBeden")) out.add(n);
+  return [...out];
+}
 
 export async function getCategories() {
   return listActiveCategories();
 }
 
-export async function getProducts(query: ListProductsQuery) {
+export async function getProducts(query: ListProductsQuery, sizePrefs?: SizePrefs | null) {
   let categoryIds: number[] | undefined;
   if (query.category) {
     const category = await findCategoryBySlug(query.category);
@@ -32,11 +44,16 @@ export async function getProducts(query: ListProductsQuery) {
     vendorId = vendor.id;
   }
 
+  // "Bedenime uygun": profildeki bedenler + komşuları (stok-farkında filtre).
+  // Bayrak kapalıysa ya da beden yoksa undefined → normal gözatma bozulmaz.
+  const fitSizes = query.fitToMe && sizePrefs ? expandSizePrefs(sizePrefs) : undefined;
+
   const filterParams = {
     search: query.search,
     categoryIds,
     vendorId,
     size: query.size,
+    sizes: fitSizes && fitSizes.length > 0 ? fitSizes : undefined,
     color: query.color,
     brand: query.brand,
     minRating: query.minRating,

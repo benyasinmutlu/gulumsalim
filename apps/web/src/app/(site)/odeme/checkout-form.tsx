@@ -33,6 +33,7 @@ export default function CheckoutForm({
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState(defaultAddress?.fullName ?? "");
   const [phone, setPhone] = useState(defaultAddress?.phone ?? "");
+  const [identityNumber, setIdentityNumber] = useState("");
   const [city, setCity] = useState(defaultAddress?.city ?? "");
   const [district, setDistrict] = useState(defaultAddress?.district ?? "");
   const [addressLine, setAddressLine] = useState(defaultAddress?.addressLine ?? "");
@@ -60,6 +61,7 @@ export default function CheckoutForm({
     try {
       const data = await mutateJson<{ html: string }>("/checkout/contract-preview", "POST", {
         shippingAddress: { fullName, phone, city, district, addressLine, zipCode: zipCode || undefined },
+        identityNumber,
         email: isGuest ? email : undefined,
         selectedLines,
       });
@@ -151,6 +153,24 @@ export default function CheckoutForm({
           placeholder="05XXXXXXXXX"
         />
       </div>
+      <div className="form-group">
+        <label htmlFor="checkout-identity">T.C. Kimlik / Pasaport No</label>
+        <input
+          id="checkout-identity"
+          className="form-control"
+          type="text"
+          required
+          minLength={5}
+          maxLength={30}
+          autoComplete="off"
+          value={identityNumber}
+          onChange={(event) => setIdentityNumber(event.target.value.replace(/[^A-Za-z0-9]/g, ""))}
+          aria-describedby="checkout-identity-help"
+        />
+        <small id="checkout-identity-help" className="form-help">
+          Ödeme kuruluşunun zorunlu alıcı doğrulaması için kullanılır; hesabınızda veya sipariş kaydında saklanmaz.
+        </small>
+      </div>
       <div className="form-row">
         <div className="form-group">
           <label>Şehir</label>
@@ -200,7 +220,7 @@ export default function CheckoutForm({
           checked={contractAccepted}
           onChange={(e) => setContractAccepted(e.target.checked)}
         />
-        Mesafeli Satış Sözleşmesi'ni ve Ön Bilgilendirme Formu'nu (yukarıdaki "Görüntüle" ile) okudum, onaylıyorum.
+        {"Mesafeli Satış Sözleşmesi'ni ve Ön Bilgilendirme Formu'nu (yukarıdaki \"Görüntüle\" ile) okudum, onaylıyorum."}
       </label>
 
       {error && <p className="error-text">{error}</p>}

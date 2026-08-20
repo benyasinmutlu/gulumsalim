@@ -35,6 +35,10 @@
     .ch{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--br);gap:10px}
     .ch h3{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
     .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+    .finance-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:20px;align-items:start}
+    .payout-account-summary{display:flex;flex-direction:column;gap:3px;padding:12px;border:1px solid var(--br);border-radius:10px;background:var(--s2);font-size:12px;color:var(--tx2)}
+    .payout-account-summary strong{font-size:13px;color:var(--tx)}
+    .payout-account-summary a{color:var(--pr);font-weight:600;margin-top:3px}
     .stat-card{background:var(--s1);border:1px solid var(--br);border-radius:var(--radius);padding:16px 20px}
     .stat-card .sc-label{font-size:11px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px}
     .stat-card .sc-val{font-size:24px;font-weight:800;margin-bottom:2px}
@@ -108,7 +112,7 @@
     @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
     @media(max-width:768px){
       .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.hamburger{display:flex}.overlay.open{display:block}
-      .row2{grid-template-columns:1fr}.row4{grid-template-columns:1fr 1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}
+      .row2{grid-template-columns:1fr}.row4{grid-template-columns:1fr 1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}.finance-layout{grid-template-columns:1fr}
     }
 
     /* bkz. kullanıcı isteği: "bireysel satıcının paneli mobilde ... çok daha
@@ -193,3 +197,21 @@
     .wizard-preview-hint{font-size:12.5px;color:var(--tx3);line-height:1.5}
     @media(max-width:520px){.wizard-preview{flex-direction:column}.wizard-preview-img{width:100%;height:180px}}
     @media(max-width:600px){.wizard-step-label{display:none}.wizard-step:not(:last-child)::after{top:15px}}
+.bulk-ai-option {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--pr) 8%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--pr) 24%, var(--br));
+  border-radius: 10px;
+}
+
+.bulk-ai-option small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--tx3);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}

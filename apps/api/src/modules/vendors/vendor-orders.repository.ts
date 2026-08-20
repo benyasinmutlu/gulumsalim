@@ -113,6 +113,24 @@ export async function findVendorOrderItem(vendorId: number, orderItemId: number)
   return row ?? null;
 }
 
+export async function getShippedItemNotificationData(orderItemId: number) {
+  const [row] = await db
+    .select({
+      customerEmail: customers.email,
+      orderNumber: orders.orderNumber,
+      productNameSnapshot: orderItems.productNameSnapshot,
+      quantity: orderItems.quantity,
+      trackingCarrier: orderItems.trackingCarrier,
+      trackingNumber: orderItems.trackingNumber,
+    })
+    .from(orderItems)
+    .innerJoin(orders, eq(orderItems.orderId, orders.id))
+    .innerJoin(customers, eq(orders.customerId, customers.id))
+    .where(and(eq(orderItems.id, orderItemId), eq(orders.paymentStatus, "paid"), eq(orderItems.vendorStatus, "shipped")))
+    .limit(1);
+  return row ?? null;
+}
+
 export class RefundNotFoundError extends Error {}
 export class InvalidRefundStateError extends Error {}
 
@@ -152,20 +170,22 @@ export async function decideVendorRefund(
   decision: "approved" | "rejected",
   vendorNote?: string,
 ) {
-  const [refund] = await db
-    .select({ status: orderRefunds.status })
-    .from(orderRefunds)
-    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.vendorId, vendorId)))
-    .limit(1);
-  if (!refund) throw new RefundNotFoundError();
-  if (refund.status !== "pending") throw new InvalidRefundStateError();
-
   const [row] = await db
     .update(orderRefunds)
     .set({ status: decision, vendorNote, processedAt: new Date() })
-    .where(eq(orderRefunds.id, refundId))
+    .where(and(
+      eq(orderRefunds.id, refundId),
+      eq(orderRefunds.vendorId, vendorId),
+      eq(orderRefunds.status, "pending"),
+    ))
     .returning();
-  if (row) {
+  if (!row) {
+    const [existing] = await db.select({ id: orderRefunds.id }).from(orderRefunds)
+      .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.vendorId, vendorId))).limit(1);
+    if (!existing) throw new RefundNotFoundError();
+    throw new InvalidRefundStateError();
+  }
+  {
     await createCustomerNotification(
       row.customerId,
       decision === "approved" ? "refund_approved" : "refund_rejected",
@@ -176,7 +196,7 @@ export async function decideVendorRefund(
       "/hesabim/siparisler",
     );
   }
-  return row ?? null;
+  return row;
 }
 
 // bkz. kullanıcı isteği: "ürün satıcının eline geçtiğinde satıcı panelden
@@ -185,20 +205,20 @@ export async function decideVendorRefund(
 // KILMAZ: satıcı elindeki ürünü fiziksel olarak görüp onaylayan taraf,
 // takip kodu girilmemiş olsa bile teslim aldığını işaretleyebilmeli.
 export async function markRefundReceivedByVendor(vendorId: number, refundId: number) {
-  const [refund] = await db
-    .select({ status: orderRefunds.status })
-    .from(orderRefunds)
-    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.vendorId, vendorId)))
-    .limit(1);
-  if (!refund) throw new RefundNotFoundError();
-  if (refund.status !== "approved") throw new InvalidRefundStateError();
-
   const [row] = await db
     .update(orderRefunds)
     .set({ status: "item_received", receivedByVendorAt: new Date() })
-    .where(eq(orderRefunds.id, refundId))
+    .where(and(
+      eq(orderRefunds.id, refundId),
+      eq(orderRefunds.vendorId, vendorId),
+      eq(orderRefunds.status, "approved"),
+    ))
     .returning();
-  return row ?? null;
+  if (row) return row;
+  const [existing] = await db.select({ id: orderRefunds.id }).from(orderRefunds)
+    .where(and(eq(orderRefunds.id, refundId), eq(orderRefunds.vendorId, vendorId))).limit(1);
+  if (!existing) throw new RefundNotFoundError();
+  throw new InvalidRefundStateError();
 }
 
 // bkz. kullanıcı isteği: "satıcı takip kodunu sisteme girecek hem müşteri
@@ -208,6 +228,7 @@ export async function markRefundReceivedByVendor(vendorId: number, refundId: num
 export async function updateVendorOrderItemStatus(
   vendorId: number,
   orderItemId: number,
+  expectedStatus: "pending" | "processing",
   status: "processing" | "shipped" | "delivered" | "cancelled",
   tracking?: { carrier: string; number: string },
 ) {
@@ -220,7 +241,11 @@ export async function updateVendorOrderItemStatus(
           ? { trackingCarrier: tracking.carrier, trackingNumber: tracking.number, shippedAt: new Date() }
           : {}),
       })
-      .where(and(eq(orderItems.id, orderItemId), eq(orderItems.vendorId, vendorId)))
+      .where(and(
+        eq(orderItems.id, orderItemId),
+        eq(orderItems.vendorId, vendorId),
+        eq(orderItems.vendorStatus, expectedStatus),
+      ))
       .returning();
     if (!row) return null;
     // bkz. kullanıcı isteği: "iptal ederse ... satıcının ürününü koruyoruz" -

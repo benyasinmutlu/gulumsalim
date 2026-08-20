@@ -1,6 +1,8 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { coupons, couponRedemptions } from "../../db/schema/index";
+import { coupons, couponRedemptions, orders } from "../../db/schema/index";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export async function findCouponByCode(code: string) {
   const [row] = await db
@@ -37,9 +39,38 @@ export async function countCustomerRedemptions(couponId: number, customerId: num
 // Ödeme GERÇEKTEN başarılı olunca çağrılır (bkz. checkout.service.ts
 // handlePaymentCallback) - vendor_earnings/behavioral event'lerle aynı
 // prensip, sipariş oluşturma anında değil.
+export async function reserveCouponUse(tx: Tx, couponId: number, customerId: number): Promise<boolean> {
+  const rows = await tx
+    .update(coupons)
+    .set({ usedCount: sql`${coupons.usedCount} + 1` })
+    .where(and(eq(coupons.id, couponId), or(isNull(coupons.maxUsesTotal), lt(coupons.usedCount, coupons.maxUsesTotal))))
+    .returning({ id: coupons.id, maxUsesPerCustomer: coupons.maxUsesPerCustomer });
+  if (rows.length !== 1) return false;
+
+  // Yukaridaki UPDATE kupon satirini kilitler. Ayni kuponla eszamanli iki
+  // checkout bu noktadan seri gecer; dolayisiyla pending siparisler dahil
+  // musteri limiti TOCTOU yarisi olmadan denetlenir. Bu transaction rollback
+  // olursa usedCount artisi ve siparis de birlikte geri alinir.
+  const [usage] = await tx
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(orders)
+    .where(and(
+      eq(orders.couponId, couponId),
+      eq(orders.customerId, customerId),
+      inArray(orders.paymentStatus, ["pending", "paid", "refunded"]),
+    ));
+  return (usage?.count ?? 0) <= rows[0]!.maxUsesPerCustomer;
+}
+
+export async function releaseCouponUse(tx: Tx, couponId: number): Promise<void> {
+  await tx
+    .update(coupons)
+    .set({ usedCount: sql`GREATEST(${coupons.usedCount} - 1, 0)` })
+    .where(eq(coupons.id, couponId));
+}
+
 export async function recordCouponRedemption(couponId: number, customerId: number, orderId: number) {
   await db.insert(couponRedemptions).values({ couponId, customerId, orderId });
-  await db.update(coupons).set({ usedCount: sql`${coupons.usedCount} + 1` }).where(eq(coupons.id, couponId));
 }
 
 export async function listCoupons() {

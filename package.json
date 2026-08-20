@@ -9,6 +9,7 @@
     "dev:api": "pnpm --filter @gulumsalim/api dev",
     "dev:web": "pnpm --filter @gulumsalim/web dev",
     "build": "pnpm -r build",
+    "lint": "pnpm --filter @gulumsalim/web lint",
     "typecheck": "pnpm -r typecheck",
     "db:migrate": "pnpm --filter @gulumsalim/api db:migrate",
     "test": "pnpm --filter @gulumsalim/api test"

@@ -1,4 +1,5 @@
 import { reindexVendorProducts } from "../catalog/search-index.service";
+import { notifyVendorActivated } from "../notifications/vendor-activation-notification.service";
 import { findVendorById } from "../vendors/vendor.repository";
 import { deleteVendorIfNoProducts, updateVendorStatus } from "./admin-vendors.repository";
 
@@ -12,6 +13,7 @@ const ACTION_STATUS = {
 export class VendorNotFoundError extends Error {}
 export class VendorHasProductsError extends Error {}
 export class VendorProfileIncompleteError extends Error {}
+export class VendorStatusChangedError extends Error {}
 
 // bkz. kullanıcı isteği: "vergi/tckn no'su email'i telefon no'su adresi
 // olmayan satıcılar satış yapamaz" - satıcı "active" duruma SADECE bu dört
@@ -32,9 +34,15 @@ async function assertVendorReadyToSell(vendorId: number) {
 // şartını arıyor. Ama Meilisearch denormalize bir kopya olduğundan
 // (arama indeksindeki `visible` alanı) bunu elle güncellemek gerekiyor.
 export async function applyVendorAction(vendorId: number, action: keyof typeof ACTION_STATUS) {
+  const before = await findVendorById(vendorId);
+  if (!before) throw new VendorNotFoundError();
   if (ACTION_STATUS[action] === "active") await assertVendorReadyToSell(vendorId);
-  const updated = await updateVendorStatus(vendorId, ACTION_STATUS[action]);
-  if (!updated) throw new VendorNotFoundError();
+  const updated = await updateVendorStatus(vendorId, ACTION_STATUS[action], action === "approve" ? "pending" : undefined);
+  if (!updated) {
+    if (action === "approve") throw new VendorStatusChangedError();
+    throw new VendorNotFoundError();
+  }
+  if (action === "approve") await notifyVendorActivated(updated);
   reindexVendorProducts(vendorId).catch(() => {});
   return updated;
 }

@@ -5,11 +5,18 @@ import { InvalidVideoError, saveVideo } from "../../lib/video-upload";
 import { deleteObject } from "../../lib/storage";
 import { getCartCounts } from "../../lib/cart-product-index";
 import { findVendorById } from "./vendor.repository";
+import { cleanDescription, normalizeBrand, normalizeTitle } from "../product-intelligence/normalize/text";
+import { z } from "zod";
+import { normalizeProductInput } from "../product-intelligence/normalize/index";
+import { enrichProduct } from "../product-intelligence/enrichment/pipeline";
+import { resolveCategoryValue } from "../product-intelligence/category-resolver";
+import { productFingerprint } from "../product-intelligence/dedupe/fingerprint";
 import {
   deleteProductImageById,
   deleteProductVariant,
   deleteVendorProduct,
   findProductBySlugAnyVendor,
+  findVendorProductFingerprints,
   findProductImageOwnedByVendor,
   findVariantOwnedByVendor,
   findVendorProduct,
@@ -85,13 +92,30 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
     const vendor = await findVendorById(request.session.vendorId!);
     const initialStatus = vendor?.vendorType === "individual" ? "pending" : undefined;
 
+    // Metin alanlarını ortak normalizasyon motorundan geçir (kopyala-yapıştırdan
+    // gelen zero-width/kontrol karakterlerini temizler, boşlukları sadeleştirir).
+    // Temizlik alanı boşaltırsa orijinale düşülür (güvenli, veri kaybı yok).
+    const cleanName = normalizeTitle(input.name).value ?? input.name;
+    const cleanDesc = cleanDescription(input.description ?? "").value ?? input.description;
+    const cleanBrand = normalizeBrand(input.brand ?? "").value ?? input.brand;
+
+    // Kopya uyarısı: aynı satıcıda aynı ad+kategori (parmak izi) zaten varsa
+    // engelle (kaza eseri aynı ürünü ikinci kez eklemeyi önler).
+    const fingerprint = productFingerprint(request.session.vendorId!, cleanName, { category: String(input.categoryId) });
+    const vendorFingerprints = await findVendorProductFingerprints(request.session.vendorId!);
+    if (vendorFingerprints.has(fingerprint)) {
+      return reply.status(409).send({ error: { message: "Bu ürünü zaten eklemişsiniz (aynı ad ve kategori). Farklı bir ad deneyin." } });
+    }
+
     const product = await insertVendorProduct(request.session.vendorId!, {
       categoryId: input.categoryId,
-      name: input.name,
+      name: cleanName,
       slug: input.slug,
-      description: input.description,
-      brand: input.brand,
+      description: cleanDesc,
+      attributes: input.attributes,
+      brand: cleanBrand,
       basePrice: input.basePrice.toFixed(2),
+      fingerprint,
       compareAtPrice: input.compareAtPrice?.toFixed(2),
       // bkz. kullanıcı isteği: "normal kurumsal satıcılar için 2.el seçeneği
       // olmasın" - istemci arayüzü kurumsal satıcıda bu seçeneği zaten
@@ -109,9 +133,85 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       // totalStock); ürünü aktife çekerken varyantsız + stok=0 ise PATCH
       // route'u reddeder (bkz. aşağıdaki "active" kontrolü).
       stock: vendor?.vendorType === "individual" ? 1 : (input.stock ?? 0),
+      sizeChart: input.sizeChart,
     });
     syncProductToIndex(product.id).catch(() => {});
     return reply.status(201).send(product);
+  });
+
+  // Ürün-zeka ÖNERİ ucu (satıcı panelindeki "✨ Doldur" için). Girdiyi normalize
+  // eder + enrichment cascade'i (rule/ml/ai) çalıştırıp öneri döner. HİÇBİR ŞEY
+  // KAYDETMEZ - satıcı önerileri görüp düzenleyip normal kayıt akışını kullanır.
+  // AI kapalıyken rule katmanı önerir (kategori/nitelik/şablon açıklama).
+  app.post("/vendor/products/enrich", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
+    // Pahalı dış servis çağrısını yanlışlıkla çift tıklama/bot trafiğine karşı
+    // satıcı başına sınırla. Redis geçici olarak yoksa ürün girişi bloklanmaz.
+    try {
+      const key = `ai-enrich:vendor:${request.session.vendorId}:${Math.floor(Date.now() / 60_000)}`;
+      const count = await app.redis.incr(key);
+      if (count === 1) await app.redis.expire(key, 70);
+      if (count > 12) return reply.status(429).send({ error: { message: "AI yardımını çok sık kullandınız, lütfen bir dakika sonra tekrar deneyin" } });
+    } catch {
+      // fail-open: Redis arızası normal ürün girişini bozmasın
+    }
+
+    const factValue = z.string().trim().max(240);
+    const body = z
+      .object({
+        name: z.string().trim().min(1).max(160),
+        description: z.string().trim().max(2000).optional(),
+        brand: z.string().trim().max(100).optional(),
+        category: z.string().trim().max(100).optional(),
+        sizes: z.string().trim().max(500).optional(),
+        facts: z.object({
+          condition: factValue.optional(),
+          usage: factValue.optional(),
+          defects: factValue.optional(),
+          color: factValue.optional(),
+          material: factValue.optional(),
+          pattern: factValue.optional(),
+          fit: factValue.optional(),
+          collection: factValue.optional(),
+          care: factValue.optional(),
+          productType: factValue.optional(),
+          targetAudience: factValue.optional(),
+          notableFeatures: factValue.optional(),
+        }).strict().optional(),
+      })
+      .strict()
+      .parse(request.body);
+
+    const vendor = await findVendorById(request.session.vendorId!);
+    const ctx = {
+      vendorId: request.session.vendorId!,
+      sellerType: vendor?.vendorType,
+      facts: Object.fromEntries(Object.entries(body.facts ?? {}).filter((entry): entry is [string, string] => Boolean(entry[1]))),
+      resolveCategory: resolveCategoryValue,
+    };
+    const normalized = await normalizeProductInput(
+      { name: body.name, description: body.description, brand: body.brand, category: body.category, sizes: body.sizes },
+      { resolveCategory: resolveCategoryValue },
+    );
+    const enrichment = await enrichProduct(normalized, ctx);
+
+    return reply.send({
+      normalized: {
+        name: normalized.name.value,
+        description: normalized.description.value,
+        brand: normalized.brand.value,
+        categoryId: normalized.categoryId.value,
+        sizes: normalized.sizes,
+      },
+      suggestions: {
+        title: enrichment.title?.value ?? null,
+        categoryId: enrichment.category?.value ?? null,
+        description: enrichment.description?.value ?? null,
+        attributes: enrichment.attributes ?? {},
+      },
+      guidance: enrichment.guidance ?? { missingInformation: [], warnings: [] },
+      sources: enrichment.sources,
+      issues: normalized.issues,
+    });
   });
 
   app.patch("/vendor/products/:id", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
@@ -236,18 +336,26 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     }
 
-    const file = await request.file();
+    const file = await request.file({ limits: { fileSize: 12 * 1024 * 1024, files: 1 } });
     if (!file) {
       return reply.status(400).send({ error: { message: "Dosya bulunamadı" } });
     }
     const buffer = await file.toBuffer();
 
+    let storedUrl: string | null = null;
     try {
       const url = await saveProductImage(request.session.vendorId!, buffer, file.mimetype);
+      storedUrl = url;
       const existingImages = await listProductImages(id);
+      if (existingImages.length >= 8) {
+        await deleteObject(url);
+        storedUrl = null;
+        return reply.status(409).send({ error: { message: "Bir ürüne en fazla 8 görsel eklenebilir" } });
+      }
       const image = await insertProductImage(id, url, existingImages.length === 0, existingImages.length);
       return reply.status(201).send(image);
     } catch (err) {
+      if (storedUrl) await deleteObject(storedUrl);
       if (err instanceof InvalidImageError) {
         return reply.status(400).send({ error: { message: err.message } });
       }
@@ -360,13 +468,16 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: { message: "Dosya bulunamadı" } });
     }
     const previousVideo = product.videoUrl;
+    let storedUrl: string | null = null;
     try {
       const buffer = await file.toBuffer();
       const url = await saveVideo(`videos/${request.session.vendorId}`, buffer, file.mimetype);
+      storedUrl = url;
       const updated = await updateVendorProduct(request.session.vendorId!, id, { videoUrl: url });
       if (previousVideo && previousVideo !== url) deleteObject(previousVideo).catch(() => {}); // eski videoyu temizle
       return reply.status(201).send(updated);
     } catch (err) {
+      if (storedUrl) await deleteObject(storedUrl);
       if (err instanceof InvalidVideoError) {
         return reply.status(400).send({ error: { message: err.message } });
       }

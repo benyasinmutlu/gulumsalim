@@ -85,7 +85,7 @@ export default function SocialPostsManager({ onSaved }: Props) {
       </div>
       <div className="card-body">
         <p style={{ fontSize: "0.85rem", color: "var(--tx3)", marginBottom: 16 }}>
-          Mağaza sayfanızın "Sosyal Medya" bölümü görünür olduğunda gösterilecek Instagram/TikTok/YouTube gönderi kartları.
+          Mağaza sayfanızın &quot;Sosyal Medya&quot; bölümü görünür olduğunda gösterilecek Instagram/TikTok/YouTube gönderi kartları.
         </p>
 
         {posts === null ? (

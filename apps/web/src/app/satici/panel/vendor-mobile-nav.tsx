@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import UnreadBadge from "./unread-badge";
 
 const MORE_LINKS = [
+  { href: "/satici/panel/finans", label: "Bakiye & Ödemeler", icon: "fa-wallet" },
   { href: "/satici/panel/magaza", label: "Mağaza Profili", icon: "fa-store" },
   { href: "/satici/panel/degerlendirmeler", label: "Değerlendirmeler", icon: "fa-star" },
   { href: "/satici/panel/sorular", label: "Sorular", icon: "fa-question-circle" },
@@ -52,6 +53,7 @@ export default function VendorMobileNav() {
                 <span>{l.label}</span>
               </Link>
             ))}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/api/vendor/auth/logout" className="vmn-sheet-logout">
               <i className="fas fa-sign-out-alt" />
               <span>Çıkış Yap</span>

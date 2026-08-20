@@ -28,7 +28,7 @@ const vendorFinanceRoutes: FastifyPluginAsync = async (app) => {
   app.post("/vendor/payouts", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
     const input = requestPayoutSchema.parse(request.body);
     try {
-      const payout = await requestPayout(request.session.vendorId!, input.amount, input.iban, input.note);
+      const payout = await requestPayout(request.session.vendorId!, input.amount, input.iban, input.accountHolder, input.note);
       return reply.status(201).send(payout);
     } catch (err) {
       if (err instanceof InsufficientBalanceError) {

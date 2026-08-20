@@ -17,6 +17,10 @@ export const listProductsQuerySchema = z.object({
   // Meilisearch tabanlı facet filtreleri/sıralama (bkz. catalog.search.ts) -
   // bunlardan biri verilirse sorgu Postgres keyset yerine Meilisearch'e gider.
   size: z.string().optional(),
+  // "Bedenime uygun göster" anahtarı - açıkken sunucu, giriş yapmış müşterinin
+  // profildeki bedenlerini (+ ±1 komşu, stok-farkında) filtre olarak uygular.
+  // Beden bilgisi istemciden GELMEZ, tek kaynak profildir.
+  fitToMe: z.coerce.boolean().optional(),
   color: z.string().optional(),
   brand: z.string().optional(),
   vendor: z.string().optional(),

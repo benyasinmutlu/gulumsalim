@@ -337,6 +337,111 @@
       "when": 1785707762889,
       "tag": "0047_omniscient_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1785857662261,
+      "tag": "0048_new_oracle",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1785933037035,
+      "tag": "0049_unique_ben_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1786994551779,
+      "tag": "0050_moaning_lockheed",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1786995367762,
+      "tag": "0051_sour_mauler",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1786996706666,
+      "tag": "0052_curved_cannonball",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1786997064605,
+      "tag": "0053_outstanding_annihilus",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1786999070926,
+      "tag": "0054_normalize_failed_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1787002087598,
+      "tag": "0055_nosy_medusa",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1787003326665,
+      "tag": "0056_loud_shriek",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1787003490833,
+      "tag": "0057_loud_scorpion",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1787003733064,
+      "tag": "0058_sweet_salo",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1787004440495,
+      "tag": "0059_green_vindicator",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1787004783899,
+      "tag": "0060_clever_archangel",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1787004876166,
+      "tag": "0061_aromatic_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1787006697313,
+      "tag": "0062_opposite_captain_midlands",
+      "breakpoints": true
     }
   ]
 }

@@ -29,6 +29,7 @@ export default function CartPage() {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [stockNotices, setStockNotices] = useState<CartResponse["stockNotices"]>([]);
+  const [quote, setQuote] = useState<CartResponse | null>(null);
 
   async function load() {
     const data = await fetchJson<CartResponse>("/cart");
@@ -47,6 +48,36 @@ export default function CartPage() {
   useEffect(() => {
     load();
   }, []);
+
+  // Seçili satırlar değiştiğinde backend'e yeniden fiyatlatılır. Kampanya
+  // kapsamı, kupon minimumu ve satıcı-bazlı kargo frontend'de tahmin edilmez;
+  // gerçek checkout ile aynı fiyat motorundan gelir.
+  useEffect(() => {
+    if (!cart || selected.size === 0) {
+      setQuote(null);
+      return;
+    }
+    const currentIds = cart.items.map((i) => lineId(i.productId, i.variantId));
+    const selectedIds = currentIds.filter((id) => selected.has(id));
+    if (selectedIds.length === 0) {
+      setQuote(null);
+      return;
+    }
+    const url = selectedIds.length === currentIds.length
+      ? "/cart"
+      : `/cart?selected=${encodeURIComponent(selectedIds.join(","))}`;
+    let cancelled = false;
+    fetchJson<CartResponse>(url)
+      .then((data) => {
+        if (!cancelled) setQuote(data);
+      })
+      .catch(() => {
+        if (!cancelled) setQuote(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cart, selected]);
 
   function toggleLine(id: string) {
     setSelected((prev) => {
@@ -68,8 +99,9 @@ export default function CartPage() {
   // checkout ile birebir aynı hesaplamayı yapan GET /cart'ın döndürdüğü
   // gerçek değerler kullanılıyor (bkz. lib/shipping.ts), önceden burada
   // sadece eşik biliniyordu, ücretin kendisi hiç gösterilmiyordu.
-  const freeShippingThreshold = cart?.freeShippingThreshold ?? DEFAULT_FREE_SHIPPING_THRESHOLD;
-  const shippingFee = cart ? Number(cart.shippingFee) : 0;
+  const pricedCart = quote ?? cart;
+  const freeShippingThreshold = pricedCart?.freeShippingThreshold ?? DEFAULT_FREE_SHIPPING_THRESHOLD;
+  const shippingFee = pricedCart ? Number(pricedCart.shippingFee) : 0;
 
   async function updateQuantity(productId: number, variantId: number | undefined, quantity: number) {
     setBusyLine(lineId(productId, variantId));
@@ -119,11 +151,12 @@ export default function CartPage() {
     }
   }
 
-  const subtotal = cart ? Number(cart.subtotal) : 0;
-  const discountAmount = cart ? Number(cart.discountAmount) : 0;
+  const subtotal = pricedCart ? Number(pricedCart.subtotal) : 0;
+  const discountAmount = pricedCart ? Number(pricedCart.discountAmount) : 0;
   const remaining = Math.max(0, freeShippingThreshold - subtotal);
   const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-  const total = subtotal - discountAmount + shippingFee;
+  const multipleVendors = (pricedCart?.shippingBreakdown.length ?? 0) > 1;
+  const total = pricedCart ? Number(pricedCart.total) : 0;
 
   const selectedItems = cart?.items.filter((i) => selected.has(lineId(i.productId, i.variantId))) ?? [];
   const selectedSubtotal = selectedItems.reduce((sum, i) => sum + Number(i.lineTotal), 0);
@@ -248,11 +281,17 @@ export default function CartPage() {
               <div className="cart-summary">
                 <h3>Sipariş Özeti</h3>
 
-                <div className="free-shipping-bar">
-                  <div className="free-shipping-progress" style={{ width: `${progress}%` }} />
-                </div>
+                {!multipleVendors && (
+                  <div className="free-shipping-bar">
+                    <div className="free-shipping-progress" style={{ width: `${progress}%` }} />
+                  </div>
+                )}
                 <div className="free-shipping-text">
-                  {remaining > 0
+                  {shippingFee === 0
+                    ? "Ücretsiz kargo kazandınız!"
+                    : multipleVendors
+                      ? "Ücretsiz kargo eşiği her satıcı için ayrı hesaplanır; mağaza detayları aşağıdadır."
+                      : remaining > 0
                     ? `Ücretsiz kargo için ${remaining.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺ daha ekleyin`
                     : "Ücretsiz kargo kazandınız!"}
                 </div>
@@ -288,16 +327,16 @@ export default function CartPage() {
                 </div>
                 {discountAmount > 0 && (
                   <div className="summary-row coupon-discount-row">
-                    <span>İndirim</span>
+                    <span>{pricedCart?.discountSource === "campaign" ? "Kampanya indirimi" : "Kupon indirimi"}</span>
                     <span>-{discountAmount.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
                   </div>
                 )}
                 <div className="summary-row">
-                  <span>Kargo{cart && cart.shippingBreakdown.length > 1 ? ` (${cart.shippingBreakdown.length} satıcı)` : ""}</span>
+                  <span>Kargo{pricedCart && pricedCart.shippingBreakdown.length > 1 ? ` (${pricedCart.shippingBreakdown.length} satıcı)` : ""}</span>
                   <span>{shippingFee === 0 ? "Ücretsiz" : `${shippingFee.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}</span>
                 </div>
-                {cart && cart.shippingBreakdown.length > 1 &&
-                  cart.shippingBreakdown.map((b, i) => (
+                {pricedCart && pricedCart.shippingBreakdown.length > 1 &&
+                  pricedCart.shippingBreakdown.map((b, i) => (
                     <div
                       key={i}
                       className="summary-row"

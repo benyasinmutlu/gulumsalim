@@ -15,6 +15,7 @@ export interface ProductListingParams {
   secondHand?: string;
   minDiscountPercent?: string;
   size?: string;
+  fitToMe?: string;
   color?: string;
   vendor?: string;
   minPrice?: string;
@@ -83,7 +84,7 @@ export default async function ProductListing({
       : params.saleOnly
         ? "İndirimli Ürünler"
         : params.secondHand
-          ? "Dolap - 2. El Ürünler"
+          ? "2. El Ürünler"
           : (matchedCategory?.name ?? "Tüm Koleksiyon"));
 
   // bkz. kullanıcı isteği: "tümünü gör sayfalarının arka planında başlığa

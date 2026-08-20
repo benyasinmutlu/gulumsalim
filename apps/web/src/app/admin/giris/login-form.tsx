@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
 import type { AdminProfile } from "@/lib/types";
 
@@ -48,9 +49,9 @@ export default function AdminLoginForm() {
       <button className="admin-btn admin-btn-primary" style={{ width: "100%" }} type="submit" disabled={loading}>
         <i className="fas fa-sign-in-alt" /> {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
       </button>
-      <a href="/" className="login-back-link">
+      <Link href="/" className="login-back-link">
         <i className="fas fa-arrow-left" /> Mağazaya Dön
-      </a>
+      </Link>
     </form>
   );
 }

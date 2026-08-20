@@ -66,6 +66,7 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
   const maskRef = useRef<HTMLCanvasElement | null>(null);
   const bboxRef = useRef({ x0: 0.2, y0: 0.15, x1: 0.8, y1: 0.6 }); // kıyafet kutusu (normalize)
   const dragRef = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const redrawRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (open && !photo) {
@@ -80,7 +81,7 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
     const img = new Image();
     img.onload = () => {
       productImgRef.current = img;
-      redraw();
+      redrawRef.current();
     };
     img.src = productImage; // crossOrigin YOK -> yalnızca çizim
   }, [productImage, open]);
@@ -96,7 +97,7 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
         const img = await loadImage(photo);
         if (cancelled) return;
         personImgRef.current = img;
-        redraw();
+        redrawRef.current();
         setStatus("Kıyafet bölgesi ayrılıyor… (ilk seferde model iniyor)");
         const seg = await getSegmenter();
         if (cancelled) return;
@@ -142,18 +143,17 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
         if (cancelled) return;
         setStatus("");
         setReady(true);
-        redraw();
+        redrawRef.current();
       } catch {
         // Segmentasyon başarısızsa: yine de manuel overlay ile çalışsın.
         setStatus("Otomatik kıyafet ayırma bu tarayıcıda çalışmadı — ürünü elle sürükleyip ölçekleyebilirsin.");
         setReady(true);
-        redraw();
+        redrawRef.current();
       }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, photo]);
 
   const redraw = useCallback(() => {
@@ -180,7 +180,6 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
     const bx = px + bb.x0 * pw;
     const by = py + bb.y0 * ph;
     const bw = (bb.x1 - bb.x0) * pw;
-    const bh = (bb.y1 - bb.y0) * ph;
     // Bir tişört gövde GENİŞLİĞİNİ kaplar; genişliğe göre ölçekle ve üstten
     // (omuz/yaka) hizala - ortalamak yerine daha doğal durur.
     const ps = (bw / product.width) * scale * 1.08;
@@ -210,6 +209,7 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
   }, [scale, offset, opacity]);
 
   useEffect(() => {
+    redrawRef.current = redraw;
     redraw();
   }, [redraw]);
 

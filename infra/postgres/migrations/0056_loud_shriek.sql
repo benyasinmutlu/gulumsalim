@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "uniq_active_refund_per_order_item" ON "order_refunds" USING btree ("order_item_id") WHERE "order_refunds"."status" <> 'rejected';--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "uniq_orders_payment_ref" ON "orders" USING btree ("payment_ref");

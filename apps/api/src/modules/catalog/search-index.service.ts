@@ -39,7 +39,7 @@ async function buildProductDocument(productId: number) {
 
   const [variants, ratingRow, [withImage]] = await Promise.all([
     db
-      .select({ size: productVariants.size, color: productVariants.color })
+      .select({ size: productVariants.size, color: productVariants.color, stock: productVariants.stock })
       .from(productVariants)
       .where(eq(productVariants.productId, productId)),
     db
@@ -66,6 +66,9 @@ async function buildProductDocument(productId: number) {
     primaryImageUrl: withImage?.primaryImageUrl ?? null,
     createdAt: row.createdAt.getTime(),
     sizes: [...new Set(variants.map((v) => v.size).filter((s): s is string => !!s))],
+    // "Bedenime uygun göster" filtresi bunu kullanır: sadece stoğu >0 olan
+    // varyantların bedenleri - "M var ama stok 0" ürün filtreye girmesin.
+    inStockSizes: [...new Set(variants.filter((v) => v.size && v.stock > 0).map((v) => v.size as string))],
     colors: [...new Set(variants.map((v) => v.color).filter((c): c is string => !!c))],
     avgRating: ratingRow[0]?.average ? Number(ratingRow[0].average) : 0,
     reviewCount: ratingRow[0]?.total ?? 0,

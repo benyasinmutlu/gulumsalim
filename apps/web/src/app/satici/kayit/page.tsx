@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import VendorRegisterForm from "./register-form";
 
-export const metadata: Metadata = { title: "Satıcı Kayıt Ol | Gülüm Şalım" };
+export const metadata: Metadata = { title: "Kurumsal Üyelik Başvurusu | Gülüm Şalım" };
 
 export default function VendorRegisterPage() {
   return (
@@ -42,18 +42,18 @@ export default function VendorRegisterPage() {
           <div className="ga-card">
             <div className="ga-tabs">
               <Link href="/kayit" className="ga-tab">
-                Müşteri Kaydı
+                Bireysel Üyelik
               </Link>
-              <span className="ga-tab active">Satıcı Kaydı</span>
+              <span className="ga-tab active">Kurumsal Üyelik</span>
             </div>
 
-            <h2>Satıcı Olun</h2>
+            <h2>Kurumsal Üyelik Başvurusu</h2>
             <p className="ga-sub">Milyonlarca müşteriye ulaşmak için bugün başvurun.</p>
 
             <VendorRegisterForm />
 
             <div className="ga-footer">
-              Zaten satıcı mısınız? <Link href="/satici/giris">Giriş Yapın</Link>
+              Zaten kurumsal üye misiniz? <Link href="/satici/giris">Giriş Yapın</Link>
             </div>
           </div>
         </div>

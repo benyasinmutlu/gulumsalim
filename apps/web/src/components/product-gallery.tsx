@@ -21,9 +21,9 @@ const SNAP_THRESHOLD_RATIO = 0.18;
 export default function ProductGallery({ productId, productName, images }: Props) {
   const [active, setActive] = useState(0);
   const [dragPx, setDragPx] = useState(0);
+  const [dragWidth, setDragWidth] = useState(1);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
-  const widthRef = useRef(1);
   const trackRef = useRef<HTMLDivElement>(null);
 
   function clamp(i: number) {
@@ -34,7 +34,7 @@ export default function ProductGallery({ productId, productName, images }: Props
     if (images.length < 2) return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     startX.current = e.clientX;
-    widthRef.current = trackRef.current?.parentElement?.getBoundingClientRect().width || 1;
+    setDragWidth(trackRef.current?.parentElement?.getBoundingClientRect().width || 1);
     setDragging(true);
   }
 
@@ -48,7 +48,7 @@ export default function ProductGallery({ productId, productName, images }: Props
 
   function endDrag() {
     if (!dragging) return;
-    const ratio = dragPx / widthRef.current;
+    const ratio = dragPx / dragWidth;
     if (Math.abs(ratio) > SNAP_THRESHOLD_RATIO) {
       setActive((i) => clamp(i + (ratio < 0 ? 1 : -1)));
     }
@@ -68,7 +68,7 @@ export default function ProductGallery({ productId, productName, images }: Props
   }
 
   const offsetPercent = -(active * 100);
-  const dragPercent = widthRef.current ? (dragPx / widthRef.current) * 100 : 0;
+  const dragPercent = (dragPx / dragWidth) * 100;
 
   return (
     <div className="product-gallery">

@@ -346,6 +346,7 @@ export async function findProductBySlug(slug: string) {
       name: products.name,
       slug: products.slug,
       description: products.description,
+      attributes: products.attributes,
       brand: products.brand,
       basePrice: products.basePrice,
       compareAtPrice: products.compareAtPrice,
@@ -355,6 +356,7 @@ export async function findProductBySlug(slug: string) {
       vendorSlug: vendors.storeSlug,
       videoUrl: products.videoUrl,
       stock: products.stock,
+      sizeChart: products.sizeChart,
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))

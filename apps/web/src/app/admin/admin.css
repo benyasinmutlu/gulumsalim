@@ -499,6 +499,55 @@ img { max-width: 100%; height: auto; }
     padding: 22px;
 }
 
+.admin-campaign-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.9rem;
+  align-items: end;
+}
+
+.admin-product-target {
+  grid-column: span 2;
+}
+
+.admin-inline-search,
+.admin-row-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-inline-search .admin-form-control {
+  min-width: 0;
+}
+
+.admin-product-target select {
+  margin-top: 0.5rem;
+}
+
+.admin-campaign-error {
+  padding: 0 1rem;
+}
+
+.admin-campaign-actions {
+  padding-top: 0;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+@media (max-width: 640px) {
+  .admin-product-target {
+    grid-column: auto;
+  }
+
+  .admin-row-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 /* ---- Admin Tables ---- */
 .admin-table {
     width: 100%;

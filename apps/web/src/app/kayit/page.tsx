@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import RegisterForm from "./register-form";
 
-export const metadata: Metadata = { title: "Üye Kayıt Ol | Gülüm Şalım" };
+export const metadata: Metadata = { title: "Bireysel Üyelik | Gülüm Şalım" };
 
 // gulumsalim.com'daki register.php'nin (ga-* tasarım sistemi) karşılığı.
 // Satıcı kaydı zaten ayrı bir sayfada (/satici/kayit) olduğu için "Satıcı
@@ -42,13 +42,13 @@ export default function RegisterPage() {
         <div className="ga-panel">
           <div className="ga-card">
             <div className="ga-tabs">
-              <span className="ga-tab active">Müşteri Kaydı</span>
+              <span className="ga-tab active">Bireysel Üyelik</span>
               <Link href="/satici/kayit" className="ga-tab">
-                Satıcı Kaydı
+                Kurumsal Üyelik
               </Link>
             </div>
 
-            <h2>Hesap Oluştur</h2>
+            <h2>Bireysel Üye Olun</h2>
             <p className="ga-sub">Üye olarak sipariş takibinizi kolayca yapın, indirimlerden ilk siz haberdar olun.</p>
 
             <Suspense fallback={null}>

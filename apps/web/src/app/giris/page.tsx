@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import LoginForm from "./login-form";
 
-export const metadata: Metadata = { title: "Üye Girişi | Gülüm Şalım" };
+export const metadata: Metadata = { title: "Bireysel Üye Girişi | Gülüm Şalım" };
 
 // gulumsalim.com'daki login.php'nin (ga-* tasarım sistemi) birebir
 // karşılığı: sol tarafta marka görseli + avantaj listesi, sağda sekmeli
@@ -44,9 +44,9 @@ export default function LoginPage() {
         <div className="ga-panel">
           <div className="ga-card">
             <div className="ga-tabs">
-              <span className="ga-tab active">Müşteri Girişi</span>
+              <span className="ga-tab active">Bireysel Üye Girişi</span>
               <Link href="/satici/giris" className="ga-tab">
-                Satıcı Girişi
+                Kurumsal Üye Girişi
               </Link>
             </div>
 
@@ -58,7 +58,7 @@ export default function LoginPage() {
             </Suspense>
 
             <div className="ga-footer">
-              Henüz üye değil misiniz? <Link href="/kayit">Hemen Kayıt Ol</Link>
+              Henüz bireysel üye değil misiniz? <Link href="/kayit">Hemen Kayıt Ol</Link>
             </div>
           </div>
         </div>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchJson } from "@/lib/client-api";
+import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { AdminCustomerRow } from "@/lib/types";
 
 export default function CustomersTable() {
   const [customers, setCustomers] = useState<AdminCustomerRow[] | null>(null);
   const [search, setSearch] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   async function load() {
     const params = new URLSearchParams();
@@ -18,6 +19,19 @@ export default function CustomersTable() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleDelete(id: number, name: string) {
+    if (!confirm(`"${name}" hesabı silinsin mi? Sipariş/değerlendirme geçmişi varsa hesap anonimleştirilir, yoksa kalıcı olarak silinir.`)) return;
+    setBusyId(id);
+    try {
+      await mutateJson(`/admin/customers/${id}`, "DELETE");
+      await load();
+    } catch (err) {
+      alert(err instanceof ClientApiError ? err.message : "Silme başarısız oldu");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="admin-card">
@@ -52,6 +66,7 @@ export default function CustomersTable() {
                 <th>Sipariş</th>
                 <th>Toplam Harcama</th>
                 <th>Kayıt Tarihi</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -68,6 +83,11 @@ export default function CustomersTable() {
                   <td>{Number(c.totalSpent).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</td>
                   <td style={{ fontSize: "0.8rem", color: "var(--admin-text-muted)" }}>
                     {new Date(c.createdAt).toLocaleDateString("tr-TR")}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="admin-btn admin-btn-danger admin-btn-sm" disabled={busyId === c.id} onClick={() => handleDelete(c.id, c.fullName)}>
+                      Sil
+                    </button>
                   </td>
                 </tr>
               ))}

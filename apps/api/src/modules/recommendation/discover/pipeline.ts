@@ -41,6 +41,9 @@ export interface DiscoverProfile {
   hiddenProductIds: Set<number>;
   notInterestedCategoryIds: Set<number>;
   vendorQuality: Map<number, number>;
+  // Kullanıcının bedenleri + ±1 komşu (küçük harf normalize). sizeFit için.
+  // Opsiyonel — beden girmemiş kullanıcıda boş/undefined (sizeFit=0, nötr).
+  sizes?: Set<string>;
 }
 
 export interface DiscoverDeps {
@@ -92,6 +95,15 @@ function freshness(createdAt: number, nowMs: number): number {
   return clamp01(1 - ageDays / 90);
 }
 
+// sizeFit: ürünün stoktaki bedenlerinden biri kullanıcının bedeninde (±1 komşu
+// dahil) mi? Eşleşme → 1 (boost). Kullanıcı bedeni yok / ürünün bedeni yok →
+// 0 (nötr, ceza değil — aksesuar gibi bedensiz ürünler düşmez).
+function sizeFit(userSizes: Set<string> | undefined, productSizes: string[] | undefined): number {
+  if (!userSizes || userSizes.size === 0 || !productSizes || productSizes.length === 0) return 0;
+  for (const s of productSizes) if (userSizes.has(s.toLowerCase())) return 1;
+  return 0;
+}
+
 // Feature hydration (FAZ 1.3): profil + ürün + çapraz sinyaller → ranking feature'ları.
 function hydrateFeatures(
   candidate: Candidate,
@@ -109,6 +121,7 @@ function hydrateFeatures(
     popularity: clamp01(product.popularity),
     availability: product.inStock ? 1 : 0,
     sellerQuality: clamp01(profile.vendorQuality.get(product.vendorId) ?? 0.5),
+    sizeFit: sizeFit(profile.sizes, product.inStockSizes),
     // Soft negatif: kullanıcı bu kategoriyi "ilgilenmiyorum" işaretlediyse.
     negativeFeedback: profile.notInterestedCategoryIds.has(product.categoryId) ? 1 : 0,
   };

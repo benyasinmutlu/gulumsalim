@@ -1,8 +1,24 @@
 import { buildApp } from "./app";
 import { env } from "./config/env";
 import { ensureProductsIndex } from "./lib/meilisearch";
+import { startBulkImportWorker, stopBulkImportWorker } from "./lib/queue/workers/bulk-import.worker";
+import { startOutboxDrainer, stopOutboxDrainer } from "./modules/integrations/outbox-drainer";
+import { startReconcileJob, stopReconcileJob } from "./modules/integrations/reconcile.job";
+import { startOrderReconciliationJob } from "./modules/orders/order-reconciliation.scheduler";
 
 const app = buildApp();
+
+// Toplu içe-aktarma worker'ı (in-process): kuyruğa düşen büyük import işlerini
+// arka planda işler. API restart'ında BullMQ işleri Redis'ten devam ettirir.
+startBulkImportWorker();
+
+// Stok senkron outbox drainer (in-process, interval): merkez stok değişince
+// yazılan olayları kanallara (İkas/Trendyol) push eder. Anahtar yoksa bekletir.
+startOutboxDrainer();
+
+// Periyodik mutabakat (30 dk): kanal stoklarını merkezle karşılaştırıp kaçan
+// senkronu düzeltir. Anahtar yoksa no-op (yapılandırılmamış kanalı atlar).
+startReconcileJob();
 
 // Meilisearch geçici olarak erişilemez olsa bile API ayağa kalkmalı -
 // index ayarları bir sonraki başarılı çağrıda yine uygulanabilir.
@@ -12,8 +28,13 @@ ensureProductsIndex().catch((err) => app.log.warn({ err }, "Meilisearch index ay
 // üzerinden proxy yapıyor). Defense-in-depth; gerekirse API_HOST ile değiştirilir.
 const host = process.env.API_HOST ?? "127.0.0.1";
 
+let orderReconcileJob: { stop: () => void } | null = null;
+
 app
   .listen({ port: env.PORT, host })
+  .then(() => {
+    orderReconcileJob = startOrderReconciliationJob(app);
+  })
   .catch((err) => {
     app.log.error(err);
     process.exit(1);
@@ -28,8 +49,10 @@ for (const sig of ["SIGTERM", "SIGINT"] as const) {
     shuttingDown = true;
     app.log.info({ sig }, "graceful shutdown başladı");
     const timer = setTimeout(() => process.exit(1), 10_000).unref();
-    app
-      .close()
+    stopOutboxDrainer();
+    stopReconcileJob();
+    orderReconcileJob?.stop();
+    Promise.all([app.close(), stopBulkImportWorker()])
       .then(() => {
         clearTimeout(timer);
         process.exit(0);

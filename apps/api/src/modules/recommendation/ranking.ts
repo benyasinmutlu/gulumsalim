@@ -19,6 +19,7 @@ export interface CandidateFeatures {
   popularity?: number;
   availability?: number; // 0 = stokta yok → filtrelenir
   sellerQuality?: number;
+  sizeFit?: number; // kullanıcının bedeninde (±1) + stokta → 1, aksi 0 (BOOST)
   negativeFeedback?: number; // hide/not_interested yoğunluğu (ceza)
 }
 
@@ -52,20 +53,23 @@ export interface RankingWeights {
   recency: number;
   popularity: number;
   sellerQuality: number;
+  sizeFit: number;
   negativeFeedback: number; // negatif ağırlık (ceza)
 }
 
 // Varsayılan v1 ağırlıkları — açıklanabilir ve elle ayarlanabilir. A/B ile
-// değiştirilebilir; toplam pozitif ağırlık ~1.0 civarı tutuldu.
+// değiştirilebilir; toplam pozitif ağırlık ~1.0 civarı tutuldu (sizeFit eklendi,
+// moda için güçlü sinyal → diğerleri hafif düşürülerek yeniden dengelendi).
 export const DEFAULT_V1_WEIGHTS: RankingWeights = {
-  categoryAffinity: 0.30,
-  vendorAffinity: 0.15,
-  colorAffinity: 0.10,
+  categoryAffinity: 0.25,
+  vendorAffinity: 0.12,
+  colorAffinity: 0.08,
   brandAffinity: 0.10,
   priceFit: 0.10,
-  recency: 0.10,
-  popularity: 0.10,
+  recency: 0.08,
+  popularity: 0.07,
   sellerQuality: 0.05,
+  sizeFit: 0.15,
   negativeFeedback: -0.40,
 };
 
@@ -89,6 +93,7 @@ export function scoreCandidate(candidate: RankingCandidate, weights: RankingWeig
     ["recency", weights.recency, clamp01(f.recency)],
     ["popularity", weights.popularity, clamp01(f.popularity)],
     ["sellerQuality", weights.sellerQuality, clamp01(f.sellerQuality)],
+    ["sizeFit", weights.sizeFit, clamp01(f.sizeFit)],
     ["negativeFeedback", weights.negativeFeedback, clamp01(f.negativeFeedback)],
   ].map(([feature, weight, value]) => ({
     feature: feature as string,

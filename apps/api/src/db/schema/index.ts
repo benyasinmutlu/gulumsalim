@@ -5,3 +5,4 @@ export * from "./customers";
 export * from "./orders";
 export * from "./content";
 export * from "./analytics";
+export * from "./integrations";

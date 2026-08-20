@@ -1,0 +1,2 @@
+ALTER TABLE "stock_sync_outbox" ADD COLUMN "claim_token" text;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_outbox_listing_queue" ON "stock_sync_outbox" USING btree ("listing_id","status","id");

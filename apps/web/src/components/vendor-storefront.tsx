@@ -165,6 +165,8 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
 
   // bkz. kullanıcı isteği (mockup): mağaza istatistik satırında "Mağaza
   // Açık X Yıl" - vendors.createdAt zaten var, yeni bir alan gerekmedi.
+  // Server component'te tek isteğin sabit zamanında hesaplanır.
+  // eslint-disable-next-line react-hooks/purity
   const vendorYears = Math.floor((Date.now() - new Date(vendor.createdAt).getTime()) / (365 * 24 * 60 * 60 * 1000));
 
   const reviewsBlock = (
@@ -466,6 +468,8 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
         </div>
       </div>
 
+      {/* Mağaza adına tıklayan ziyaretçi ürünleri ikinci kez sekme aramadan
+          doğrudan görür. Vitrin/koleksiyon/kampanya sekmeleri korunur. */}
       <VendorStoreTabs
         productCount={products.items.length}
         reviewCount={vendor.reviewSummary.total}
@@ -478,6 +482,7 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
         showProducts={showProductsTab}
         showAbout={showAboutTab}
         showCampaigns={promoBanners.length > 0}
+        defaultTab="products"
       />
     </main>
   );

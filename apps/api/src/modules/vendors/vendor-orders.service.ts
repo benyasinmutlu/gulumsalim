@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { orderItems, vendorEarnings, vendors } from "../../db/schema/index";
 import { env } from "../../config/env";
@@ -43,13 +43,13 @@ const DEFAULT_COMMISSION_RATE = 5;
 
 export function calculateEarning(total: string, commissionRatePercent: number | null) {
   const rate = commissionRatePercent ?? DEFAULT_COMMISSION_RATE;
-  const gross = Number(total);
-  const commission = gross * (rate / 100);
-  const net = gross - commission;
+  const grossCents = Math.round(Number(total) * 100);
+  const commissionCents = Math.round(grossCents * rate / 100);
+  const netCents = grossCents - commissionCents;
   return {
-    grossAmount: gross.toFixed(2),
-    commissionAmount: commission.toFixed(2),
-    netAmount: net.toFixed(2),
+    grossAmount: (grossCents / 100).toFixed(2),
+    commissionAmount: (commissionCents / 100).toFixed(2),
+    netAmount: (netCents / 100).toFixed(2),
   };
 }
 
@@ -108,7 +108,14 @@ export async function transitionOrderItemStatus(
     return updated;
   }
 
-  const updated = await updateVendorOrderItemStatus(vendorId, orderItemId, nextStatus as Exclude<Status, "pending">, tracking);
+  const updated = await updateVendorOrderItemStatus(
+    vendorId,
+    orderItemId,
+    item.vendorStatus as "pending" | "processing",
+    nextStatus as Exclude<Status, "pending">,
+    tracking,
+  );
+  if (!updated) throw new InvalidStatusTransitionError("Sipariş kalemi başka bir işlem tarafından güncellendi");
   if (updated && nextStatus === "shipped") {
     await createCustomerNotification(
       item.customerId,
@@ -150,9 +157,9 @@ async function markDeliveredAndCreditEarning(vendorId: number, orderItemId: numb
     const [updatedItem] = await tx
       .update(orderItems)
       .set({ vendorStatus: "delivered" })
-      .where(eq(orderItems.id, orderItemId))
+      .where(and(eq(orderItems.id, orderItemId), eq(orderItems.vendorId, vendorId), eq(orderItems.vendorStatus, "shipped")))
       .returning();
-    if (!updatedItem) throw new Error("Sipariş kalemi güncellenemedi");
+    if (!updatedItem) throw new InvalidStatusTransitionError("Sipariş kalemi başka bir işlem tarafından güncellendi");
 
     const [vendor] = await tx
       .select({ commissionRate: vendors.commissionRate })

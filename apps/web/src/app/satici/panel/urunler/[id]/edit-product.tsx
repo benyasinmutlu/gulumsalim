@@ -38,6 +38,9 @@ export default function EditProduct({ productId }: { productId: number }) {
   const [compareAtPrice, setCompareAtPrice] = useState("");
   const [brand, setBrand] = useState("");
   const [description, setDescription] = useState("");
+  const [attributes, setAttributes] = useState<Record<string, string>>({});
+  const [newAttributeKey, setNewAttributeKey] = useState("");
+  const [newAttributeValue, setNewAttributeValue] = useState("");
   const [status, setStatus] = useState<VendorProduct["status"]>("draft");
   const [freeShipping, setFreeShipping] = useState(false);
   const [isSecondHand, setIsSecondHand] = useState(false);
@@ -77,6 +80,7 @@ export default function EditProduct({ productId }: { productId: number }) {
       setCompareAtPrice(found.compareAtPrice ?? "");
       setBrand(found.brand ?? "");
       setDescription(found.description ?? "");
+      setAttributes(found.attributes ?? {});
       setStatus(found.status);
       setFreeShipping(found.freeShipping);
       setIsSecondHand(found.isSecondHand ?? false);
@@ -89,6 +93,8 @@ export default function EditProduct({ productId }: { productId: number }) {
 
   useEffect(() => {
     load();
+    // load yalnızca productId değiştiğinde yeniden çalışmalıdır.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   async function handleSave() {
@@ -102,6 +108,7 @@ export default function EditProduct({ productId }: { productId: number }) {
         compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
         brand: brand || undefined,
         description: description || undefined,
+        attributes,
         // bkz. olay: 2026-08-02 - bireysel satıcı durumu bu formdan
         // değiştiremez (bkz. handleSubmitForApproval), göndermeden atlanır.
         ...(isIndividual ? {} : { status }),
@@ -315,6 +322,33 @@ export default function EditProduct({ productId }: { productId: number }) {
             <label>Açıklama</label>
             <textarea className="fi" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ürününüzü müşterilere anlatın: kumaş, kalıp, bakım önerileri..." />
           </div>
+          <div className="fg">
+            <label>Ürün Özellikleri</label>
+            {Object.entries(attributes).map(([key, value]) => (
+              <div key={key} className="row2" style={{ alignItems: "center", marginBottom: 8 }}>
+                <input className="fi" value={key} disabled />
+                <input className="fi" value={value} onChange={(event) => setAttributes((previous) => ({ ...previous, [key]: event.target.value }))} />
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => setAttributes((previous) => Object.fromEntries(Object.entries(previous).filter(([existing]) => existing !== key)))}>Sil</button>
+              </div>
+            ))}
+            <div className="row2" style={{ alignItems: "center" }}>
+              <input className="fi" value={newAttributeKey} onChange={(event) => setNewAttributeKey(event.target.value)} placeholder="Özellik (ör. Materyal)" />
+              <input className="fi" value={newAttributeValue} onChange={(event) => setNewAttributeValue(event.target.value)} placeholder="Değer" />
+              <button
+                type="button"
+                className="btn btn-sec btn-sm"
+                disabled={!newAttributeKey.trim() || !newAttributeValue.trim() || Object.keys(attributes).length >= 20}
+                onClick={() => {
+                  setAttributes((previous) => ({ ...previous, [newAttributeKey.trim()]: newAttributeValue.trim() }));
+                  setNewAttributeKey("");
+                  setNewAttributeValue("");
+                }}
+              >
+                Ekle
+              </button>
+            </div>
+            <small style={{ color: "var(--tx3)" }}>Müşteriler bu bilgileri ürün sayfasında tablo halinde görür.</small>
+          </div>
           {message && <p style={{ fontSize: "0.85rem" }}>{message}</p>}
           <button className="btn btn-pr" onClick={handleSave} disabled={saving} style={{ alignSelf: "flex-start" }}>
             {saving ? "Kaydediliyor..." : "Kaydet"}
@@ -370,7 +404,6 @@ export default function EditProduct({ productId }: { productId: number }) {
         <div className="card-body">
           {product.videoUrl ? (
             <div style={{ marginBottom: "1rem" }}>
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
               <video
                 src={product.videoUrl}
                 controls

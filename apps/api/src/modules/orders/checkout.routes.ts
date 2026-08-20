@@ -23,7 +23,8 @@ import {
   UnavailableItemsError,
 } from "./checkout.service";
 import { CouponExpiredError, CouponMinOrderError, CouponNotFoundError, CouponUsageLimitError } from "./coupon.service";
-import { findOrderByNumber, findOrderByNumberPublic, findOrdersByCustomer } from "./order.repository";
+import { findOrderByNumber, findOrderByNumberAndEmail, findOrderByNumberForSignedAccess, findOrdersByCustomer } from "./order.repository";
+import { createOrderAccessToken, verifyOrderAccessToken } from "./order-access-token";
 
 function couponErrorReply(reply: FastifyReply, err: unknown): boolean {
   if (err instanceof CouponNotFoundError) {
@@ -77,7 +78,7 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/checkout", { preHandler: app.csrfProtection }, async (request, reply) => {
-    const { shippingAddress, email, orderNote, contractAccepted, selectedLines } = checkoutSchema.parse(request.body);
+    const { shippingAddress, identityNumber, email, orderNote, contractAccepted, selectedLines } = checkoutSchema.parse(request.body);
     try {
       const cart = filterCartBySelection(request.session.cart ?? [], selectedLines);
       const result = await startCheckout(
@@ -88,6 +89,8 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
         orderNote,
         contractAccepted,
         request.session.couponCode,
+        identityNumber,
+        request.ip,
       );
       // bkz. kullanıcı isteği: "ödeme bekleniyor veya ödeme başarısız olunca
       // siparişlerde listeleme sepette kalmaya devam etsin ürünler" - sepet
@@ -149,7 +152,7 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
       syncCartProductIndex(app.redis, request.session.sessionId, request.session.cart.map((c) => c.productId)).catch(() => {});
     }
     const query = result
-      ? `order=${encodeURIComponent(result.orderNumber)}&success=${result.success}`
+      ? `order=${encodeURIComponent(result.orderNumber)}&success=${result.success}&access=${createOrderAccessToken(result.orderNumber)}`
       : "success=false";
     return reply.redirect(`${request.protocol}://${request.hostname}/siparis-sonucu?${query}`);
   });
@@ -165,9 +168,20 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
   // findOrderByNumberPublic yorumu).
   app.get("/orders/:orderNumber", async (request, reply) => {
     const { orderNumber } = request.params as { orderNumber: string };
-    const order = request.session.customerId
+    const { access, email } = request.query as { access?: string; email?: string };
+    let order = request.session.customerId
       ? await findOrderByNumber(orderNumber, request.session.customerId)
-      : await findOrderByNumberPublic(orderNumber);
+      : null;
+
+    // Giris yapmamis kullanici icin siparis numarasi tek basina yetmez:
+    // odeme callback'inin imzali anahtari veya takip formundaki eslesen e-posta
+    // gerekir. Yetkisiz ve var olmayan sipariste ayni 404 donerek enumeration
+    // bilgisini de sizdirmiyoruz.
+    if (!order && verifyOrderAccessToken(orderNumber, access)) {
+      order = await findOrderByNumberForSignedAccess(orderNumber);
+    } else if (!order && email) {
+      order = await findOrderByNumberAndEmail(orderNumber, email);
+    }
     if (!order) {
       return reply.status(404).send({ error: { message: "Sipariş bulunamadı" } });
     }
