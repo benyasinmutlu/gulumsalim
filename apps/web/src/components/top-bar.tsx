@@ -23,7 +23,7 @@ export default function TopBar({ customer, freeShippingLimit }: { customer: Cust
             <i className="fas fa-shipping-fast" /> Ücretsiz Kargo {limit.toLocaleString("tr-TR")} TL ve üzeri
           </span>
           <span>
-            <i className="fas fa-undo" /> İade Garantisi 14 gün içinde
+            <i className="fas fa-undo" /> 14 Gün Koşulsuz İade
           </span>
           <span>
             <i className="fas fa-lock" /> Güvenli Ödeme 256 Bit SSL
@@ -41,7 +41,7 @@ export default function TopBar({ customer, freeShippingLimit }: { customer: Cust
           <Link href="/siparis-takip">
             <i className="fas fa-truck" /> Sipariş Takip
           </Link>
-          <Link href="/iletisim">
+          <Link href="/yardim">
             <i className="fas fa-life-ring" /> Yardım &amp; Destek
           </Link>
           <Link href="/hakkimizda">Hakkımızda</Link>

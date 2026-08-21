@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchJson } from "@/lib/client-api";
 
-// "Sana Oturur mu?" — Fit-Zekâsı paneli. Giriş yapmış müşterinin bedeni/boyu ile
+// "Beden Uyum Önerisi" — Fit-Zekâsı paneli. Giriş yapmış müşterinin bedeni/boyu ile
 // bu ürünün beden önerisi + boyut-boyut fit. Backend: GET /products/:slug/fit.
 
 interface DimFit { dimension: "bust" | "waist" | "hip"; status: "tight" | "fits" | "loose"; deltaCm: number; }
@@ -28,7 +28,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div style={{ border: "1px solid var(--color-border, #ecdfe4)", borderRadius: 14, padding: "14px 16px", background: "var(--color-surface, #fff)", marginTop: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <i className="fas fa-ruler-combined" style={{ color: "var(--color-primary, #b0446b)" }} />
-        <strong style={{ fontSize: 15 }}>Sana Oturur mu?</strong>
+        <strong style={{ fontSize: 15 }}>Beden Uyum Önerisi</strong>
       </div>
       {children}
     </div>
@@ -50,7 +50,7 @@ export default function FitPanel({ slug }: { slug: string }) {
     return (
       <Shell>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--color-text-light, #6b5a62)" }}>
-          Bedenine göre sana oturur mu görmek için <Link href="/giris" style={{ color: "var(--color-primary, #b0446b)", fontWeight: 600 }}>giriş yap</Link>.
+          Bedenine uygun beden önerisini görmek için <Link href="/giris" style={{ color: "var(--color-primary, #b0446b)", fontWeight: 600 }}>giriş yap</Link>.
         </p>
       </Shell>
     );

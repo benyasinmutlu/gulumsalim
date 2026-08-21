@@ -747,6 +747,7 @@ export interface PublicVendorProfile {
   followerCount: number;
   createdAt: string;
   successRate: number | null;
+  answeredQuestionCount: number;
 }
 
 export interface VendorPromoBanner {

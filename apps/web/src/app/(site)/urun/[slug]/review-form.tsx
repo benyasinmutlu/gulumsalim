@@ -68,6 +68,9 @@ export default function ReviewForm({ slug, loggedIn }: { slug: string; loggedIn:
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
+      <p style={{ fontSize: "0.72rem", color: "var(--color-text-light)", margin: "0.4rem 0" }}>
+        Yorumunuz incelendikten sonra yayınlanır. Hakaret, reklam, iletişim bilgisi içeren veya ürünle ilgisiz yorumlar yayınlanmaz.
+      </p>
       {error && <p className="error-text">{error}</p>}
       {message && <p style={{ fontSize: "0.85rem", color: "var(--color-success)" }}>{message}</p>}
       <button className="btn btn-sm" type="submit" disabled={loading}>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { apiFetch, apiFetchJson } from "@/lib/api";
-import type { Category, CustomerProfile, ProductDetail, ProductListItem, ProductQuestion, ProductReviewsResponse } from "@/lib/types";
+import type { Category, CustomerProfile, ProductDetail, ProductListItem, ProductQuestion, ProductReviewsResponse, PublicVendorProfile } from "@/lib/types";
 import AddToCartButton from "@/app/(site)/urun/[slug]/add-to-cart-button";
 import ReviewForm from "@/app/(site)/urun/[slug]/review-form";
 import QuestionForm from "@/app/(site)/urun/[slug]/question-form";
@@ -11,8 +11,10 @@ import StarRating from "@/components/star-rating";
 import ProductCard from "@/components/product-card";
 import DwellTracker from "@/components/dwell-tracker";
 import ProductCampaignBadge from "@/components/product-campaign-badge";
+import FollowButton from "@/components/follow-button";
+import FollowerCountStat from "@/components/follower-count-stat";
 
-async function getProduct(slug: string): Promise<ProductDetail | null> {
+export async function getProduct(slug: string): Promise<ProductDetail | null> {
   const res = await apiFetch(`/products/${slug}`);
   if (!res.ok) return null;
   return res.json();
@@ -24,24 +26,35 @@ async function getReviews(slug: string): Promise<ProductReviewsResponse> {
   return res.json();
 }
 
-async function getQuestions(slug: string): Promise<ProductQuestion[]> {
+export async function getQuestions(slug: string): Promise<ProductQuestion[]> {
   const res = await apiFetch(`/products/${slug}/questions`);
   if (!res.ok) return [];
   return res.json();
 }
 
-async function getCurrentCustomer(): Promise<CustomerProfile | null> {
+export async function getCurrentCustomer(): Promise<CustomerProfile | null> {
   const res = await apiFetch("/auth/me");
   if (!res.ok) return null;
   return res.json();
 }
 
-async function getCategories(): Promise<Category[]> {
+export async function getCategories(): Promise<Category[]> {
   try {
     return await apiFetchJson<Category[]>("/categories");
   } catch {
     return [];
   }
+}
+
+// GET /vendors/:slug zaten mağaza sayfası için puan/takipçi/takip-durumu/
+// soru sayısını döndürüyor (bkz. public-vendors.routes.ts) - ürün detay
+// sayfası için ayrı bir uç açmak yerine bu aynı endpoint'i satıcı özetini
+// almak için yeniden kullanıyoruz, döndürdüğü ürün listesini kullanmıyoruz.
+async function getVendorSummary(vendorSlug: string): Promise<PublicVendorProfile | null> {
+  const res = await apiFetch(`/vendors/${vendorSlug}`);
+  if (!res.ok) return null;
+  const data = (await res.json()) as { vendor: PublicVendorProfile };
+  return data.vendor;
 }
 
 async function getRelatedProducts(slug: string): Promise<ProductListItem[]> {
@@ -78,15 +91,17 @@ export default async function ProductDetailView({
   slug: string;
   expectedCategorySlug?: string;
 }): Promise<React.ReactElement | null> {
-  const [product, { reviews, summary }, questions, customer, categories, relatedProducts] = await Promise.all([
-    getProduct(slug),
+  const product = await getProduct(slug);
+  if (!product) return null;
+
+  const [{ reviews, summary }, questions, customer, categories, relatedProducts, vendorSummary] = await Promise.all([
     getReviews(slug),
     getQuestions(slug),
     getCurrentCustomer(),
     getCategories(),
     getRelatedProducts(slug),
+    getVendorSummary(product.vendorSlug),
   ]);
-  if (!product) return null;
 
   const category = categories.find((c) => c.id === product.categoryId);
   if (expectedCategorySlug && category?.slug !== expectedCategorySlug) return null;
@@ -160,6 +175,26 @@ export default async function ProductDetailView({
                 <i className="fas fa-chevron-right detail-vendor-arrow" />
               </Link>
 
+              {vendorSummary && (
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, margin: "8px 0", fontSize: "0.8rem", color: "var(--color-text-light)" }}>
+                  {vendorSummary.reviewSummary.total > 0 && (
+                    <span>
+                      <StarRating value={vendorSummary.reviewSummary.average ?? 0} size={13} /> {vendorSummary.reviewSummary.average?.toFixed(1)} (
+                      {vendorSummary.reviewSummary.total})
+                    </span>
+                  )}
+                  <span>
+                    <FollowerCountStat initialCount={vendorSummary.followerCount} /> Takipçi
+                  </span>
+                  {vendorSummary.answeredQuestionCount > 0 && (
+                    <span>
+                      <i className="fas fa-circle-question" /> Satıcıya sorulan {vendorSummary.answeredQuestionCount} soru
+                    </span>
+                  )}
+                  <FollowButton vendorSlug={product.vendorSlug} initialFollowing={vendorSummary.isFollowing} />
+                </div>
+              )}
+
               {product.videoUrl && (
                 <video
                   src={product.videoUrl}
@@ -225,7 +260,7 @@ export default async function ProductDetailView({
                   <i className="fas fa-shipping-fast" /> Hızlı Kargo
                 </div>
                 <div className="feature-item">
-                  <i className="fas fa-undo" /> 14 Gün İade
+                  <i className="fas fa-undo" /> 14 Gün Koşulsuz İade
                 </div>
                 <div className="feature-item">
                   <i className="fas fa-shield-alt" /> Güvenli Ödeme
@@ -241,7 +276,7 @@ export default async function ProductDetailView({
           <div className="reviews-qna-grid">
             <div id="degerlendirmeler">
               <div className="section-header" style={{ textAlign: "left", marginBottom: 20 }}>
-                <h2 className="section-title">Değerlendirmeler</h2>
+                <h2 className="section-title">Değerlendirmeler {reviews.length > 0 && `(${reviews.length})`}</h2>
               </div>
 
               <div className="review-list">
@@ -277,15 +312,20 @@ export default async function ProductDetailView({
             </div>
 
             <div id="sorular">
-              <div className="section-header" style={{ textAlign: "left", marginBottom: 20 }}>
-                <h2 className="section-title">Sorular</h2>
-              </div>
+              <Link
+                href={category ? `/${category.slug}/${product.slug}/sorular` : `/urun/${product.slug}/sorular`}
+                className="section-header"
+                style={{ textAlign: "left", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}
+              >
+                <h2 className="section-title">Sorular {questions.length > 0 && `(${questions.length})`}</h2>
+                <i className="fas fa-chevron-right" style={{ color: "var(--color-text-light)" }} />
+              </Link>
 
               <div className="review-list">
                 {questions.length === 0 ? (
                   !customer && <p style={{ fontSize: "0.85rem" }}>Bu ürün hakkında henüz soru sorulmamış.</p>
                 ) : (
-                  questions.map((q) => (
+                  questions.slice(0, 3).map((q) => (
                     <div key={q.id} className="review-card">
                       <strong style={{ fontSize: 13 }}>{q.customerName}</strong>
                       <p>{q.question}</p>
@@ -299,6 +339,14 @@ export default async function ProductDetailView({
                       )}
                     </div>
                   ))
+                )}
+                {questions.length > 3 && (
+                  <Link
+                    href={category ? `/${category.slug}/${product.slug}/sorular` : `/urun/${product.slug}/sorular`}
+                    style={{ fontSize: "0.85rem", fontWeight: 600 }}
+                  >
+                    Tüm soruları gör ({questions.length}) <i className="fas fa-chevron-right" style={{ fontSize: 11 }} />
+                  </Link>
                 )}
               </div>
 

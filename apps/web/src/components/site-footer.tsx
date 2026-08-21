@@ -27,7 +27,6 @@ export default async function SiteFooter() {
         <div className="container footer-grid">
           <div className="footer-col">
             <Link href="/" className="footer-logo">
-              <span className="logo-icon">GS</span>
               <span className="logo-text">{settings.site_name || "Gülüm Şalım"}</span>
             </Link>
             <p className="footer-desc">{settings.footer_about || "Gülüm Şalım — Türkiye'nin pazar yeri"}</p>
@@ -95,6 +94,9 @@ export default async function SiteFooter() {
               </li>
               <li>
                 <Link href="/iletisim">İletişim</Link>
+              </li>
+              <li>
+                <Link href="/yardim">Yardım &amp; Destek</Link>
               </li>
             </ul>
           </div>

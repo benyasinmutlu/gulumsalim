@@ -20,7 +20,7 @@ export default function TrustStrip({ freeShippingLimit }: { freeShippingLimit?: 
           <i className="fas fa-undo" />
           <span>
             <strong>Kolay İade</strong>
-            <small>14 gün içinde ücretsiz iade</small>
+            <small>14 gün içinde koşulsuz iade</small>
           </span>
         </div>
         <div className="trust-strip-item">

@@ -71,6 +71,7 @@ import vendorPromoBannersRoutes from "./modules/vendors/vendor-promo-banners.rou
 import adminDashboardRoutes from "./modules/admin/admin-dashboard.routes";
 import adminContentAnalyticsRoutes from "./modules/admin/admin-content-analytics.routes";
 import presenceRoutes from "./modules/analytics/presence.routes";
+import supportRoutes from "./modules/support/support.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -169,6 +170,7 @@ export function buildApp() {
   app.register(adminDashboardRoutes);
   app.register(adminContentAnalyticsRoutes);
   app.register(presenceRoutes);
+  app.register(supportRoutes);
 
   // Deploy sonrası doğrulama ve systemd/uptime izleme için: hem Postgres
   // hem Redis'e gerçekten bağlanabildiğini kontrol eder, sadece process'in

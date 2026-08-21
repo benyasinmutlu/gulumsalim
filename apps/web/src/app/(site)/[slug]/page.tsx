@@ -276,6 +276,75 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
                 </div>
               </div>
               <div style={{ lineHeight: 1.8, color: "var(--color-text-light)" }} dangerouslySetInnerHTML={{ __html: page.content }} />
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, margin: "40px 0" }}>
+                <div className="about-feature-card" style={{ textAlign: "left" }}>
+                  <i className="fas fa-store" />
+                  <h3>Mağazanızı Dijitale Taşıyın</h3>
+                  <p>
+                    Gülüm Şalım, butiklerin, mağazaların, markaların ve girişimcilerin ürünlerini dijital ortamda sergileyerek daha geniş
+                    müşteri kitlelerine ulaşabilmelerini hedefler. Satıcılarımız kendi mağazalarını oluşturabilir, ürünlerini sergileyebilir
+                    ve siparişlerini platform üzerinden yönetebilir.
+                  </p>
+                  <Link href="/satici/kayit" className="btn btn-primary btn-lg" style={{ marginTop: 12 }}>
+                    Satıcı Ol
+                  </Link>
+                </div>
+                <div className="about-feature-card" style={{ textAlign: "left" }}>
+                  <i className="fas fa-magnifying-glass" />
+                  <h3>Tarzınızı Tek Bir Yerde Keşfedin</h3>
+                  <p>
+                    Farklı mağazaların ürünlerini tek bir platformda keşfedin. Kategori, beden, renk, fiyat ve tarz seçenekleri arasından
+                    size uygun ürünleri bulun, favorilerinizi oluşturun ve alışverişinizi kolayca tamamlayın. Gülüm Şalım&apos;da alışveriş
+                    deneyiminin kolay, güvenilir ve keyifli olması temel önceliklerimizden biridir.
+                  </p>
+                  <Link href="/urunler" className="btn btn-secondary btn-lg" style={{ marginTop: 12 }}>
+                    Alışverişe Başla
+                  </Link>
+                </div>
+              </div>
+
+              <div style={{ margin: "40px 0" }}>
+                <h3 style={{ marginBottom: 10 }}>Kadın Modasının Dijital Buluşma Noktası</h3>
+                <p style={{ lineHeight: 1.8, color: "var(--color-text-light)" }}>
+                  Vizyonumuz; Türkiye&apos;de kadın modası denildiğinde akla gelen güçlü dijital pazaryerlerinden biri olmak, mağazaların
+                  dijital dünyada büyümesine katkı sağlarken müşterilerimize zengin ürün çeşitliliği ve güçlü bir alışveriş deneyimi
+                  sunmaktır. Gülüm Şalım büyüdükçe mağazalarımızın, ürün çeşitliliğimizin ve kullanıcı topluluğumuzun da birlikte büyüdüğü
+                  sürdürülebilir bir moda ekosistemi oluşturmayı hedefliyoruz.
+                </p>
+              </div>
+
+              <div style={{ margin: "40px 0" }}>
+                <h3 style={{ marginBottom: 10 }}>Teknolojiyle Gelişen Moda</h3>
+                <p style={{ lineHeight: 1.8, color: "var(--color-text-light)" }}>
+                  Gülüm Şalım&apos;ı yalnızca bugünün değil, geleceğin alışveriş deneyimini düşünerek geliştiriyoruz. Ürün çeşitliliğimiz ve
+                  kullanıcı topluluğumuz büyüdükçe kişiselleştirilmiş ürün keşfi, akıllı öneriler ve yapay zekâ destekli kombin ve stil
+                  çözümleri gibi yeni teknolojileri platformumuza kazandırmayı hedefliyoruz.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "36px 24px",
+                  borderRadius: 16,
+                  background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark, var(--color-primary)) 100%)",
+                  color: "#fff",
+                }}
+              >
+                <h3 style={{ color: "#fff", marginBottom: 8 }}>Gülüm Şalım&apos;da yerinizi alın</h3>
+                <p style={{ color: "rgba(255,255,255,.9)", marginBottom: 20 }}>
+                  İster yeni tarzları keşfedin, ister mağazanızı yeni müşterilerle buluşturma yolculuğuna başlayın.
+                </p>
+                <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                  <Link href="/urunler" className="btn btn-lg join-cta-btn-light">
+                    Alışverişe Başla
+                  </Link>
+                  <Link href="/satici/kayit" className="btn btn-lg btn-secondary">
+                    Satıcı Ol
+                  </Link>
+                </div>
+              </div>
             </>
           ) : slug === "iletisim" ? (
             <>
