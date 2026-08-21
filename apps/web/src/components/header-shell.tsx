@@ -14,13 +14,12 @@ interface Props {
   cartCount: number;
   favoriteCount?: number;
   siteName?: string;
-  siteLogo?: string;
 }
 
 // Header + kategori nav'ı birlikte "sticky" kalır, aşağı kaydırınca gizlenir,
 // yukarı kaydırınca geri gelir - gulumsalim.com'daki #stickyHeaderWrap
 // davranışının birebir karşılığı.
-export default function HeaderShell({ categories, customer, cartCount, favoriteCount = 0, siteName, siteLogo }: Props) {
+export default function HeaderShell({ categories, customer, cartCount, favoriteCount = 0, siteName }: Props) {
   const [hidden, setHidden] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const lastScrollY = useRef(0);
@@ -83,13 +82,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
       <header className="main-header">
         <div className="container header-inner" ref={innerRef}>
           <Link href="/" className="logo" ref={logoRef}>
-            {siteLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={siteLogo} alt={siteName || "Gülüm Şalım"} className="logo-img" />
-            ) : (
-              <span className="logo-icon">GS</span>
-            )}
-            {!siteLogo && <span className="logo-text">{siteName || "Gülüm Şalım"}</span>}
+            <span className="logo-text">{siteName || "Gülüm Şalım"}</span>
           </Link>
 
           <div

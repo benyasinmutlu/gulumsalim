@@ -56,7 +56,6 @@ export default async function SiteNav() {
         cartCount={cartCount}
         favoriteCount={favoriteCount}
         siteName={branding.site_name}
-        siteLogo={branding.site_logo}
       />
     </>
   );
