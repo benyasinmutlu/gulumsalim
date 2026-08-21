@@ -1,10 +1,11 @@
 import { FastifyPluginAsync } from "fastify";
+import { deleteObject } from "../../lib/storage";
 import { countVendorsByStatus, countVendorsByType, listVendorsByStatus, updateVendorCommission } from "./admin-vendors.repository";
 import { updateVendorCommissionSchema, updateVendorStatusSchema, vendorIdParamsSchema, vendorStatusFilterSchema } from "./admin-vendors.schemas";
 import {
   applyVendorAction,
   removeVendor,
-  VendorHasProductsError,
+  VendorHasBusinessHistoryError,
   VendorNotFoundError,
   VendorProfileIncompleteError,
   VendorStatusChangedError,
@@ -54,11 +55,15 @@ const adminVendorsRoutes: FastifyPluginAsync = async (app) => {
   app.delete("/admin/vendors/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { id } = vendorIdParamsSchema.parse(request.params);
     try {
-      await removeVendor(id);
+      const mediaUrls = await removeVendor(id);
+      for (const url of mediaUrls) deleteObject(url).catch(() => {});
       return reply.send({ ok: true });
     } catch (err) {
-      if (err instanceof VendorHasProductsError) {
-        return reply.status(409).send({ error: { message: "Bu satıcının ürünleri var, önce onları kaldırın" } });
+      if (err instanceof VendorHasBusinessHistoryError) {
+        return reply.status(409).send({ error: { message: "Bu satıcının ürün, sipariş veya ödeme geçmişi var; kayıtları korumak için kalıcı silme yerine hesabı kapatın ya da askıya alın." } });
+      }
+      if (err instanceof VendorNotFoundError) {
+        return reply.status(404).send({ error: { message: "Satıcı bulunamadı" } });
       }
       throw err;
     }

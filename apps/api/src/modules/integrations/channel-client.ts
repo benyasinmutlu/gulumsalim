@@ -8,10 +8,14 @@
 // ANAHTARLA İkas dokümanına karşı doğrulanmalı (aşağıda ⚠️ işaretli).
 
 import type { SalesChannel } from "./inventory-sync";
-import type { IkasCreds, TrendyolCreds } from "./credentials";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import type { IkasCreds, TicimaxCreds, TrendyolCreds } from "./credentials";
 
 export interface ChannelStockUpdate {
   externalBarcode: string;
+  /** Kanal stok kaydı barkoddan farklı bir ID istiyorsa (Ticimax varyasyon ID). */
+  externalId?: string;
   stock: number;
 }
 
@@ -48,6 +52,17 @@ async function httpJson(url: string, init: RequestInit): Promise<{ status: numbe
       body = text;
     }
     return { status: res.status, body };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function httpText(url: string, init: RequestInit): Promise<{ status: number; body: string }> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), HTTP_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...init, redirect: "manual", signal: ctrl.signal });
+    return { status: res.status, body: await res.text() };
   } finally {
     clearTimeout(timer);
   }
@@ -180,7 +195,125 @@ export class IkasClient implements ChannelClient {
   }
 }
 
+// ---------- TİCİMAX ----------
+// Ticimax'ın resmi Ürün Servisi WCF/SOAP'tır. StokAdediGuncelle metodu
+// varyasyon ID + StokAdedi kabul eder. Sipariş webhook'u Barkod gönderdiği için
+// barkod externalBarcode'da, stok metodu için varyasyon ID externalId'de tutulur.
+const TICIMAX_NS = "http://tempuri.org/";
+const TICIMAX_DATA_NS = "http://schemas.datacontract.org/2004/07/";
+
+function escapeXml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function ticimaxEndpoint(siteUrl: string): string {
+  return new URL("/Servis/UrunServis.svc", siteUrl).toString();
+}
+
+function isPrivateAddress(address: string): boolean {
+  if (isIP(address) === 4) {
+    const parts = address.split(".").map(Number);
+    const a = parts[0] ?? 0;
+    const b = parts[1] ?? 0;
+    return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) || a >= 224;
+  }
+  const normalized = address.toLowerCase();
+  return normalized === "::" || normalized === "::1" || normalized.startsWith("fc") || normalized.startsWith("fd") ||
+    normalized.startsWith("fe8") || normalized.startsWith("fe9") || normalized.startsWith("fea") || normalized.startsWith("feb");
+}
+
+async function assertPublicTicimaxHost(siteUrl: string): Promise<void> {
+  const hostname = new URL(siteUrl).hostname;
+  const addresses = await lookup(hostname, { all: true, verbatim: true });
+  if (addresses.length === 0 || addresses.some((item) => isPrivateAddress(item.address))) {
+    throw new Error("Ticimax mağaza adresi güvenli bir genel internet adresine çözülmüyor");
+  }
+}
+
+export function buildTicimaxStockRequest(
+  siteUrl: string,
+  memberCode: string,
+  updates: ChannelStockUpdate[],
+): { url: string; headers: Record<string, string>; body: string } {
+  const variations = updates.map((update) => {
+    const variationIdRaw = update.externalId ?? update.externalBarcode;
+    const variationId = Number(variationIdRaw);
+    if (!Number.isSafeInteger(variationId) || variationId <= 0) {
+      throw new Error(`Geçersiz Ticimax varyasyon ID: ${variationIdRaw}`);
+    }
+    return `<a:Varyasyon><a:ID>${variationId}</a:ID><a:StokAdedi>${Math.max(0, Math.floor(update.stock))}</a:StokAdedi></a:Varyasyon>`;
+  }).join("");
+  const body = `<?xml version="1.0" encoding="utf-8"?>` +
+    `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>` +
+    `<StokAdediGuncelle xmlns="${TICIMAX_NS}"><UyeKodu>${escapeXml(memberCode)}</UyeKodu>` +
+    `<urunler xmlns:a="${TICIMAX_DATA_NS}" xmlns:i="http://www.w3.org/2001/XMLSchema-instance">${variations}</urunler>` +
+    `</StokAdediGuncelle></s:Body></s:Envelope>`;
+  return {
+    url: ticimaxEndpoint(siteUrl),
+    headers: { "Content-Type": "text/xml; charset=utf-8", SOAPAction: `"${TICIMAX_NS}IUrunServis/StokAdediGuncelle"` },
+    body,
+  };
+}
+
+function buildTicimaxConnectionRequest(siteUrl: string, memberCode: string) {
+  const body = `<?xml version="1.0" encoding="utf-8"?>` +
+    `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>` +
+    `<SelectParaBirimi xmlns="${TICIMAX_NS}"><UyeKodu>${escapeXml(memberCode)}</UyeKodu><ParaBirimiID>0</ParaBirimiID>` +
+    `</SelectParaBirimi></s:Body></s:Envelope>`;
+  return {
+    url: ticimaxEndpoint(siteUrl),
+    headers: { "Content-Type": "text/xml; charset=utf-8", SOAPAction: `"${TICIMAX_NS}IUrunServis/SelectParaBirimi"` },
+    body,
+  };
+}
+
+function soapFault(body: string): string | null {
+  const match = body.match(/<(?:\w+:)?faultstring[^>]*>([\s\S]*?)<\/(?:\w+:)?faultstring>/i);
+  return match?.[1]?.replace(/<[^>]+>/g, "").slice(0, 300) ?? null;
+}
+
+export class TicimaxClient implements ChannelClient {
+  readonly channel: SalesChannel = "ticimax";
+  constructor(private readonly creds: TicimaxCreds) {}
+
+  async testConnection(): Promise<TestResult> {
+    try {
+      await assertPublicTicimaxHost(this.creds.siteUrl);
+      const req = buildTicimaxConnectionRequest(this.creds.siteUrl, this.creds.memberCode);
+      const { status, body } = await httpText(req.url, { method: "POST", headers: req.headers, body: req.body });
+      const fault = soapFault(body);
+      if (status >= 200 && status < 300 && !fault && /SelectParaBirimiResponse/i.test(body)) return { ok: true };
+      return { ok: false, error: fault ? `Ticimax: ${fault}` : `Ticimax beklenmeyen yanıt: HTTP ${status}` };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Ticimax bağlantısı başarısız" };
+    }
+  }
+
+  async pushStock(updates: ChannelStockUpdate[]): Promise<PushResult> {
+    if (updates.length === 0) return { ok: true };
+    try {
+      await assertPublicTicimaxHost(this.creds.siteUrl);
+      const req = buildTicimaxStockRequest(this.creds.siteUrl, this.creds.memberCode, updates);
+      const { status, body } = await httpText(req.url, { method: "POST", headers: req.headers, body: req.body });
+      const fault = soapFault(body);
+      if (fault) return { ok: false, error: `Ticimax: ${fault}` };
+      const match = body.match(/<StokAdediGuncelleResult>(-?\d+)<\/StokAdediGuncelleResult>/i);
+      const updatedCount = match ? Number(match[1]) : Number.NaN;
+      if (status >= 200 && status < 300 && Number.isFinite(updatedCount) && updatedCount > 0) {
+        return { ok: true, ref: String(updatedCount) };
+      }
+      return { ok: false, error: `Ticimax HTTP ${status}: stok güncellemesi doğrulanamadı` };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Ticimax stok güncellemesi başarısız" };
+    }
+  }
+}
+
 // Satıcının creds'inden kanal client'ı üretir.
-export function getChannelClient(channel: SalesChannel, creds: TrendyolCreds | IkasCreds): ChannelClient {
-  return channel === "trendyol" ? new TrendyolClient(creds as TrendyolCreds) : new IkasClient(creds as IkasCreds);
+export function getChannelClient(channel: SalesChannel, creds: TrendyolCreds | IkasCreds | TicimaxCreds): ChannelClient {
+  if (channel === "trendyol") return new TrendyolClient(creds as TrendyolCreds);
+  if (channel === "ikas") return new IkasClient(creds as IkasCreds);
+  return new TicimaxClient(creds as TicimaxCreds);
 }

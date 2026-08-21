@@ -19,7 +19,7 @@ import {
 import { deriveChannelWebhookIdentity } from "./channel-webhook";
 import { processChannelOrderOnce, type ChannelOrderLine } from "./channel-order.service";
 
-const channelParam = z.enum(["trendyol", "ikas"]);
+const channelParam = z.enum(["trendyol", "ikas", "ticimax"]);
 
 // Kanalın webhook'undan gelen (normalize) sipariş satırı.
 // Çeşitli webhook gövdelerinden {barcode, quantity} satırlarını toleranslı çıkar.
@@ -30,12 +30,12 @@ function extractOrderLines(body: unknown): ChannelOrderLine[] {
   const visit = (obj: unknown): void => {
     if (!obj || typeof obj !== "object") return;
     const rec = obj as Record<string, unknown>;
-    const arr = (rec.lines ?? rec.items ?? rec.orderLines ?? rec.content) as unknown;
+    const arr = (rec.lines ?? rec.items ?? rec.orderLines ?? rec.content ?? rec.Urunler ?? rec.Urun_Liste) as unknown;
     if (Array.isArray(arr)) {
       for (const it of arr) {
         const r = it as Record<string, unknown>;
-        const barcode = String(r.barcode ?? r.sku ?? r.productCode ?? "");
-        const quantity = Number(r.quantity ?? r.amount ?? r.count ?? 0);
+        const barcode = String(r.barcode ?? r.Barkod ?? r.sku ?? r.StokKodu ?? r.productCode ?? "");
+        const quantity = Number(r.quantity ?? r.Adet ?? r.amount ?? r.count ?? 0);
         if (barcode && quantity > 0) out.push({ barcode, quantity });
       }
     }
@@ -46,10 +46,15 @@ function extractOrderLines(body: unknown): ChannelOrderLine[] {
 }
 
 const newListingSchema = z.object({
-  channel: z.enum(["trendyol", "ikas"]),
+  channel: z.enum(["trendyol", "ikas", "ticimax"]),
   productId: z.number().int().positive(),
   variantId: z.number().int().positive().optional(),
   externalBarcode: z.string().min(1),
+  externalProductId: z.string().trim().optional(),
+}).superRefine((value, ctx) => {
+  if (value.channel === "ticimax" && !/^[1-9]\d*$/.test(value.externalProductId ?? "")) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["externalProductId"], message: "Ticimax varyasyon ID pozitif bir sayı olmalı" });
+  }
 });
 
 const integrationsRoutes: FastifyPluginAsync = async (app) => {
@@ -114,7 +119,7 @@ const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/vendor/channel-listings", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
     const input = newListingSchema.parse(request.body);
-    const row = await insertChannelListing(input);
+    const row = await insertChannelListing(input, request.session.vendorId!);
     if (!row) return reply.status(409).send({ error: { message: "Bu ürün bu kanalda zaten listeli (ya da barkod çakışması)" } });
     return reply.status(201).send(row);
   });
@@ -143,6 +148,7 @@ const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/webhooks/trendyol", webhookHandler("trendyol"));
   app.post("/webhooks/ikas", webhookHandler("ikas"));
+  app.post("/webhooks/ticimax", webhookHandler("ticimax"));
 };
 
 export default integrationsRoutes;

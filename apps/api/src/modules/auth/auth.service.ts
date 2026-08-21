@@ -4,17 +4,15 @@ import { env } from "../../config/env";
 import { emailButton, emailHeading, emailMuted, renderEmailLayout, sendMail } from "../../lib/mailer";
 import { verifyGoogleIdToken } from "../../lib/google-auth";
 import {
-  anonymizeCustomer,
   consumeCustomerResetToken,
   createCustomer,
   createGoogleCustomer,
-  customerHasFootprint,
+  deleteCustomerAccountData,
   deleteCustomer,
   findCustomerByEmail,
   findCustomerByGoogleId,
   findCustomerById,
   findCustomerByValidEmailVerificationToken,
-  hardDeleteCustomer,
   linkGoogleId,
   markCustomerEmailVerified,
   setCustomerConsent,
@@ -24,6 +22,7 @@ import {
 } from "./auth.repository";
 import type { LoginInput, RegisterInput, UpdateProfileInput } from "./auth.schemas";
 import type { SizePrefs } from "../../db/schema/customers";
+import { deleteObject } from "../../lib/storage";
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -235,13 +234,7 @@ export async function updateProfile(customerId: number, input: UpdateProfileInpu
 // anonymizeCustomer/hardDeleteCustomer). Çağıran taraf (auth.routes.ts)
 // başarılı dönüşten sonra oturumu sonlandırır.
 export async function deleteCustomerAccount(customerId: number): Promise<void> {
-  const customer = await findCustomerById(customerId);
-  if (!customer) throw new CustomerNotFoundError();
-
-  const hasFootprint = await customerHasFootprint(customerId);
-  if (hasFootprint) {
-    await anonymizeCustomer(customerId);
-  } else {
-    await hardDeleteCustomer(customerId);
-  }
+  const result = await deleteCustomerAccountData(customerId);
+  if (result.status === "not_found") throw new CustomerNotFoundError();
+  if (result.avatarUrl) deleteObject(result.avatarUrl).catch(() => {});
 }

@@ -42,7 +42,7 @@ export default async function VendorPanelLayout({ children }: { children: React.
               // eslint-disable-next-line @next/next/no-img-element
               <img src={vendor.logo} alt={vendor.storeName} />
             ) : (
-              "🌸"
+              "GS"
             )}
           </div>
           <div className="logo-text">

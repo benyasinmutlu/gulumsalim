@@ -1,13 +1,13 @@
-# Stok Entegrasyonu (Gülüm Şalım ↔ Trendyol / İkas)
+# Stok Entegrasyonu (Gülüm Şalım ↔ Trendyol / İkas / Ticimax)
 
-**Durum:** Temel + iskelet hazır (anahtar-gerektirmeyen kısım). Canlıya almak için
-seller API anahtarları + migration + worker bağlama gerekiyor.
+**Durum:** Kanal bağlantısı, şifreli satıcı kimlik bilgileri, atomik stok
+düşümü, transactional outbox, retry ve mutabakat worker'ı bağlıdır.
 
 ## Model
 - **Tek gerçek kaynak = Gülüm Şalım DB.** Kanallar uydu: satışı içeri bildirir,
   merkez stoğu düşer, yeni seviye dışarı itilir.
-- **Eşleme anahtarı:** `product_variants.sku` (varyantlı) / ürün-türevi barkod
-  (varyantsız) → `channel_listings.external_barcode`.
+- **Eşleme anahtarı:** Trendyol/İkas için barkod/SKU; Ticimax için sipariş
+  eşleşmesinde barkod, stok güncellemesinde ayrıca sayısal varyasyon ID.
 - **Aşırı-satış koruması:** güvenlik tamponu (`exposedStock`) + atomik düşüm
   (`UPDATE ... WHERE stock >= qty`) + transactional outbox + reconcile job.
 
@@ -15,21 +15,20 @@ seller API anahtarları + migration + worker bağlama gerekiyor.
 | Dosya | Ne |
 |-------|----|
 | `inventory-sync.ts` | SAF çekirdek: tampon, reconcile diff, outbox olay üretimi, backoff. **Tam test kapsamı.** |
-| `inventory-sync.test.ts` | 13 test (13/13 geçiyor). |
-| `channel-client.ts` | Kanal sözleşmesi + Trendyol/İkas iskelet client (env anahtarı yoksa net hata). |
+| `inventory-sync.test.ts` | Tampon, reconcile, outbox ve backoff testleri. |
+| `channel-client.ts` | Trendyol REST, İkas OAuth/GraphQL ve Ticimax WCF/SOAP istemcileri. |
 | `../../db/schema/integrations.ts` | `channel_listings` + `stock_sync_outbox` tabloları + enum'lar. |
 
-## Canlıya alma adımları (anahtar gelince)
-1. `.env`'e anahtarlar: `TRENDYOL_SUPPLIER_ID/API_KEY/API_SECRET`, `IKAS_CLIENT_ID/CLIENT_SECRET`. **(Ekrana basılmaz.)**
-2. `integrations.ts` şemasını `db/schema/index.ts`'e ekle → `drizzle-kit generate` ile migration üret → uygula.
-3. `channel-client.ts` içindeki `pushStock` gövdelerini doldur (Trendyol price-and-inventory batch; İkas GraphQL stok mutation).
-4. Webhook route'ları ekle: `POST /webhooks/trendyol`, `POST /webhooks/ikas` → barkoddan listing bul → merkez atomik düş → `buildOutboxEvents` ile diğer kanallara outbox yaz.
-5. Kendi satışımızda (`order.repository.ts decrementOrderItemStock`) da `buildOutboxEvents` çağır.
-6. Outbox worker (interval/cron): `status='pending' AND next_attempt_at<=now()` çek → client.pushStock → başarı `done`, hata `backoffSeconds` ile yeniden.
-7. Reconcile job (15-30 dk): `client.fetchStocks` → `computeReconcileDiff` → farkları outbox'a yaz.
-8. Satıcı panelinde ürün/varyanta **barkod** alanı + kanal listing yönetimi.
+## Canlı kullanım notları
+1. `INTEGRATIONS_ENC_KEY` ve `INTEGRATIONS_WEBHOOK_SECRET` sunucu env'inde tanımlı olmalıdır.
+2. Satıcı, panelde kendi kanal bilgilerini girer; secret değerler API'den geri dönmez.
+3. Ticimax'ta mağaza URL'si + Web Servis Üye Kodu bağlanır; ürün eşlemesinde
+   resmi servisin istediği barkod ve varyasyon ID birlikte girilir.
+4. Ticimax Webhook Yönetimi'nde hedef URL `/api/webhooks/ticimax?token=<secret>`
+   olarak tanımlanır. Aynı olay ikinci kez gelirse idempotency kaydı stok düşümünü tekrar ettirmez.
+5. `0063` ve `0064` migration'ları uygulandıktan sonra kanal panelde görünür.
 
-## Neden hot-patch edilmedi
-Yeni DB tabloları içeriyor; migration canlı Postgres'e sizin drizzle akışınızdan
-uygulanmalı. Bu yüzden dosyalar yerel repoda, gözden geçirilebilir/geri-alınabilir
-şekilde duruyor — canlıya elle basılmadı.
+## Güvenlik
+Ticimax URL'si yalnız HTTPS origin kabul eder; localhost/IP/private DNS
+çözümleri ve yönlendirmeler engellenir. Dış çağrılar timeout'ludur. Stok olayları
+satır kilidi, fencing token, tekrar deneme ve benzersiz varyasyon eşlemesiyle işlenir.

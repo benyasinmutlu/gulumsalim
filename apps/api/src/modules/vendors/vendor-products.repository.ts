@@ -2,17 +2,13 @@ import { randomBytes } from "node:crypto";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import {
-  collectionProducts,
-  homepageCollectionProducts,
-  orderItems,
   productFavorites,
   productImages,
-  productQuestions,
-  productReviews,
   products,
   productVariants,
 } from "../../db/schema/index";
 import { outer } from "../../lib/sql-helpers";
+import { deleteProductSafely } from "../catalog/product-deletion.repository";
 
 // bkz. kullanıcı isteği: "satıcı panelinde ... ürünlerine kaç kişi baktı
 // ... favorideyse de göster" - viewCount zaten products tablosunda vardı
@@ -162,30 +158,10 @@ export async function deleteVendorProduct(
   vendorId: number,
   productId: number,
 ): Promise<{ deleted: boolean; blockedByOrders?: boolean; imageUrls?: string[] }> {
-  const [owned] = await db
-    .select({ id: products.id })
-    .from(products)
-    .where(and(eq(products.id, productId), eq(products.vendorId, vendorId)))
-    .limit(1);
-  if (!owned) return { deleted: false };
-
-  const [hasOrder] = await db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.productId, productId)).limit(1);
-  if (hasOrder) return { deleted: false, blockedByOrders: true };
-
-  const images = await db.select({ url: productImages.url }).from(productImages).where(eq(productImages.productId, productId));
-
-  await db.transaction(async (tx) => {
-    await tx.delete(productImages).where(eq(productImages.productId, productId));
-    await tx.delete(productVariants).where(eq(productVariants.productId, productId));
-    await tx.delete(productReviews).where(eq(productReviews.productId, productId));
-    await tx.delete(productQuestions).where(eq(productQuestions.productId, productId));
-    await tx.delete(productFavorites).where(eq(productFavorites.productId, productId));
-    await tx.delete(collectionProducts).where(eq(collectionProducts.productId, productId));
-    await tx.delete(homepageCollectionProducts).where(eq(homepageCollectionProducts.productId, productId));
-    await tx.delete(products).where(and(eq(products.id, productId), eq(products.vendorId, vendorId)));
-  });
-
-  return { deleted: true, imageUrls: images.map((i) => i.url) };
+  const result = await deleteProductSafely(productId, vendorId);
+  if (result.status === "blocked_by_orders") return { deleted: false, blockedByOrders: true };
+  if (result.status !== "deleted") return { deleted: false };
+  return { deleted: true, imageUrls: result.mediaUrls };
 }
 
 export async function listProductImages(productId: number) {

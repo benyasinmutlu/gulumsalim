@@ -5,7 +5,7 @@ export default function AdminLoginPage() {
     <div className="admin-login-page">
       <div className="admin-login-card">
         <div className="login-logo">
-          <span className="logo-icon">🌸</span>
+          <span className="logo-icon">GS</span>
           <h1>Gülüm Şalım</h1>
           <p>Mağaza Yönetim Paneli</p>
         </div>

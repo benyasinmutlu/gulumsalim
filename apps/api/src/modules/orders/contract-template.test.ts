@@ -17,6 +17,7 @@ describe("renderDistanceSalesContract", () => {
       vendorBlocks: [
         {
           vendorId: 1,
+          legalName: "Mağaza A",
           storeName: "Mağaza A",
           taxId: "1234567890",
           legalAddress: "Adres A",
@@ -25,6 +26,7 @@ describe("renderDistanceSalesContract", () => {
         },
         {
           vendorId: 2,
+          legalName: "Ayşe Yılmaz",
           storeName: "Mağaza B",
           taxId: null,
           legalAddress: null,
@@ -41,6 +43,8 @@ describe("renderDistanceSalesContract", () => {
     expect(html).toContain("Ayşe Yılmaz");
     expect(html).toContain("Mağaza A");
     expect(html).toContain("Mağaza B");
+    expect(html).toContain("Ayşe Yılmaz");
+    expect(html).toContain("Satışta Görünen Ad");
     expect(html).toContain("Ürün 1");
     expect(html).toContain("Ürün 2");
     // Vergi/adres bilgisi olmayan satıcı (henüz doldurmamış) için em-dash fallback.
@@ -80,6 +84,7 @@ describe("renderDistanceSalesContract", () => {
       vendorBlocks: [
         {
           vendorId: 1,
+          legalName: "Mağaza A",
           storeName: "Mağaza A",
           taxId: null,
           legalAddress: null,

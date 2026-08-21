@@ -182,8 +182,11 @@ export default function StoreProfileForm() {
           <form className="fc" onSubmit={handleSubmit}>
             <div className="row2">
               <div className="fg">
-                <label>Mağaza Adı</label>
+                <label>{vendor.vendorType === "individual" ? "Satışta Görünecek Ad (Kullanıcı Adı)" : "Mağaza Adı"}</label>
                 <input className="fi" value={form.storeName} onChange={(e) => set("storeName", e.target.value)} required />
+                {vendor.vendorType === "individual" && (
+                  <small className="form-text">Ürünlerde ve mağaza sayfanda bu ad görünür; gerçek adın ödeme ve yasal belgelerde korunur.</small>
+                )}
               </div>
               <div className="fg">
                 <label>Yetkili Adı Soyadı</label>

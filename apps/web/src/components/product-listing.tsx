@@ -84,7 +84,7 @@ export default async function ProductListing({
       : params.saleOnly
         ? "İndirimli Ürünler"
         : params.secondHand
-          ? "2. El Ürünler"
+          ? "Dolap (2. El) Ürünleri"
           : (matchedCategory?.name ?? "Tüm Koleksiyon"));
 
   // bkz. kullanıcı isteği: "tümünü gör sayfalarının arka planında başlığa

@@ -25,7 +25,7 @@ export default async function AdminPanelLayout({ children }: { children: React.R
     <div className="admin-wrapper">
       <aside className="admin-sidebar" id="adminSidebar">
         <div className="sidebar-logo">
-          <span className="logo-icon">🌸</span>
+          <span className="logo-icon">GS</span>
           <div className="logo-text-wrapper">
             <span className="logo-text">Gülüm Şalım</span>
             <small>Yönetim Paneli</small>

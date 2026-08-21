@@ -1,0 +1,1 @@
+ALTER TYPE "public"."sales_channel" ADD VALUE 'ticimax';

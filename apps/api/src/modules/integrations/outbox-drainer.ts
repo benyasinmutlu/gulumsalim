@@ -47,7 +47,11 @@ async function drainOnce(): Promise<void> {
       if (!creds) continue;
       const client = getChannelClient(row.channel, creds);
       try {
-        const res = await client.pushStock([{ externalBarcode: row.externalBarcode, stock: row.targetStock }]);
+        const res = await client.pushStock([{
+          externalBarcode: row.externalBarcode,
+          externalId: row.externalProductId ?? undefined,
+          stock: row.targetStock,
+        }]);
         if (res.ok) {
           if (row.claimToken && (await markOutboxDone(row.id, row.claimToken))) {
             await updateListingSynced(row.listingId, row.targetStock);

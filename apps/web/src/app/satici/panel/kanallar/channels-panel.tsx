@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { fetchJson, mutateJson } from "@/lib/client-api";
+import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
+
+type SalesChannel = "trendyol" | "ikas" | "ticimax";
 
 interface ChannelListing {
   id: number;
-  channel: "trendyol" | "ikas";
+  channel: SalesChannel;
   variantId: number | null;
   externalBarcode: string;
+  externalProductId: string | null;
   enabled: boolean;
   lastSyncedStock: number | null;
   lastSyncedAt: string | null;
@@ -16,7 +19,7 @@ interface ChannelListing {
   productName: string;
 }
 interface ChannelStatus {
-  channel: "trendyol" | "ikas";
+  channel: SalesChannel;
   connected: boolean;
   status: string;
   lastError: string | null;
@@ -27,7 +30,7 @@ interface IntegrationStatus {
 }
 
 // Kanal başına istenen API kimlik alanları (satıcı kendi hesabından girer).
-const CRED_FIELDS: Record<"trendyol" | "ikas", { name: string; label: string; placeholder?: string }[]> = {
+const CRED_FIELDS: Record<SalesChannel, { name: string; label: string; placeholder?: string }[]> = {
   trendyol: [
     { name: "supplierId", label: "Supplier ID (Satıcı ID)" },
     { name: "apiKey", label: "API Key" },
@@ -38,13 +41,17 @@ const CRED_FIELDS: Record<"trendyol" | "ikas", { name: string; label: string; pl
     { name: "clientSecret", label: "Client Secret" },
     { name: "storeName", label: "Mağaza adı", placeholder: "magaza (magaza.myikas.com)" },
   ],
+  ticimax: [
+    { name: "siteUrl", label: "Ticimax mağaza adresi", placeholder: "https://magazaniz.com" },
+    { name: "memberCode", label: "Web servis üye kodu" },
+  ],
 };
 interface VendorProductLite {
   id: number;
   name: string;
 }
 
-const CHANNEL_LABEL: Record<string, string> = { trendyol: "Trendyol", ikas: "İkas" };
+const CHANNEL_LABEL: Record<SalesChannel, string> = { trendyol: "Trendyol", ikas: "İkas", ticimax: "Ticimax" };
 const SYNC = {
   pending: { label: "Bekliyor", bg: "#fff4e5", fg: "#9a5b00" },
   synced: { label: "Senkron", bg: "#e7f6ec", fg: "#1e7d43" },
@@ -62,8 +69,9 @@ export default function ChannelsPanel() {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [products, setProducts] = useState<VendorProductLite[]>([]);
   const [productId, setProductId] = useState<number | "">("");
-  const [channel, setChannel] = useState<"trendyol" | "ikas">("trendyol");
+  const [channel, setChannel] = useState<SalesChannel>("trendyol");
   const [barcode, setBarcode] = useState("");
+  const [externalProductId, setExternalProductId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -89,11 +97,11 @@ export default function ChannelsPanel() {
   }
 
   // --- Kanal bağlantısı (per-vendor API anahtarı) ---
-  const [creds, setCreds] = useState<Record<"trendyol" | "ikas", Record<string, string>>>({ trendyol: {}, ikas: {} });
+  const [creds, setCreds] = useState<Record<SalesChannel, Record<string, string>>>({ trendyol: {}, ikas: {}, ticimax: {} });
   const [busyCh, setBusyCh] = useState<string | null>(null);
   const [chError, setChError] = useState<Record<string, string | null>>({});
 
-  async function connectChannel(ch: "trendyol" | "ikas") {
+  async function connectChannel(ch: SalesChannel) {
     setBusyCh(ch);
     setChError((e) => ({ ...e, [ch]: null }));
     try {
@@ -106,7 +114,7 @@ export default function ChannelsPanel() {
       setBusyCh(null);
     }
   }
-  async function disconnectChannel(ch: "trendyol" | "ikas") {
+  async function disconnectChannel(ch: SalesChannel) {
     setBusyCh(ch);
     try {
       await mutateJson(`/vendor/integrations/${ch}/disconnect`, "POST", {});
@@ -115,7 +123,7 @@ export default function ChannelsPanel() {
       setBusyCh(null);
     }
   }
-  async function testChannel(ch: "trendyol" | "ikas") {
+  async function testChannel(ch: SalesChannel) {
     setBusyCh(ch);
     setChError((e) => ({ ...e, [ch]: null }));
     try {
@@ -130,16 +138,22 @@ export default function ChannelsPanel() {
 
   async function addListing(e: FormEvent) {
     e.preventDefault();
-    if (!productId || !barcode.trim()) return;
+    if (!productId || !barcode.trim() || (channel === "ticimax" && !externalProductId.trim())) return;
     setSaving(true);
     setError(null);
     try {
-      await mutateJson("/vendor/channel-listings", "POST", { channel, productId: Number(productId), externalBarcode: barcode.trim() });
+      await mutateJson("/vendor/channel-listings", "POST", {
+        channel,
+        productId: Number(productId),
+        externalBarcode: barcode.trim(),
+        ...(channel === "ticimax" ? { externalProductId: externalProductId.trim() } : {}),
+      });
       setBarcode("");
+      setExternalProductId("");
       setProductId("");
       await load();
-    } catch {
-      setError("Eklenemedi — bu ürün bu kanalda zaten listeli ya da barkod kullanılıyor olabilir.");
+    } catch (err) {
+      setError(err instanceof ClientApiError ? err.message : "Eşleme eklenemedi.");
     } finally {
       setSaving(false);
     }
@@ -149,12 +163,12 @@ export default function ChannelsPanel() {
     <div style={{ maxWidth: 900 }}>
       <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 4px" }}>Kanallar</h1>
       <p style={{ color: "var(--color-text-light, #666)", margin: "0 0 20px" }}>
-        Kendi Trendyol ve İkas hesabınızı bağlayın; stok satıldıkça her iki tarafta da otomatik güncellenir. API bilgileriniz şifreli saklanır.
+        Trendyol, İkas ve Ticimax hesabınızı bağlayın; merkez stok değiştikçe bağlı kanallar otomatik güncellenir. API bilgileriniz şifreli saklanır.
       </p>
 
       {/* Kanal bağlantısı — her satıcı kendi API anahtarını girer */}
       <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
-        {(["trendyol", "ikas"] as const).map((ch) => {
+        {(["trendyol", "ikas", "ticimax"] as const).map((ch) => {
           const st = status?.channels.find((c) => c.channel === ch);
           const connected = st?.connected ?? false;
           const filled = CRED_FIELDS[ch].every((f) => (creds[ch][f.name] ?? "").trim().length > 0);
@@ -217,7 +231,7 @@ export default function ChannelsPanel() {
               <tr style={{ textAlign: "left", color: "#888", fontSize: 12 }}>
                 <th style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}>Ürün</th>
                 <th style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}>Kanal</th>
-                <th style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}>Barkod</th>
+                <th style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}>Barkod / Kanal ID</th>
                 <th style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}>Durum</th>
                 <th style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}>Son Senkron</th>
                 <th style={{ padding: "8px 10px", borderBottom: "1px solid #eee" }}></th>
@@ -228,7 +242,9 @@ export default function ChannelsPanel() {
                 <tr key={l.id} style={{ opacity: l.enabled ? 1 : 0.5 }}>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f3f3f3" }}>{l.productName}</td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f3f3f3" }}>{CHANNEL_LABEL[l.channel]}</td>
-                  <td style={{ padding: "10px", borderBottom: "1px solid #f3f3f3", fontFamily: "monospace", fontSize: 13 }}>{l.externalBarcode}</td>
+                  <td style={{ padding: "10px", borderBottom: "1px solid #f3f3f3", fontFamily: "monospace", fontSize: 13 }}>
+                    {l.externalBarcode}{l.externalProductId ? <><br /><span style={{ color: "#888" }}>ID: {l.externalProductId}</span></> : null}
+                  </td>
                   <td style={{ padding: "10px", borderBottom: "1px solid #f3f3f3" }}>
                     {pill(SYNC[l.syncStatus].bg, SYNC[l.syncStatus].fg, SYNC[l.syncStatus].label)}
                   </td>
@@ -268,10 +284,11 @@ export default function ChannelsPanel() {
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, flex: "0 1 140px" }}>
             Kanal
-            <select value={channel} onChange={(e) => setChannel(e.target.value as "trendyol" | "ikas")}
+            <select value={channel} onChange={(e) => { setChannel(e.target.value as SalesChannel); setBarcode(""); setExternalProductId(""); }}
               style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd" }}>
               <option value="trendyol">Trendyol</option>
               <option value="ikas">İkas</option>
+              <option value="ticimax">Ticimax</option>
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, flex: "1 1 180px" }}>
@@ -279,7 +296,14 @@ export default function ChannelsPanel() {
             <input value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="Kanaldaki barkod" required
               style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd" }} />
           </label>
-          <button type="submit" disabled={saving || !productId || !barcode.trim()}
+          {channel === "ticimax" && (
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, flex: "1 1 180px" }}>
+              Ticimax Varyasyon ID
+              <input value={externalProductId} onChange={(e) => setExternalProductId(e.target.value)} placeholder="Örn. 123456" required inputMode="numeric"
+                style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd" }} />
+            </label>
+          )}
+          <button type="submit" disabled={saving || !productId || !barcode.trim() || (channel === "ticimax" && !externalProductId.trim())}
             style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--color-primary, #8a1c4d)", color: "#fff", fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
             {saving ? "Ekleniyor…" : "Ekle"}
           </button>

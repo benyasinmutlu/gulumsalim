@@ -35,6 +35,9 @@ export interface ContractLineItem {
 
 export interface ContractVendorBlock {
   vendorId: number;
+  /** Sözleşme ve faturada yer alan gerçek kişi adı veya ticari unvan. */
+  legalName: string;
+  /** Ürün ve mağaza vitrinlerinde görünen, satıcının seçtiği ad. */
   storeName: string;
   taxId: string | null;
   legalAddress: string | null;
@@ -71,7 +74,8 @@ function renderVendorBlock(block: ContractVendorBlock, index: number): string {
     )
     .join("");
   return `<div style="margin:16px 0;padding:12px;border:1px solid #e5c9dc;border-radius:8px;">
-<p style="margin:0 0 8px;"><strong>Satıcı ${index + 1}:</strong> ${esc(block.storeName)}</p>
+<p style="margin:0 0 4px;"><strong>Satıcı ${index + 1}:</strong> ${esc(block.legalName)}</p>
+${block.storeName !== block.legalName ? `<p style="margin:0 0 8px;font-size:0.9rem;">Satışta Görünen Ad: ${esc(block.storeName)}</p>` : ""}
 <p style="margin:0 0 4px;font-size:0.9rem;">Vergi No / MERSİS No: ${block.taxId ? esc(block.taxId) : "—"}</p>
 <p style="margin:0 0 8px;font-size:0.9rem;">Adres: ${block.legalAddress ? esc(block.legalAddress) : "—"}</p>
 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">

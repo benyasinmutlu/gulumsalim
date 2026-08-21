@@ -247,7 +247,7 @@ export async function countOpenOrderItemsForVendor(vendorId: number): Promise<nu
   return row?.count ?? 0;
 }
 
-// Ürünü olan (dolayısıyla admin_vendors.repository.ts deleteVendorIfNoProducts
+// Ürünü/ticari geçmişi olan (dolayısıyla admin_vendors.repository.ts deleteVendorIfNoBusinessHistory
 // ile kalıcı silinemeyen) bir satıcının kendi isteğiyle hesabını kapatması -
 // "banned" ile KARIŞTIRILMAMALI (cezai değil). Vergi/ticari kayıtlar (taxId,
 // legalAddress, walletBalance geçmişi) KASITLI OLARAK dokunulmadan bırakılır -

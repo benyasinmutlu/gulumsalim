@@ -87,7 +87,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
               // eslint-disable-next-line @next/next/no-img-element
               <img src={siteLogo} alt={siteName || "Gülüm Şalım"} className="logo-img" />
             ) : (
-              <span className="logo-icon">🌸</span>
+              <span className="logo-icon">GS</span>
             )}
             {!siteLogo && <span className="logo-text">{siteName || "Gülüm Şalım"}</span>}
           </Link>

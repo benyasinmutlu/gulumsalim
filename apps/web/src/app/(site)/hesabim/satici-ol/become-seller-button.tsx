@@ -55,8 +55,19 @@ export default function BecomeSellerButton() {
   return (
     <form onSubmit={handleSubmit} className="become-seller-form">
       <div className="form-group">
-        <label>Mağaza Adı</label>
-        <input className="form-control" required value={storeName} onChange={(e) => setStoreName(e.target.value)} />
+        <label htmlFor="individual-store-name">Satışta Görünecek Ad (Kullanıcı Adı)</label>
+        <input
+          id="individual-store-name"
+          className="form-control"
+          required
+          minLength={2}
+          maxLength={120}
+          autoComplete="nickname"
+          placeholder="Örn. Ayşe'nin Dolabı"
+          value={storeName}
+          onChange={(e) => setStoreName(e.target.value)}
+        />
+        <small className="form-text">Ürünlerde ve mağaza sayfanda bu ad görünür. Gerçek adın yalnızca ödeme ve yasal belgelerde kullanılır.</small>
       </div>
       <div className="form-group">
         <label>Vergi No / TCKN</label>

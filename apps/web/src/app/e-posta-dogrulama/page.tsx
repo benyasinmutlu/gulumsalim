@@ -23,7 +23,7 @@ export default async function EmailVerificationResultPage({ searchParams }: Prop
           <div className="ga-orb ga-orb2" />
           <div className="ga-visual-inner">
             <Link href="/" className="ga-brand">
-              <div className="ga-brand-icon">🌸</div>
+              <div className="ga-brand-icon">GS</div>
               <div className="ga-brand-name">Gülüm Şalım</div>
             </Link>
             <h1>E-posta Doğrulama</h1>

@@ -1,24 +1,15 @@
-import { and, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import {
   categories,
-  channelListings,
-  collectionProducts,
-  discoverEvents,
-  discoverFeedback,
-  fitFeedback,
-  homepageCollectionProducts,
-  orderItems,
   productFavorites,
   productImages,
-  productQuestions,
-  productReviews,
   productVariants,
   products,
-  stockSyncOutbox,
   vendors,
 } from "../../db/schema/index";
 import { outer } from "../../lib/sql-helpers";
+import { deleteProductSafely } from "../catalog/product-deletion.repository";
 
 interface ListParams {
   status?: "draft" | "pending" | "active" | "inactive" | "rejected";
@@ -89,29 +80,9 @@ export class ProductHasOrdersError extends Error {}
 // değerlendirme, soru, favori, kanal eşlemesi vb.) referans bütünlüğü
 // bozulmadan tek transaction'da temizlenip asıl satır silinir.
 export async function deleteProduct(id: number) {
-  const [orderRow] = await db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.productId, id)).limit(1);
-  if (orderRow) throw new ProductHasOrdersError();
-
-  return db.transaction(async (tx) => {
-    const listingRows = await tx.select({ id: channelListings.id }).from(channelListings).where(eq(channelListings.productId, id));
-    const listingIds = listingRows.map((r) => r.id);
-    if (listingIds.length > 0) {
-      await tx.delete(stockSyncOutbox).where(inArray(stockSyncOutbox.listingId, listingIds));
-      await tx.delete(channelListings).where(eq(channelListings.productId, id));
-    }
-    await tx.delete(homepageCollectionProducts).where(eq(homepageCollectionProducts.productId, id));
-    await tx.delete(collectionProducts).where(eq(collectionProducts.productId, id));
-    await tx.delete(fitFeedback).where(eq(fitFeedback.productId, id));
-    await tx.delete(discoverFeedback).where(eq(discoverFeedback.productId, id));
-    await tx.delete(discoverEvents).where(eq(discoverEvents.productId, id));
-    await tx.delete(productFavorites).where(eq(productFavorites.productId, id));
-    await tx.delete(productQuestions).where(eq(productQuestions.productId, id));
-    await tx.delete(productReviews).where(eq(productReviews.productId, id));
-    await tx.delete(productVariants).where(eq(productVariants.productId, id));
-    await tx.delete(productImages).where(eq(productImages.productId, id));
-    const result = await tx.delete(products).where(eq(products.id, id)).returning({ id: products.id });
-    return result.length > 0;
-  });
+  const result = await deleteProductSafely(id);
+  if (result.status === "blocked_by_orders") throw new ProductHasOrdersError();
+  return result;
 }
 
 export async function countProductsByStatus() {

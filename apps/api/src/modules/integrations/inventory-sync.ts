@@ -9,9 +9,9 @@
 //   - Merkez stok her değiştiğinde diğer kanallara güncel seviye İTİLİR.
 //   - Aşırı-satışa karşı: güvenlik tamponu + atomik düşüm + outbox + reconcile.
 
-export type SalesChannel = "trendyol" | "ikas";
+export type SalesChannel = "trendyol" | "ikas" | "ticimax";
 
-export const ALL_CHANNELS: SalesChannel[] = ["trendyol", "ikas"];
+export const ALL_CHANNELS: SalesChannel[] = ["trendyol", "ikas", "ticimax"];
 
 // Bir kanala AÇIK edilecek stok. Propagation gecikmesinde son ürünü iki yerde
 // birden satmayı önlemek için gerçek stoktan tampon düşülür (asla negatif

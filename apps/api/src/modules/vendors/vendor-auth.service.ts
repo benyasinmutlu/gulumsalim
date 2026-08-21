@@ -2,9 +2,10 @@ import bcrypt from "bcryptjs";
 import { randomBytes, createHash } from "node:crypto";
 import { env } from "../../config/env";
 import { emailButton, emailHeading, emailMuted, renderEmailLayout, sendMail } from "../../lib/mailer";
+import { deleteObject } from "../../lib/storage";
 import { slugify } from "../../lib/slugify";
 import { findCustomerById } from "../auth/auth.repository";
-import { deleteVendorIfNoProducts } from "../admin/admin-vendors.repository";
+import { deleteVendorIfNoBusinessHistory } from "../admin/admin-vendors.repository";
 import { notifyVendorActivated } from "../notifications/vendor-activation-notification.service";
 import {
   consumeVendorResetToken,
@@ -237,7 +238,7 @@ export async function updateVendorAccount(vendorId: number, input: UpdateVendorP
 
 // bkz. kullanıcı isteği (2026-08-02): "satıcı üyelik iptali olacak" - hiç
 // ürünü olmayan (dolayısıyla hiç siparişi de olamayan) satıcı kalıcı
-// silinir (bkz. admin-vendors.repository.ts deleteVendorIfNoProducts, admin
+// silinir (bkz. admin-vendors.repository.ts deleteVendorIfNoBusinessHistory, admin
 // panelin kullandığı AYNI fonksiyon); ürünü olan satıcı "closed" durumuna
 // alınır, ürünleri pasife düşer, vergi/muhasebe kayıtları korunur (bkz.
 // vendor.repository.ts closeVendorAccount). Teslim edilmemiş/tamamlanmamış
@@ -250,8 +251,10 @@ export async function closeVendorSelfAccount(vendorId: number): Promise<void> {
   const openOrders = await countOpenOrderItemsForVendor(vendorId);
   if (openOrders > 0) throw new VendorHasOpenOrdersError();
 
-  const deleted = await deleteVendorIfNoProducts(vendorId);
-  if (!deleted) {
+  const result = await deleteVendorIfNoBusinessHistory(vendorId);
+  if (result.status === "deleted") {
+    for (const url of result.mediaUrls) deleteObject(url).catch(() => {});
+  } else {
     await closeVendorAccount(vendorId);
   }
 }

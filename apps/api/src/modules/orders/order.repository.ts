@@ -199,7 +199,14 @@ interface CreateOrderInput {
 export async function fetchVendorsForCheckout(vendorIds: number[]) {
   if (vendorIds.length === 0) return [];
   return db
-    .select({ id: vendors.id, storeName: vendors.storeName, taxId: vendors.taxId, legalAddress: vendors.legalAddress })
+    .select({
+      id: vendors.id,
+      storeName: vendors.storeName,
+      fullName: vendors.fullName,
+      vendorType: vendors.vendorType,
+      taxId: vendors.taxId,
+      legalAddress: vendors.legalAddress,
+    })
     .from(vendors)
     .where(inArray(vendors.id, vendorIds));
 }

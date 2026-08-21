@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_channel_listing_ticimax_variation" ON "channel_listings" USING btree ("external_product_id") WHERE "channel_listings"."channel" = 'ticimax' AND "channel_listings"."external_product_id" IS NOT NULL;

@@ -1,6 +1,26 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { customerAddresses, customerNotifications, customers, orders, productFavorites, productQuestions, productReviews, vendorFollowers } from "../../db/schema/index";
+import {
+  cookieConsents,
+  couponRedemptions,
+  customerAddresses,
+  customerNotifications,
+  customerVendorMessages,
+  customers,
+  discoverEvents,
+  discoverFeedback,
+  fitFeedback,
+  orderRefunds,
+  orders,
+  productFavorites,
+  productQuestions,
+  productReviews,
+  siteFeedback,
+  vendorComplaints,
+  vendorFollowers,
+  vendorReviews,
+  vendors,
+} from "../../db/schema/index";
 import type { SizePrefs } from "../../db/schema/customers";
 
 export async function findCustomerByEmail(email: string) {
@@ -154,36 +174,52 @@ export async function markCustomerEmailVerified(id: number) {
 // auth.service.ts). productReviews/productQuestions customerId'de FK
 // kısıtlaması olmasa da (bkz. catalog.ts), satır silindiğinde bu herkese
 // açık içerikler sahipsiz kalıp bozuk görünürdü - o yüzden ayrıca kontrol edilir.
-export async function customerHasFootprint(id: number): Promise<boolean> {
-  const [[orderRow], [reviewRow], [questionRow]] = await Promise.all([
-    db.select({ id: orders.id }).from(orders).where(eq(orders.customerId, id)).limit(1),
-    db.select({ id: productReviews.id }).from(productReviews).where(eq(productReviews.customerId, id)).limit(1),
-    db.select({ id: productQuestions.id }).from(productQuestions).where(eq(productQuestions.customerId, id)).limit(1),
-  ]);
-  return Boolean(orderRow || reviewRow || questionRow);
-}
+export type DeleteCustomerDataResult =
+  | { status: "not_found" }
+  | { status: "deleted" | "anonymized"; avatarUrl: string | null };
 
-// İz bırakmamış (hiç sipariş/değerlendirme/soru vermemiş) hesap - kalıcı
-// silinir, referans bütünlüğünü bozacak bir bağımlılığı yoktur.
-export async function hardDeleteCustomer(id: number): Promise<void> {
-  await db.transaction(async (tx) => {
+// Hesap izi kontrolü ve silme/anonimleştirme aynı transaction ve satır kilidi
+// altında yapılır. Böylece kontrol ile DELETE arasında yeni sipariş/yorum
+// eklenmesiyle oluşabilecek yarış ve FK hataları kapanır.
+export async function deleteCustomerAccountData(id: number): Promise<DeleteCustomerDataResult> {
+  return db.transaction(async (tx) => {
+    const [customer] = await tx
+      .select({ id: customers.id, avatarUrl: customers.avatarUrl })
+      .from(customers)
+      .where(eq(customers.id, id))
+      .limit(1)
+      .for("update");
+    if (!customer) return { status: "not_found" };
+
+    const durableChecks = [
+      await tx.select({ id: orders.id }).from(orders).where(eq(orders.customerId, id)).limit(1),
+      await tx.select({ id: productReviews.id }).from(productReviews).where(eq(productReviews.customerId, id)).limit(1),
+      await tx.select({ id: productQuestions.id }).from(productQuestions).where(eq(productQuestions.customerId, id)).limit(1),
+      await tx.select({ id: customerVendorMessages.id }).from(customerVendorMessages).where(eq(customerVendorMessages.customerId, id)).limit(1),
+      await tx.select({ id: vendorReviews.id }).from(vendorReviews).where(eq(vendorReviews.customerId, id)).limit(1),
+      await tx.select({ id: vendorComplaints.id }).from(vendorComplaints).where(eq(vendorComplaints.customerId, id)).limit(1),
+      await tx.select({ id: couponRedemptions.id }).from(couponRedemptions).where(eq(couponRedemptions.customerId, id)).limit(1),
+      await tx.select({ id: orderRefunds.id }).from(orderRefunds).where(eq(orderRefunds.customerId, id)).limit(1),
+      await tx.select({ id: vendors.id }).from(vendors).where(eq(vendors.customerId, id)).limit(1),
+    ];
+    const hasDurableFootprint = durableChecks.some((rows) => rows.length > 0);
+
     await tx.delete(customerAddresses).where(eq(customerAddresses.customerId, id));
     await tx.delete(productFavorites).where(eq(productFavorites.customerId, id));
     await tx.delete(vendorFollowers).where(eq(vendorFollowers.customerId, id));
     await tx.delete(customerNotifications).where(eq(customerNotifications.customerId, id));
-    await tx.delete(customers).where(eq(customers.id, id));
-  });
-}
+    await tx.delete(discoverFeedback).where(eq(discoverFeedback.customerId, id));
+    await tx.update(discoverEvents).set({ customerId: null }).where(eq(discoverEvents.customerId, id));
+    await tx.update(fitFeedback).set({ customerId: null }).where(eq(fitFeedback.customerId, id));
+    await tx.update(cookieConsents).set({ customerId: null }).where(eq(cookieConsents.customerId, id));
+    await tx.update(siteFeedback).set({ customerId: null }).where(eq(siteFeedback.customerId, id));
 
-// İz bırakmış hesap - kişisel alanlar anonimleştirilir, satır (ve bağlı
-// sipariş/değerlendirme/soru geçmişi) korunur. E-posta unique olduğu için
-// tekrar kayıt olunabilsin diye benzersiz bir yer tutucuya değiştirilir.
-export async function anonymizeCustomer(id: number): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx.delete(customerAddresses).where(eq(customerAddresses.customerId, id));
-    await tx.delete(productFavorites).where(eq(productFavorites.customerId, id));
-    await tx.delete(vendorFollowers).where(eq(vendorFollowers.customerId, id));
-    await tx.delete(customerNotifications).where(eq(customerNotifications.customerId, id));
+    if (!hasDurableFootprint) {
+      const deleted = await tx.delete(customers).where(eq(customers.id, id)).returning({ id: customers.id });
+      if (deleted.length !== 1) throw new Error("Müşteri silinemedi");
+      return { status: "deleted", avatarUrl: customer.avatarUrl };
+    }
+
     await tx
       .update(customers)
       .set({
@@ -196,8 +232,17 @@ export async function anonymizeCustomer(id: number): Promise<void> {
         age: null,
         heightCm: null,
         weightKg: null,
+        sizePrefs: null,
+        emailVerifiedAt: null,
+        emailVerificationTokenHash: null,
+        emailVerificationExpiresAt: null,
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+        marketingConsentAt: null,
+        analyticsConsentAt: null,
         deletedAt: new Date(),
       })
       .where(eq(customers.id, id));
+    return { status: "anonymized", avatarUrl: customer.avatarUrl };
   });
 }

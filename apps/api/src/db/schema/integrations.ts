@@ -1,17 +1,17 @@
 import { sql } from "drizzle-orm";
-import { bigint, boolean, index, integer, pgEnum, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgEnum, pgTable, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
 import { products, productVariants } from "./catalog";
 
 // Dış satış kanalları. Yeni kanal eklenince buraya eklenir (ör. "hepsiburada").
-export const salesChannelEnum = pgEnum("sales_channel", ["trendyol", "ikas"]);
+export const salesChannelEnum = pgEnum("sales_channel", ["trendyol", "ikas", "ticimax"]);
 
 // Bir listing/outbox olayının senkron durumu.
 export const channelSyncStatusEnum = pgEnum("channel_sync_status", ["pending", "synced", "error"]);
 export const outboxStatusEnum = pgEnum("outbox_status", ["pending", "processing", "done", "error"]);
 
 // Bir ürün/varyantın belirli bir kanaldaki karşılığı (eşleme kaydı). Trendyol
-// barkod ile, İkas SKU/barkod ile eşler -> externalBarcode = bizim sku (varyant)
-// veya ürün-türevi bir kod. externalProductId ilk senkrondan sonra dolar.
+// barkod ile, İkas SKU/barkod ile, Ticimax ise varyasyon ID'si ile eşler.
+// Tarihsel kolon adı externalBarcode olsa da anlamı kanalın stok kayıt anahtarıdır.
 export const channelListings = pgTable(
   "channel_listings",
   {
@@ -40,6 +40,11 @@ export const channelListings = pgTable(
     uniqChannelProductVariant: unique("uq_channel_listing_pv").on(t.channel, t.productId, t.variantId),
     // Barkod kanal içinde benzersiz (webhook satırını barkoddan buluruz).
     uniqChannelBarcode: unique("uq_channel_listing_barcode").on(t.channel, t.externalBarcode),
+    // Ticimax stok güncellemesi varyasyon ID ile yapıldığı için aynı ID iki
+    // ürüne bağlanamaz. Diğer kanalların null değerleri bu indekse girmez.
+    uniqTicimaxVariation: uniqueIndex("uq_channel_listing_ticimax_variation")
+      .on(t.externalProductId)
+      .where(sql`${t.channel} = 'ticimax' AND ${t.externalProductId} IS NOT NULL`),
     productIdx: index("idx_channel_listings_product").on(t.productId),
   }),
 );

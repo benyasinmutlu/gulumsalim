@@ -4,7 +4,7 @@ vi.mock("../catalog/search-index.service", () => ({ reindexVendorProducts: vi.fn
 vi.mock("../notifications/vendor-activation-notification.service", () => ({ notifyVendorActivated: vi.fn() }));
 vi.mock("../vendors/vendor.repository", () => ({ findVendorById: vi.fn() }));
 vi.mock("./admin-vendors.repository", () => ({
-  deleteVendorIfNoProducts: vi.fn(),
+  deleteVendorIfNoBusinessHistory: vi.fn(),
   updateVendorStatus: vi.fn(),
 }));
 

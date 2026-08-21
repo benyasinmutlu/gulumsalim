@@ -76,6 +76,7 @@ async function buildContractVendorBlocks(
     return {
       vendorId,
       storeName: vendor?.storeName ?? "—",
+      legalName: vendor ? (vendor.vendorType === "individual" ? vendor.fullName : vendor.storeName) : "—",
       taxId: vendor?.taxId ?? null,
       legalAddress: vendor?.legalAddress ?? null,
       items: vendorItems.map((i) => ({

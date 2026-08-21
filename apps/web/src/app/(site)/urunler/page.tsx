@@ -26,7 +26,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   }
   if (params.secondHand === "true") {
     return {
-      title: "2. El Ürünler | Gülüm Şalım",
+      title: "Dolap (2. El) Ürünleri | Gülüm Şalım",
       description: "Gülüm Şalım'da satıcıların 2. el ürünlerini keşfedin.",
     };
   }

@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
+import { deleteObject } from "../../lib/storage";
 import { findProductsByIds } from "../catalog/catalog.repository";
 import { removeProductFromIndex, syncProductToIndex } from "../catalog/search-index.service";
 import { countProductsByStatus, deleteProduct, listAllProducts, ProductHasOrdersError, updateProductStatus } from "./admin-products.repository";
@@ -34,9 +35,11 @@ const adminProductsRoutes: FastifyPluginAsync = async (app) => {
   app.delete("/admin/products/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { id } = productIdParamsSchema.parse(request.params);
     try {
-      const deleted = await deleteProduct(id);
-      if (!deleted) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+      const result = await deleteProduct(id);
+      if (result.status === "not_found") return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+      if (result.status !== "deleted") throw new Error("Beklenmeyen ürün silme sonucu");
       removeProductFromIndex(id).catch(() => {});
+      for (const url of result.mediaUrls) deleteObject(url).catch(() => {});
       return reply.send({ ok: true });
     } catch (err) {
       if (err instanceof ProductHasOrdersError) {

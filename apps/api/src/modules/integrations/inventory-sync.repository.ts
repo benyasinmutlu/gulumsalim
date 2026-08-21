@@ -11,9 +11,16 @@ export interface NewChannelListing {
   productId: number;
   variantId?: number | null;
   externalBarcode: string;
+  externalProductId?: string | null;
 }
 
-export async function insertChannelListing(data: NewChannelListing) {
+export async function insertChannelListing(data: NewChannelListing, vendorId: number) {
+  const [owned] = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.id, data.productId), eq(products.vendorId, vendorId)))
+    .limit(1);
+  if (!owned) return null;
   const [row] = await db
     .insert(channelListings)
     .values({
@@ -21,6 +28,7 @@ export async function insertChannelListing(data: NewChannelListing) {
       productId: data.productId,
       variantId: data.variantId ?? null,
       externalBarcode: data.externalBarcode,
+      externalProductId: data.externalProductId ?? null,
     })
     .onConflictDoNothing()
     .returning();
@@ -36,6 +44,7 @@ export async function listVendorChannelListings(vendorId: number) {
       productId: channelListings.productId,
       variantId: channelListings.variantId,
       externalBarcode: channelListings.externalBarcode,
+      externalProductId: channelListings.externalProductId,
       enabled: channelListings.enabled,
       lastSyncedStock: channelListings.lastSyncedStock,
       lastSyncedAt: channelListings.lastSyncedAt,
@@ -191,6 +200,7 @@ export async function claimDueOutbox(limit: number, leaseMs = 60_000) {
         claimToken: stockSyncOutbox.claimToken,
         channel: channelListings.channel,
         externalBarcode: channelListings.externalBarcode,
+        externalProductId: channelListings.externalProductId,
         enabled: channelListings.enabled,
         // Per-vendor kimlik bilgisi araması için: listing → ürün → satıcı.
         vendorId: products.vendorId,

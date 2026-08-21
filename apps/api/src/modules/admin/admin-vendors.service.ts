@@ -1,7 +1,7 @@
 import { reindexVendorProducts } from "../catalog/search-index.service";
 import { notifyVendorActivated } from "../notifications/vendor-activation-notification.service";
 import { findVendorById } from "../vendors/vendor.repository";
-import { deleteVendorIfNoProducts, updateVendorStatus } from "./admin-vendors.repository";
+import { deleteVendorIfNoBusinessHistory, updateVendorStatus } from "./admin-vendors.repository";
 
 const ACTION_STATUS = {
   approve: "active",
@@ -11,7 +11,7 @@ const ACTION_STATUS = {
 } as const;
 
 export class VendorNotFoundError extends Error {}
-export class VendorHasProductsError extends Error {}
+export class VendorHasBusinessHistoryError extends Error {}
 export class VendorProfileIncompleteError extends Error {}
 export class VendorStatusChangedError extends Error {}
 
@@ -48,6 +48,8 @@ export async function applyVendorAction(vendorId: number, action: keyof typeof A
 }
 
 export async function removeVendor(vendorId: number) {
-  const deleted = await deleteVendorIfNoProducts(vendorId);
-  if (!deleted) throw new VendorHasProductsError();
+  const result = await deleteVendorIfNoBusinessHistory(vendorId);
+  if (result.status === "not_found") throw new VendorNotFoundError();
+  if (result.status === "has_business_history") throw new VendorHasBusinessHistoryError();
+  return result.mediaUrls;
 }
