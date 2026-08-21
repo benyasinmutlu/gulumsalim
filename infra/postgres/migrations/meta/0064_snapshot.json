@@ -5977,9 +5977,15 @@
         }
       },
       "indexes": {
-        "uq_channel_listing_ticimax_variation": {
-          "name": "uq_channel_listing_ticimax_variation",
+        "uq_channel_listing_external_product": {
+          "name": "uq_channel_listing_external_product",
           "columns": [
+            {
+              "expression": "channel",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "external_product_id",
               "isExpression": false,
@@ -5988,7 +5994,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"channel_listings\".\"channel\" = 'ticimax' AND \"channel_listings\".\"external_product_id\" IS NOT NULL",
+          "where": "\"channel_listings\".\"external_product_id\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}

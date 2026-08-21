@@ -40,11 +40,14 @@ export const channelListings = pgTable(
     uniqChannelProductVariant: unique("uq_channel_listing_pv").on(t.channel, t.productId, t.variantId),
     // Barkod kanal içinde benzersiz (webhook satırını barkoddan buluruz).
     uniqChannelBarcode: unique("uq_channel_listing_barcode").on(t.channel, t.externalBarcode),
-    // Ticimax stok güncellemesi varyasyon ID ile yapıldığı için aynı ID iki
-    // ürüne bağlanamaz. Diğer kanalların null değerleri bu indekse girmez.
-    uniqTicimaxVariation: uniqueIndex("uq_channel_listing_ticimax_variation")
-      .on(t.externalProductId)
-      .where(sql`${t.channel} = 'ticimax' AND ${t.externalProductId} IS NOT NULL`),
+    // Bir kanalın kendi ürün/varyasyon kimliği aynı kanal içinde iki farklı
+    // ürüne bağlanamaz. Null değerler (henüz dış kimliği oluşmayan kayıtlar)
+    // indekse girmez. Predicate'in enum sabiti kullanmaması, yeni kanal enum'u
+    // ile indeksin aynı Drizzle migration transaction'ında güvenle kurulmasını
+    // sağlar.
+    uniqChannelExternalProduct: uniqueIndex("uq_channel_listing_external_product")
+      .on(t.channel, t.externalProductId)
+      .where(sql`${t.externalProductId} IS NOT NULL`),
     productIdx: index("idx_channel_listings_product").on(t.productId),
   }),
 );
