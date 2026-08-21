@@ -22,6 +22,16 @@ export class ClientApiError extends Error {
   }
 }
 
+// error-handler.ts'deki Zod doğrulama hataları hep aynı jenerik "Geçersiz
+// istek" mesajıyla döner, asıl sebep (ör. "IBAN içeremez") details.fieldErrors
+// içinde saklı kalır. Formlarda kullanıcıya anlamlı bir mesaj göstermek için
+// varsa ilk alan hatasını, yoksa jenerik mesajı kullanıyoruz.
+function messageFromErrorBody(errBody: ApiErrorBody | null, fallback: string): string {
+  const fieldErrors = (errBody?.error?.details as { fieldErrors?: Record<string, string[]> } | undefined)?.fieldErrors;
+  const firstFieldError = fieldErrors && Object.values(fieldErrors).flat().find((m) => typeof m === "string" && m.length > 0);
+  return firstFieldError ?? errBody?.error?.message ?? fallback;
+}
+
 // POST/PATCH/DELETE gibi durum değiştiren her istek önce bir CSRF token
 // alır, sonra header'da geri gönderir (bkz. apps/api/src/plugins/csrf.ts).
 export async function mutateJson<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
@@ -45,7 +55,7 @@ export async function mutateJson<T>(path: string, method: "POST" | "PATCH" | "DE
 
   if (!res.ok) {
     const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ClientApiError(res.status, errBody?.error?.message ?? "İstek başarısız oldu", errBody?.error?.code);
+    throw new ClientApiError(res.status, messageFromErrorBody(errBody, "İstek başarısız oldu"), errBody?.error?.code);
   }
 
   return res.json() as Promise<T>;
@@ -68,7 +78,7 @@ export async function uploadFile<T>(path: string, file: File): Promise<T> {
 
   if (!res.ok) {
     const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ClientApiError(res.status, errBody?.error?.message ?? "Yükleme başarısız oldu", errBody?.error?.code);
+    throw new ClientApiError(res.status, messageFromErrorBody(errBody, "Yükleme başarısız oldu"), errBody?.error?.code);
   }
 
   return res.json() as Promise<T>;
@@ -130,7 +140,7 @@ export async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`/api${path}`, { credentials: "include" });
   if (!res.ok) {
     const errBody = (await res.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ClientApiError(res.status, errBody?.error?.message ?? "İstek başarısız oldu", errBody?.error?.code);
+    throw new ClientApiError(res.status, messageFromErrorBody(errBody, "İstek başarısız oldu"), errBody?.error?.code);
   }
   return res.json() as Promise<T>;
 }

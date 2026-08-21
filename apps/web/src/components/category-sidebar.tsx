@@ -15,7 +15,7 @@ export default function CategorySidebar({ categories }: { categories: Category[]
         {topLevel.map((c) => (
           <li key={c.id}>
             <Link href={`/${c.slug}`}>
-              <i className={c.icon || "fas fa-tag"} />
+              {c.icon && !c.icon.startsWith("fa") ? <span aria-hidden>{c.icon}</span> : <i className={c.icon || "fas fa-tag"} />}
               <span>{c.name}</span>
             </Link>
           </li>

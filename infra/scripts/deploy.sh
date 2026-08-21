@@ -78,7 +78,7 @@ while IFS= read -r entry; do
   esac
   case "$basename" in
     .env|.env.*)
-      if [[ "$basename" != ".env.example" ]]; then
+      if [[ "$basename" != *.example ]]; then
         echo "Artefaktta secret olabilecek env dosyası bulundu: $entry" >&2
         exit 2
       fi

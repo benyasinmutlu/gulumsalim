@@ -8,6 +8,7 @@ import { findProductsByIds, listActiveProducts, listFavoritesByCustomer } from "
 import { getRecentlyViewedProductIds } from "../../lib/view-history";
 import { findActiveVendorBySlugPublic, incrementVendorViewCount, listActiveVendors } from "./vendor.repository";
 import { isFollowingVendor, listFollowedVendors, toggleVendorFollow } from "./vendor-follow.repository";
+import { getVendorQuestionCount } from "../questions/questions.repository";
 import {
   findReviewableVendor,
   getVendorReviewSummary,
@@ -18,6 +19,7 @@ import { listVendorSocialPosts, listVendorStoreSlides } from "./vendor-store-con
 import { insertVendorComplaint } from "./vendor-complaints.repository";
 import { listActiveVendorPromoBanners } from "./vendor-promo-banners.repository";
 import { recordContentEvent } from "../analytics/content-analytics.repository";
+import { CONTACT_INFO_MESSAGE, containsContactInfo } from "../../lib/contact-info-detector";
 
 const storefrontQuerySchema = z.object({
   cursor: z.string().optional(),
@@ -26,13 +28,13 @@ const storefrontQuerySchema = z.object({
 
 const vendorReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
-  comment: z.string().min(1).max(2000).optional(),
+  comment: z.string().min(1).max(2000).refine((v) => !containsContactInfo(v), CONTACT_INFO_MESSAGE).optional(),
 });
 
 const COMPLAINT_REASONS = ["sahte_urun", "gec_teslimat", "kotu_iletisim", "hatali_urun", "diger"] as const;
 const vendorComplaintSchema = z.object({
   reason: z.enum(COMPLAINT_REASONS),
-  message: z.string().min(10).max(2000),
+  message: z.string().min(10).max(2000).refine((v) => !containsContactInfo(v), CONTACT_INFO_MESSAGE),
 });
 
 // Mağazalar (gulumsalim.com'daki magazalar.php/vendor-store.php'nin
@@ -61,6 +63,7 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
       ? await isFollowingVendor(request.session.customerId, vendor.id)
       : false;
     const reviewSummary = await getVendorReviewSummary(vendor.id);
+    const answeredQuestionCount = await getVendorQuestionCount(vendor.id);
 
     // bkz. vendor.repository.ts yorumu - hiç teslimat yoksa null (mockup'taki
     // gibi "Yeni Satıcı" gösterilebilir, sahte bir yüzde asla uydurulmaz).
@@ -72,7 +75,10 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
     incrementVendorViewCount(vendor.id).catch(() => {});
     recordContentEvent("vendor", vendor.id, "view").catch(() => {});
 
-    return reply.send({ vendor: { ...vendorRest, isFollowing, reviewSummary, successRate }, products: { items, nextCursor } });
+    return reply.send({
+      vendor: { ...vendorRest, isFollowing, reviewSummary, successRate, answeredQuestionCount },
+      products: { items, nextCursor },
+    });
   });
 
   // vendor-store.php'deki mağaza değerlendirmesi bölümünün karşılığı -

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../../db/client";
 import { customers, productQuestions, products, vendors } from "../../db/schema/index";
 import { createNotification } from "../notifications/notifications.repository";
@@ -112,6 +112,17 @@ export async function listAllQuestionsForAdmin(filter?: "pending" | "answered") 
   if (filter === "pending") return base.where(isNull(productQuestions.answer));
   if (filter === "answered") return base.where(isNotNull(productQuestions.answer));
   return base;
+}
+
+// Ürün detay sayfasında "satıcıya sorulan toplam soru" göstergesi için -
+// getVendorReviewSummary (vendor-reviews.repository.ts) ile aynı desen.
+export async function getVendorQuestionCount(vendorId: number): Promise<number> {
+  const [row] = await db
+    .select({ total: count(productQuestions.id) })
+    .from(productQuestions)
+    .innerJoin(products, eq(productQuestions.productId, products.id))
+    .where(and(eq(products.vendorId, vendorId), isNotNull(productQuestions.answer)));
+  return row?.total ?? 0;
 }
 
 export async function deleteQuestion(id: number) {
