@@ -167,33 +167,46 @@ export default async function ProductDetailView({
             <div className="product-detail-info">
               <h1 className="detail-name">{product.name}</h1>
 
-              <Link href={`/${product.vendorSlug}`} className="detail-vendor">
-                <div className="detail-vendor-info">
-                  <small>Satıcı</small>
-                  <strong>{product.vendorStoreName}</strong>
-                </div>
-                <i className="fas fa-chevron-right detail-vendor-arrow" />
-              </Link>
-
-              {vendorSummary && (
-                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 14, margin: "8px 0", fontSize: "0.8rem", color: "var(--color-text-light)" }}>
-                  {vendorSummary.reviewSummary.total > 0 && (
-                    <span>
-                      <StarRating value={vendorSummary.reviewSummary.average ?? 0} size={13} /> {vendorSummary.reviewSummary.average?.toFixed(1)} (
-                      {vendorSummary.reviewSummary.total})
-                    </span>
-                  )}
-                  <span>
-                    <FollowerCountStat initialCount={vendorSummary.followerCount} /> Takipçi
+              <div className="detail-vendor-card">
+                <Link href={`/${product.vendorSlug}`} className="detail-vendor-link">
+                  <span className="detail-vendor-logo">
+                    {vendorSummary?.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={vendorSummary.logo} alt="" />
+                    ) : (
+                      product.vendorStoreName.charAt(0).toLocaleUpperCase("tr-TR")
+                    )}
                   </span>
-                  {vendorSummary.answeredQuestionCount > 0 && (
+                  <div className="detail-vendor-info">
+                    <small>Satıcı</small>
+                    <strong>
+                      {product.vendorStoreName}
+                      {vendorSummary?.isVerified && <i className="fas fa-circle-check detail-vendor-verified" title="Onaylı Mağaza" />}
+                    </strong>
+                    {vendorSummary && vendorSummary.reviewSummary.total > 0 && (
+                      <div className="detail-vendor-rating">
+                        <StarRating value={vendorSummary.reviewSummary.average ?? 0} size={12} />
+                        {vendorSummary.reviewSummary.average?.toFixed(1)} <em>({vendorSummary.reviewSummary.total} değerlendirme)</em>
+                      </div>
+                    )}
+                  </div>
+                  <i className="fas fa-chevron-right detail-vendor-arrow" />
+                </Link>
+
+                {vendorSummary && (
+                  <div className="detail-vendor-stats">
                     <span>
-                      <i className="fas fa-circle-question" /> Satıcıya sorulan {vendorSummary.answeredQuestionCount} soru
+                      <FollowerCountStat initialCount={vendorSummary.followerCount} /> Takipçi
                     </span>
-                  )}
-                  <FollowButton vendorSlug={product.vendorSlug} initialFollowing={vendorSummary.isFollowing} />
-                </div>
-              )}
+                    {vendorSummary.answeredQuestionCount > 0 && (
+                      <span>
+                        <i className="fas fa-circle-question" /> {vendorSummary.answeredQuestionCount} Soru Cevaplandı
+                      </span>
+                    )}
+                    <FollowButton vendorSlug={product.vendorSlug} initialFollowing={vendorSummary.isFollowing} />
+                  </div>
+                )}
+              </div>
 
               {product.videoUrl && (
                 <video
