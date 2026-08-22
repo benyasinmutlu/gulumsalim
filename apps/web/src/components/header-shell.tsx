@@ -152,7 +152,9 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
               <CategoryDropdown categories={categories} />
             </li>
             <li>
-              <Link href="/urunler?sort=newest">Yeni Gelenler</Link>
+              <Link href="/urunler?sort=newest">
+                <i className="fas fa-wand-magic-sparkles" /> Yeni Gelenler
+              </Link>
             </li>
             <li>
               <Link href="/urunler?sort=popular">Çok Satanlar</Link>

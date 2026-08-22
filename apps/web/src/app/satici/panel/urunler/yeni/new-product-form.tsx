@@ -745,7 +745,7 @@ export default function NewProductForm() {
                 <label>Ürün Durumu</label>
                 <div className="wizard-condition">
                   <button type="button" className={`wizard-condition-btn${!isSecondHand ? " active" : ""}`} onClick={() => setIsSecondHand(false)}>
-                    <i className="fas fa-sparkles" /> Sıfır
+                    <i className="fas fa-wand-magic-sparkles" /> Sıfır
                   </button>
                   <button type="button" className={`wizard-condition-btn${isSecondHand ? " active" : ""}`} onClick={() => setIsSecondHand(true)}>
                     <i className="fas fa-recycle" /> 2. El
