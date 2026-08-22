@@ -10,7 +10,7 @@ import Link from "next/link";
 const LINKS: { label: string; href: string; icon: string; color: string }[] = [
   { label: "2. El", href: "/urunler?secondHand=true", icon: "fa-recycle", color: "#2196F3" },
   { label: "Fiyatı Düşenler", href: "/urunler?saleOnly=true", icon: "fa-arrow-trend-down", color: "#E91E63" },
-  { label: "Yeni Gelenler", href: "/urunler?sort=newest", icon: "fa-sparkles", color: "#4CAF50" },
+  { label: "Yeni Gelenler", href: "/urunler?sort=newest", icon: "fa-wand-magic-sparkles", color: "#4CAF50" },
   { label: "Çok Satanlar", href: "/urunler?sort=popular", icon: "fa-fire", color: "#F5A623" },
   { label: "Kampanyalar", href: "/kampanyalar", icon: "fa-bullhorn", color: "#E53935" },
   { label: "Mağazalar", href: "/magazalar", icon: "fa-store", color: "#9C27B0" },

@@ -187,7 +187,7 @@ export default function VendorsTable() {
                   <td>
                     <div style={{ fontWeight: 600 }}>
                       {v.storeName}
-                      {v.isVerified && <i className="fas fa-badge-check" style={{ color: "#3897f0", marginLeft: 4 }} title="Onaylı" />}
+                      {v.isVerified && <i className="fas fa-circle-check" style={{ color: "#3897f0", marginLeft: 4 }} title="Onaylı" />}
                     </div>
                     <div style={{ fontSize: "0.75rem", color: "var(--admin-text-muted)" }}>/{v.storeSlug}</div>
                   </td>

@@ -52,7 +52,7 @@ export default function VendorStoreTabs({
   // çalışmasından vardı, bunlar korunuyor - brief'in listesi bunları
   // içermiyor diye kaldırılmadı, sadece Değerlendirmeler eklendi).
   const TABS: { key: TabKey; label: string; icon: string }[] = [
-    { key: "vitrin", label: "Vitrin", icon: "fa-sparkles" },
+    { key: "vitrin", label: "Vitrin", icon: "fa-wand-magic-sparkles" },
     ...(showProducts ? [{ key: "products" as const, label: `Ürünler (${productCount})`, icon: "fa-tshirt" }] : []),
     { key: "collections", label: "Koleksiyonlar", icon: "fa-layer-group" },
     ...(showCampaigns ? [{ key: "campaigns" as const, label: "Kampanyalar", icon: "fa-bullhorn" }] : []),
