@@ -169,7 +169,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
               <Link href="/kampanyalar">Kampanyalar</Link>
             </li>
             <li>
-              <Link href="/urunler?secondHand=true">Dolap</Link>
+              <Link href="/urunler?secondHand=true">2. El</Link>
             </li>
             <li>
               <Link href="/magazalar">
