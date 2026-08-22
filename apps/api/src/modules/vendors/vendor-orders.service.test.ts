@@ -29,9 +29,9 @@ describe("isTransitionAllowed", () => {
 });
 
 describe("calculateEarning", () => {
-  it("satıcıya özel komisyon oranı yoksa varsayılan %5'i kullanır", () => {
+  it("satıcıya özel komisyon oranı yoksa varsayılan %10'u kullanır", () => {
     const result = calculateEarning("1000.00", null);
-    expect(result).toEqual({ grossAmount: "1000.00", commissionAmount: "50.00", netAmount: "950.00" });
+    expect(result).toEqual({ grossAmount: "1000.00", commissionAmount: "100.00", netAmount: "900.00" });
   });
 
   it("satıcıya özel komisyon oranı varsa onu kullanır", () => {

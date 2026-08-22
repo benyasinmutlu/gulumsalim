@@ -7,6 +7,7 @@ import { recomputeOrderStatus } from "../orders/order.repository";
 import { findCustomerById } from "../auth/auth.repository";
 import { createCustomerNotification } from "../notifications/customer-notifications.repository";
 import { findVendorOrderItem, updateVendorOrderItemStatus } from "./vendor-orders.repository";
+import { DEFAULT_COMMISSION_RATE } from "./commission";
 
 // bkz. kullanıcı isteği: "kargo ... gibi mailler gönderelim" - uygulama içi
 // bildirime (createCustomerNotification) ek olarak e-posta da gider.
@@ -36,10 +37,6 @@ const ALLOWED_TRANSITIONS: Record<Status, Status[]> = {
 export function isTransitionAllowed(current: OrderItemStatus, next: OrderItemStatus): boolean {
   return ALLOWED_TRANSITIONS[current].includes(next);
 }
-
-// vendors.commissionRate ayarlanmamışsa (null) kullanılan platform
-// varsayılan komisyon oranı (%).
-const DEFAULT_COMMISSION_RATE = 5;
 
 export function calculateEarning(total: string, commissionRatePercent: number | null) {
   const rate = commissionRatePercent ?? DEFAULT_COMMISSION_RATE;
