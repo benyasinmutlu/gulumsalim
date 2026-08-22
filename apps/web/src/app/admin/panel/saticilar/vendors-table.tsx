@@ -34,7 +34,10 @@ const TYPE_LABEL: Record<AdminVendorRow["vendorType"], string> = {
   individual: "Bireysel",
 };
 
-const DEFAULT_COMMISSION_RATE = 5;
+// apps/api/src/modules/vendors/commission.ts'deki DEFAULT_COMMISSION_RATE
+// ile senkron tutulmalı - satıcıya özel bir oran atanmamışsa (bkz.
+// admin-vendors.repository.ts updateVendorCommission) bu değer kullanılır.
+const DEFAULT_COMMISSION_RATE = 10;
 
 export default function VendorsTable() {
   const [data, setData] = useState<AdminVendorsResponse | null>(null);
