@@ -37,11 +37,38 @@ const vendorComplaintSchema = z.object({
   message: z.string().min(10).max(2000).refine((v) => !containsContactInfo(v), CONTACT_INFO_MESSAGE),
 });
 
+type PublicVendor = NonNullable<Awaited<ReturnType<typeof findActiveVendorBySlugPublic>>>;
+
+async function buildVendorSummary(vendor: PublicVendor, customerId?: number) {
+  const [isFollowing, reviewSummary, answeredQuestionCount] = await Promise.all([
+    customerId ? isFollowingVendor(customerId, vendor.id) : Promise.resolve(false),
+    getVendorReviewSummary(vendor.id),
+    getVendorQuestionCount(vendor.id),
+  ]);
+  const { deliveredCount, refundedDeliveredCount, ...vendorRest } = vendor;
+  const successRate = deliveredCount > 0
+    ? Math.round(((deliveredCount - refundedDeliveredCount) / deliveredCount) * 1000) / 10
+    : null;
+  return { ...vendorRest, isFollowing, reviewSummary, successRate, answeredQuestionCount };
+}
+
 // Mağazalar (gulumsalim.com'daki magazalar.php/vendor-store.php'nin
 // karşılığı) - herkese açık, kimlik doğrulaması gerektirmez.
 const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vendors", async (_request, reply) => {
     return reply.send(await listActiveVendors());
+  });
+
+  // Ürün detayındaki satıcı kartı için hafif uç: mağaza ürünlerini okumaz ve
+  // mağaza görüntülenme analitiğini artırmaz. Böylece her ürün sayfası açılışı
+  // yanlışlıkla mağaza ziyareti sayılmaz.
+  app.get("/vendors/:slug/summary", async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const vendor = await findActiveVendorBySlugPublic(slug);
+    if (!vendor) {
+      return reply.status(404).send({ error: { message: "Mağaza bulunamadı" } });
+    }
+    return reply.send({ vendor: await buildVendorSummary(vendor, request.session.customerId) });
   });
 
   app.get("/vendors/:slug", async (request, reply) => {
@@ -59,16 +86,7 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
     const last = items[items.length - 1];
     const nextCursor = hasMore && last ? encodeCursor({ createdAt: last.createdAt.toISOString(), id: last.id }) : null;
 
-    const isFollowing = request.session.customerId
-      ? await isFollowingVendor(request.session.customerId, vendor.id)
-      : false;
-    const reviewSummary = await getVendorReviewSummary(vendor.id);
-    const answeredQuestionCount = await getVendorQuestionCount(vendor.id);
-
-    // bkz. vendor.repository.ts yorumu - hiç teslimat yoksa null (mockup'taki
-    // gibi "Yeni Satıcı" gösterilebilir, sahte bir yüzde asla uydurulmaz).
-    const { deliveredCount, refundedDeliveredCount, ...vendorRest } = vendor;
-    const successRate = deliveredCount > 0 ? Math.round(((deliveredCount - refundedDeliveredCount) / deliveredCount) * 1000) / 10 : null;
+    const vendorSummary = await buildVendorSummary(vendor, request.session.customerId);
 
     // bkz. catalog.routes.ts incrementProductViewCount ile aynı desen -
     // sayfa yanıtını beklemeden, arka planda sessizce artırılır.
@@ -76,7 +94,7 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
     recordContentEvent("vendor", vendor.id, "view").catch(() => {});
 
     return reply.send({
-      vendor: { ...vendorRest, isFollowing, reviewSummary, successRate, answeredQuestionCount },
+      vendor: vendorSummary,
       products: { items, nextCursor },
     });
   });

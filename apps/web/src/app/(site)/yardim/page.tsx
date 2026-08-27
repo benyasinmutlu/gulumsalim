@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import SupportChat from "@/components/support-chat";
 import SupportFaqList, { type FaqEntry } from "@/components/support-faq-list";
@@ -24,7 +25,7 @@ export default async function HelpPage() {
       <div className="breadcrumb-bar">
         <div className="container">
           <div className="breadcrumb">
-            <a href="/">Ana Sayfa</a> <span className="sep">{">"}</span> <span className="current">Yardım &amp; Destek</span>
+            <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span> <span className="current">Yardım &amp; Destek</span>
           </div>
         </div>
       </div>
