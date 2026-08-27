@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFeedStockDelta, nextFeedRunAt } from "./merchant-feed.stock";
+import { applyFeedStockDelta, feedFailureAlertLevel, nextFeedRunAt } from "./merchant-feed.stock";
 
 describe("merchant feed stock delta", () => {
   it("preserves Gülüm Şalım sales when source stock is unchanged", () => {
@@ -22,5 +22,19 @@ describe("merchant feed scheduling", () => {
     const now = Date.UTC(2026, 7, 27);
     expect(nextFeedRunAt(now, 60, () => 0).getTime()).toBe(now + 54 * 60_000);
     expect(nextFeedRunAt(now, 60, () => 1).getTime()).toBe(now + 66 * 60_000);
+  });
+});
+
+describe("merchant feed failure alerts", () => {
+  it("notifies on the first and third transient failure without spamming every retry", () => {
+    expect(feedFailureAlertLevel(0, false, 0)).toBe("warning");
+    expect(feedFailureAlertLevel(1, false, 0)).toBeNull();
+    expect(feedFailureAlertLevel(2, false, 0)).toBe("warning");
+    expect(feedFailureAlertLevel(3, false, 0)).toBeNull();
+  });
+
+  it("raises a critical alert when stock is fail-closed or the source is disabled", () => {
+    expect(feedFailureAlertLevel(0, false, 12)).toBe("critical");
+    expect(feedFailureAlertLevel(4, true, 0)).toBe("critical");
   });
 });

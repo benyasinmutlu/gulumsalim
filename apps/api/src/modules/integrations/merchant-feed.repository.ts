@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import {
   productImages,
@@ -102,8 +102,10 @@ export async function listAdminFeedSources() {
     provider: vendorFeedSources.provider,
     feedHost: vendorFeedSources.feedHost,
     status: vendorFeedSources.status,
+    lastAttemptAt: vendorFeedSources.lastAttemptAt,
     lastSuccessAt: vendorFeedSources.lastSuccessAt,
     nextSyncAt: vendorFeedSources.nextSyncAt,
+    staleAfterMinutes: vendorFeedSources.staleAfterMinutes,
     consecutiveFailures: vendorFeedSources.consecutiveFailures,
     lastError: vendorFeedSources.lastError,
   }).from(vendorFeedSources).innerJoin(vendors, eq(vendorFeedSources.vendorId, vendors.id)).orderBy(desc(vendorFeedSources.updatedAt));
@@ -316,18 +318,29 @@ export async function applyFeedItems(source: typeof vendorFeedSources.$inferSele
       .where(and(eq(vendorFeedSources.id, source.id), eq(vendorFeedSources.leaseToken, source.leaseToken)))
       .for("update").limit(1);
     if (!leasedSource) throw new Error("Feed lease süresi doldu veya başka worker tarafından devralındı");
-    const existingRows = await tx.select({
-      feed: vendorFeedItems,
-      productStock: products.stock,
-      variantStock: productVariants.stock,
-    }).from(vendorFeedItems)
-      .innerJoin(products, eq(vendorFeedItems.productId, products.id))
-      .leftJoin(productVariants, eq(vendorFeedItems.variantId, productVariants.id))
+    const feedRows = await tx.select().from(vendorFeedItems)
       .where(eq(vendorFeedItems.sourceId, source.id));
-    const existing = existingRows.map((row) => ({
-      ...row.feed,
-      currentStock: row.variantStock ?? row.productStock,
-    }));
+    // Checkout varyant satırlarını, ardından ürün satırlarını artan kimlik
+    // sırasıyla güncelliyor. Aynı kilit sırasını kullanmak deadlock riskini
+    // azaltır; FOR UPDATE sonrası okunan stok da eşzamanlı satışı ezmez.
+    const variantIds = [...new Set(feedRows.flatMap((row) => row.variantId ? [row.variantId] : []))].sort((a, b) => a - b);
+    const productIds = [...new Set(feedRows.map((row) => row.productId))].sort((a, b) => a - b);
+    const variantRows = variantIds.length > 0
+      ? await tx.select({ id: productVariants.id, stock: productVariants.stock }).from(productVariants)
+          .where(inArray(productVariants.id, variantIds)).orderBy(asc(productVariants.id)).for("update")
+      : [];
+    const productRows = productIds.length > 0
+      ? await tx.select({ id: products.id, stock: products.stock }).from(products)
+          .where(and(inArray(products.id, productIds), eq(products.vendorId, source.vendorId)))
+          .orderBy(asc(products.id)).for("update")
+      : [];
+    const variantStocks = new Map(variantRows.map((row) => [row.id, row.stock]));
+    const productStocks = new Map(productRows.map((row) => [row.id, row.stock]));
+    const existing = feedRows.map((row) => {
+      const currentStock = row.variantId ? variantStocks.get(row.variantId) : productStocks.get(row.productId);
+      if (currentStock === undefined) throw new Error("Feed ürün bağlantısı bulunamadı veya satıcı sahipliği değişti");
+      return { ...row, currentStock };
+    });
     const byExternal = new Map(existing.map((row) => [row.externalKey, row]));
     const groupProducts = new Map(existing.filter((row) => row.groupKey).map((row) => [row.groupKey!, row.productId]));
     const seen = new Set<string>();
