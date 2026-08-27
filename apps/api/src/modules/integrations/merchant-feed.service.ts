@@ -14,7 +14,8 @@ import {
   zeroAllSourceStocks,
 } from "./merchant-feed.repository";
 import { vendorFeedSources } from "../../db/schema/index";
-import { nextFeedRunAt } from "./merchant-feed.stock";
+import { createNotification } from "../notifications/notifications.repository";
+import { feedFailureAlertLevel, nextFeedRunAt } from "./merchant-feed.stock";
 
 type FeedSourceRow = typeof vendorFeedSources.$inferSelect;
 
@@ -85,6 +86,28 @@ function sourceUrl(source: FeedSourceRow): string {
   }
 }
 
+async function completeFeedSuccess(
+  source: FeedSourceRow,
+  input: { etag?: string; lastModified?: string; contentHash?: string },
+) {
+  const marked = await markFeedSourceSuccess(source.id, source.leaseToken!, {
+    status: source.status,
+    ...input,
+    nextSyncAt: nextFeedRunAt(Date.now(), source.intervalMinutes),
+  });
+  if (!marked) throw new Error("Feed lease süresi doldu; sonuç başka bir worker'ın üzerine yazılmadı");
+
+  if (source.consecutiveFailures > 0 || source.status === "error") {
+    await createNotification(
+      source.vendorId,
+      "feed_recovered",
+      "Ürün aktarımı yeniden çalışıyor",
+      `${source.name} kaynağı başarıyla senkronize edildi.`,
+      "/satici/panel/kanallar",
+    ).catch(() => undefined);
+  }
+}
+
 export async function syncClaimedFeedSource(source: FeedSourceRow) {
   if (!source.leaseToken) throw new Error("Feed kaynağı worker lease'i olmadan çalıştırılamaz");
   const runId = await createFeedRun(source.id);
@@ -96,12 +119,10 @@ export async function syncClaimedFeedSource(source: FeedSourceRow) {
     retryAfter = response.retryAfter;
     if (response.status === 304) {
       await finishFeedRun(runId, { status: "unchanged", httpStatus: 304, contentHash: source.lastContentHash ?? undefined });
-      await markFeedSourceSuccess(source.id, source.leaseToken, {
-        status: source.status,
+      await completeFeedSuccess(source, {
         etag: response.etag ?? source.lastEtag ?? undefined,
         lastModified: response.lastModified ?? source.lastModified ?? undefined,
         contentHash: source.lastContentHash ?? undefined,
-        nextSyncAt: nextFeedRunAt(Date.now(), source.intervalMinutes),
       });
       return { status: "unchanged" as const, itemCount: 0 };
     }
@@ -110,12 +131,10 @@ export async function syncClaimedFeedSource(source: FeedSourceRow) {
     const contentHash = createHash("sha256").update(response.body).digest("hex");
     if (source.lastContentHash && source.lastContentHash === contentHash) {
       await finishFeedRun(runId, { status: "unchanged", httpStatus: response.status, contentHash });
-      await markFeedSourceSuccess(source.id, source.leaseToken, {
-        status: source.status,
+      await completeFeedSuccess(source, {
         etag: response.etag ?? source.lastEtag ?? undefined,
         lastModified: response.lastModified ?? source.lastModified ?? undefined,
         contentHash,
-        nextSyncAt: nextFeedRunAt(Date.now(), source.intervalMinutes),
       });
       return { status: "unchanged" as const, itemCount: 0 };
     }
@@ -138,12 +157,10 @@ export async function syncClaimedFeedSource(source: FeedSourceRow) {
       itemCount: parsed.items.length,
       ...counts,
     });
-    await markFeedSourceSuccess(source.id, source.leaseToken, {
-      status: source.status,
+    await completeFeedSuccess(source, {
       etag: response.etag,
       lastModified: response.lastModified,
       contentHash,
-      nextSyncAt: nextFeedRunAt(Date.now(), source.intervalMinutes),
     });
     return { status: "success" as const, itemCount: parsed.items.length, ...counts };
   } catch (error) {
@@ -158,13 +175,26 @@ export async function syncClaimedFeedSource(source: FeedSourceRow) {
       error: message,
       deactivatedCount: zeroed,
     });
-    await markFeedSourceFailure(source.id, source.leaseToken, {
+    const marked = await markFeedSourceFailure(source.id, source.leaseToken, {
       previousStatus: source.status,
       error: message,
       nextAttemptAt: retryDate(source, retryAfter),
       permanent,
       resetContentHash: zeroed > 0,
     });
+    const alertLevel = feedFailureAlertLevel(source.consecutiveFailures, permanent, zeroed);
+    if (marked && alertLevel) {
+      const critical = alertLevel === "critical";
+      await createNotification(
+        source.vendorId,
+        critical ? "feed_error" : "feed_warning",
+        critical ? "Ürün aktarımı durduruldu" : "Ürün aktarımında geçici sorun",
+        critical
+          ? `${source.name}: ${message}${zeroed > 0 ? ` Güvenlik için ${zeroed} ürünün stoğu sıfırlandı.` : ""}`
+          : `${source.name}: ${message} Sistem otomatik olarak yeniden deneyecek.`,
+        "/satici/panel/kanallar",
+      ).catch(() => undefined);
+    }
     throw new Error(message);
   }
 }
