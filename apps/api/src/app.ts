@@ -59,6 +59,7 @@ import vendorCollectionsRoutes from "./modules/vendors/vendor-collections.routes
 import vendorCategoriesRoutes from "./modules/vendors/vendor-categories.routes";
 import vendorBulkImportRoutes from "./modules/vendors/vendor-bulk-import.routes";
 import integrationsRoutes from "./modules/integrations/integrations.routes";
+import merchantFeedRoutes from "./modules/integrations/merchant-feed.routes";
 import vendorStoreLayoutRoutes from "./modules/vendors/vendor-store-layout.routes";
 import vendorStoreContentRoutes from "./modules/vendors/vendor-store-content.routes";
 import vendorDashboardRoutes from "./modules/vendors/vendor-dashboard.routes";
@@ -156,6 +157,7 @@ export function buildApp() {
   app.register(vendorCategoriesRoutes);
   app.register(vendorBulkImportRoutes);
   app.register(integrationsRoutes);
+  app.register(merchantFeedRoutes);
   app.register(vendorStoreLayoutRoutes);
   app.register(vendorStoreContentRoutes);
   app.register(vendorDashboardRoutes);

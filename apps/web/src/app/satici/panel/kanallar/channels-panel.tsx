@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
+import FeedSourcesPanel from "./feed-sources-panel";
 
 type SalesChannel = "trendyol" | "ikas" | "ticimax";
 
@@ -165,6 +166,8 @@ export default function ChannelsPanel() {
       <p style={{ color: "var(--color-text-light, #666)", margin: "0 0 20px" }}>
         Trendyol, İkas ve Ticimax hesabınızı bağlayın; merkez stok değiştikçe bağlı kanallar otomatik güncellenir. API bilgileriniz şifreli saklanır.
       </p>
+
+      <FeedSourcesPanel />
 
       {/* Kanal bağlantısı — her satıcı kendi API anahtarını girer */}
       <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>

@@ -456,6 +456,20 @@
       "when": 1787304728494,
       "tag": "0064_military_dagger",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1787861944137,
+      "tag": "0065_sticky_annihilus",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1787862178410,
+      "tag": "0066_zippy_malice",
+      "breakpoints": true
     }
   ]
 }

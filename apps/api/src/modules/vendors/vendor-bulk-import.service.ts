@@ -126,7 +126,7 @@ function normKey(k: string): string {
 
 // Ham ayrıştırma sonucu: dosyadaki başlıklar + başlık->değer satırları (eşleme
 // YAPILMADAN - orijinal başlık adları korunur).
-interface RawParsed {
+export interface RawParsed {
   headers: string[];
   rows: Record<string, string>[];
 }

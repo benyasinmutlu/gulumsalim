@@ -4,6 +4,7 @@ import { ensureProductsIndex } from "./lib/meilisearch";
 import { startBulkImportWorker, stopBulkImportWorker } from "./lib/queue/workers/bulk-import.worker";
 import { startOutboxDrainer, stopOutboxDrainer } from "./modules/integrations/outbox-drainer";
 import { startReconcileJob, stopReconcileJob } from "./modules/integrations/reconcile.job";
+import { startMerchantFeedScheduler, stopMerchantFeedScheduler } from "./modules/integrations/merchant-feed.scheduler";
 import { startOrderReconciliationJob } from "./modules/orders/order-reconciliation.scheduler";
 
 const app = buildApp();
@@ -19,6 +20,10 @@ startOutboxDrainer();
 // Periyodik mutabakat (30 dk): kanal stoklarını merkezle karşılaştırıp kaçan
 // senkronu düzeltir. Anahtar yoksa no-op (yapılandırılmamış kanalı atlar).
 startReconcileJob();
+
+// Resmi XML/CSV/JSON katalog kaynaklarini kosullu HTTP + lease ile ceker.
+// Kaynak yoksa no-op; bozuk/bayat feed stoklari guvenli bicimde sifirlar.
+startMerchantFeedScheduler(app.log);
 
 // Meilisearch geçici olarak erişilemez olsa bile API ayağa kalkmalı -
 // index ayarları bir sonraki başarılı çağrıda yine uygulanabilir.
@@ -51,6 +56,7 @@ for (const sig of ["SIGTERM", "SIGINT"] as const) {
     const timer = setTimeout(() => process.exit(1), 10_000).unref();
     stopOutboxDrainer();
     stopReconcileJob();
+    stopMerchantFeedScheduler();
     orderReconcileJob?.stop();
     Promise.all([app.close(), stopBulkImportWorker()])
       .then(() => {

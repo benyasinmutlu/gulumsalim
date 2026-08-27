@@ -1,0 +1,2 @@
+ALTER TABLE "vendor_feed_items" ADD COLUMN "source_stock" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "vendor_feed_items" ADD CONSTRAINT "vendor_feed_item_source_stock_check" CHECK ("vendor_feed_items"."source_stock" >= 0);

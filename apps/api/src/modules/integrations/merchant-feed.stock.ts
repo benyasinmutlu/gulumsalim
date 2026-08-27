@@ -1,0 +1,17 @@
+export function applyFeedStockDelta(
+  currentLocalStock: number,
+  previousSourceStock: number,
+  nextSourceStock: number,
+  wasActive: boolean,
+): number {
+  const current = Math.max(0, Math.floor(currentLocalStock));
+  const previous = Math.max(0, Math.floor(previousSourceStock));
+  const next = Math.max(0, Math.floor(nextSourceStock));
+  return wasActive ? Math.max(0, current + (next - previous)) : next;
+}
+
+export function nextFeedRunAt(nowMs: number, intervalMinutes: number, random = Math.random): Date {
+  const intervalMs = Math.max(15, Math.min(1440, Math.floor(intervalMinutes))) * 60_000;
+  const jitterMs = Math.floor(intervalMs * (Math.max(0, Math.min(1, random())) * 0.2 - 0.1));
+  return new Date(nowMs + intervalMs + jitterMs);
+}
