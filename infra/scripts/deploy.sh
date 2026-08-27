@@ -44,7 +44,7 @@ echo "==> ${RELEASE_ID} artefaktı hazırlanıyor..."
 tar --exclude='node_modules' --exclude='.git' --exclude='.next' \
     --exclude='.turbo' --exclude='coverage' --exclude='dist' \
     --exclude='uploads' --exclude='.claude' --exclude='.config' \
-    --exclude='audit' --exclude='*.tsbuildinfo' \
+    --exclude='audit' --exclude='tmp' --exclude='output' --exclude='*.tsbuildinfo' \
     --exclude='.env' --exclude='.env.local' \
     --exclude='services/discovery/discovery' \
     -czf "$LOCAL_ARCHIVE" .
@@ -86,7 +86,7 @@ while IFS= read -r entry; do
   esac
 done < "$ARCHIVE_LIST"
 
-if grep -Eq '(^|/)(node_modules|\.git|\.next|\.turbo|coverage|dist|uploads)(/|$)' "$ARCHIVE_LIST"; then
+if grep -Eq '(^|/)(node_modules|\.git|\.next|\.turbo|coverage|dist|uploads|tmp|output)(/|$)' "$ARCHIVE_LIST"; then
   echo "Artefaktta yeniden üretilebilir veya VCS klasörü bulundu" >&2
   exit 2
 fi
