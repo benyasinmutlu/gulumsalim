@@ -239,7 +239,7 @@ export default function VendorsTable() {
                         title="Komisyon oranını değiştir"
                       >
                         %{v.commissionRate ?? DEFAULT_COMMISSION_RATE}
-                        {!v.commissionRate && <span style={{ color: "var(--admin-text-muted)" }}> (varsayılan)</span>}
+                        {v.commissionRate === null && <span style={{ color: "var(--admin-text-muted)" }}> (varsayılan)</span>}
                       </a>
                     )}
                   </td>

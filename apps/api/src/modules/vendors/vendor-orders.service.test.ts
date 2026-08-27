@@ -39,6 +39,11 @@ describe("calculateEarning", () => {
     expect(result).toEqual({ grossAmount: "1000.00", commissionAmount: "200.00", netAmount: "800.00" });
   });
 
+  it("satıcıya özel sıfır komisyon oranını varsayılanla değiştirmez", () => {
+    const result = calculateEarning("1000.00", 0);
+    expect(result).toEqual({ grossAmount: "1000.00", commissionAmount: "0.00", netAmount: "1000.00" });
+  });
+
   it("küsuratlı tutarları doğru yuvarlar", () => {
     const result = calculateEarning("149.90", 10);
     expect(result).toEqual({ grossAmount: "149.90", commissionAmount: "14.99", netAmount: "134.91" });

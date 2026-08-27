@@ -163,7 +163,9 @@ async function markDeliveredAndCreditEarning(vendorId: number, orderItemId: numb
       .from(vendors)
       .where(eq(vendors.id, vendorId))
       .limit(1);
-    const rate = vendor?.commissionRate ? Number(vendor.commissionRate) : null;
+    const rate = vendor?.commissionRate !== null && vendor?.commissionRate !== undefined
+      ? Number(vendor.commissionRate)
+      : null;
     const earning = calculateEarning(total, rate);
 
     await tx.insert(vendorEarnings).values({ orderItemId, vendorId, ...earning });

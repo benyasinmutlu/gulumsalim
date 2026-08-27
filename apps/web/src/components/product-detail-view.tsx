@@ -49,12 +49,10 @@ export async function getCategories(): Promise<Category[]> {
   }
 }
 
-// GET /vendors/:slug zaten mağaza sayfası için puan/takipçi/takip-durumu/
-// soru sayısını döndürüyor (bkz. public-vendors.routes.ts) - ürün detay
-// sayfası için ayrı bir uç açmak yerine bu aynı endpoint'i satıcı özetini
-// almak için yeniden kullanıyoruz, döndürdüğü ürün listesini kullanmıyoruz.
+// Ürün detayındaki satıcı kartı hafif özet ucunu kullanır; mağazanın ürün
+// listesini gereksiz yere çekmez ve mağaza görüntülenme sayacını artırmaz.
 async function getVendorSummary(vendorSlug: string): Promise<PublicVendorProfile | null> {
-  const res = await apiFetch(`/vendors/${vendorSlug}`);
+  const res = await apiFetch(`/vendors/${vendorSlug}/summary`);
   if (!res.ok) return null;
   const data = (await res.json()) as { vendor: PublicVendorProfile };
   return data.vendor;
