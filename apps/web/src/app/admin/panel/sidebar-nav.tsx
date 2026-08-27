@@ -131,6 +131,10 @@ export default function AdminSidebarNav() {
 
       <div className="sidebar-section">
         <div className="sidebar-section-title">Sistem</div>
+        <Link href="/admin/panel/entegrasyonlar" className={cls("/admin/panel/entegrasyonlar")}>
+          <i className="fas fa-plug" />
+          <span>Entegrasyonlar</span>
+        </Link>
         <Link href="/admin/panel/ayarlar" className={cls("/admin/panel/ayarlar")}>
           <i className="fas fa-cog" />
           <span>Ayarlar</span>
