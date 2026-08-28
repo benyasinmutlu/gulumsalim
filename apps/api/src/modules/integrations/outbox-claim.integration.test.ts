@@ -17,6 +17,13 @@ describe.runIf(Boolean(integrationDatabaseUrl))("outbox claim integration", () =
     ({ claimDueOutbox, markOutboxDone } = await import("./inventory-sync.repository"));
     ({ processChannelOrderOnce } = await import("./channel-order.service"));
 
+    // Bu dosya yalnız özel INTEGRATION_DATABASE_URL verildiğinde çalışır.
+    // Önceki koşudan kalan pending outbox satırları global claim sorgusuna
+    // karışmasın; test aynı DB üzerinde tekrarlandığında da deterministik olsun.
+    await pool.query(
+      "TRUNCATE stock_sync_outbox, channel_webhook_events, channel_listings RESTART IDENTITY",
+    );
+
     const suffix = Date.now();
     const category = await pool.query<{ id: string }>(
       "INSERT INTO categories (name, slug) VALUES ($1, $2) RETURNING id",
