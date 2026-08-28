@@ -59,6 +59,7 @@ for required in \
   './apps/api/package.json' \
   './apps/web/package.json' \
   './services/discovery/go.mod' \
+  './infra/scripts/backup-db.sh' \
   './infra/scripts/smoke-prod.sh' \
   './infra/postgres/migrations/meta/_journal.json'; do
   if ! grep -Fxq -- "$required" "$ARCHIVE_LIST"; then
@@ -199,10 +200,13 @@ sudo -u gulumsalim env PATH=/usr/local/go/bin:/usr/bin:/bin HOME=/opt/gulumsalim
 sudo -u gulumsalim env PATH=/usr/local/go/bin:/usr/bin:/bin HOME=/opt/gulumsalim \
   go build -buildvcs=false -o discovery ./cmd/server
 
-# Migration öncesinde taze DB dump'ı zorunlu. Betik dump bütünlüğünü
-# pg_restore -l ile doğruluyor ve 14 günlük rotasyon uyguluyor.
-test -x "$ROOT/scripts/backup-db.sh"
-"$ROOT/scripts/backup-db.sh"
+# Migration öncesinde taze DB dump'ı zorunlu. Release ile sürümlenen betik
+# dump bütünlüğünü pg_restore -l ile doğrular, atomik yayınlar ve 14 günlük
+# rotasyon uygular. Böylece sunucuda repo dışında kalan bilinmeyen bir betiğe
+# bağımlı değiliz.
+test -x "$RELEASE/infra/scripts/backup-db.sh"
+ENV_FILE="$RELEASE/apps/api/.env" BACKUP_ROOT="$ROOT" \
+  "$RELEASE/infra/scripts/backup-db.sh"
 cd "$RELEASE"
 sudo -u gulumsalim env PATH=/usr/local/bin:/usr/bin:/bin HOME=/opt/gulumsalim \
   pnpm --filter @gulumsalim/api db:migrate
