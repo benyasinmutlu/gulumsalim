@@ -40,6 +40,18 @@ describe("merchant feed parser", () => {
     await expect(parseMerchantFeed(csv, "csv")).rejects.toThrow("yinelenen ürün kimliği");
   });
 
+  it("parses quoted multiline CSV without importing database-backed services", async () => {
+    const csv = Buffer.from('id,name,description,price,stock\nX1,"Şal, İnci","Birinci satır\nİkinci satır",99.90,4');
+    const parsed = await parseMerchantFeed(csv, "csv");
+    expect(parsed.items[0]).toMatchObject({
+      externalKey: "X1",
+      name: "Şal, İnci",
+      description: "Birinci satır\nİkinci satır",
+      price: "99.90",
+      stock: 4,
+    });
+  });
+
   it("rejects an empty feed instead of deactivating the current catalog", async () => {
     const csv = Buffer.from("id,name,price,stock\n");
     await expect(parseMerchantFeed(csv, "csv", { externalId: "id", name: "name", price: "price", stock: "stock" }))

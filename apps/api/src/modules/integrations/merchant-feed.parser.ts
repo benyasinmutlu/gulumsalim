@@ -1,11 +1,69 @@
 import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
-import { parseRawImport } from "../vendors/vendor-bulk-import.service";
 import type { FeedFieldMapping, FeedFormat, NormalizedFeedItem } from "./merchant-feed.types";
 
 const MAX_ITEMS = 5_000;
 
 type FlatRow = Record<string, string>;
+
+// Feed doğrulama/senkron yolu DB veya satıcı servislerini import etmemeli.
+// RFC4180 uyumlu bu küçük ayrıştırıcı tırnak içi virgül, çift tırnak ve çok
+// satırlı alanları destekler; TSV feed'lerini de ilk satırdan algılar.
+function parseDelimitedRecords(text: string, delimiter: string): string[][] {
+  const records: string[][] = [];
+  let field = "";
+  let record: string[] = [];
+  let inQuotes = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[index + 1] === '"') {
+          field += '"';
+          index += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === delimiter) {
+      record.push(field);
+      field = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && text[index + 1] === "\n") index += 1;
+      record.push(field);
+      records.push(record);
+      field = "";
+      record = [];
+    } else {
+      field += char;
+    }
+  }
+  if (inQuotes) throw new Error("CSV içinde kapanmamış tırnak var");
+  if (field.length > 0 || record.length > 0) {
+    record.push(field);
+    records.push(record);
+  }
+  return records;
+}
+
+function parseCsvRows(body: Buffer): FlatRow[] {
+  const raw = body.toString("utf8");
+  const text = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+  const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
+  const delimiter = (firstLine.match(/\t/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? "\t" : ",";
+  const records = parseDelimitedRecords(text, delimiter);
+  if (records.length === 0) return [];
+  const headers = records[0]!.map((header) => header.trim());
+  if (headers.some((header) => !header)) throw new Error("CSV başlıkları boş olamaz");
+  if (new Set(headers).size !== headers.length) throw new Error("CSV başlıkları yinelenemez");
+  return records.slice(1)
+    .filter((columns) => !(columns.length === 1 && (columns[0] ?? "").trim() === ""))
+    .map((columns) => Object.fromEntries(headers.map((header, index) => [header, (columns[index] ?? "").trim()])));
+}
 
 const ALIASES = {
   externalId: ["id", "product_id", "productid", "urun_id", "urunid", "model", "mpn"],
@@ -255,8 +313,7 @@ async function parseFeedRows(
     const parsed = JSON.parse(body.toString("utf8")) as unknown;
     flatRows = objectsFromJson(parsed, itemsPath).map((row) => flatten(row));
   } else {
-    const parsed = await parseRawImport(body, "feed.csv");
-    flatRows = parsed.rows;
+    flatRows = parseCsvRows(body);
   }
   return { format, rows: flatRows };
 }
