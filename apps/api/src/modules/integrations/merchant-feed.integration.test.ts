@@ -129,6 +129,60 @@ describe.runIf(Boolean(integrationDatabaseUrl))("merchant feed database integrat
     expect(reset?.lastContentHash).toBeNull();
   });
 
+  it("serializes checkout and feed stock changes without losing the local sale", async () => {
+    const raceKey = `${firstExternalKey}-RACE`;
+    await applyWithLease([item(raceKey, 10, "race-initial")]);
+    const [feedItem] = await db.select().from(schema.vendorFeedItems)
+      .where(eq(schema.vendorFeedItems.externalKey, raceKey));
+    expect(feedItem?.variantId).toBeTruthy();
+
+    const checkout = await pool.connect();
+    let committed = false;
+    let syncPromise: ReturnType<typeof applyWithLease> | undefined;
+    try {
+      await checkout.query("BEGIN");
+      const locked = await checkout.query<{ stock: number }>(
+        "SELECT stock FROM product_variants WHERE id = $1 FOR UPDATE",
+        [feedItem!.variantId!],
+      );
+      expect(locked.rows[0]?.stock).toBe(10);
+      await checkout.query("UPDATE product_variants SET stock = stock - 1 WHERE id = $1", [feedItem!.variantId!]);
+
+      // Dış stok da 10 -> 9 düşerken feed transaction'ı aynı varyant
+      // kilidinde beklemeli. Checkout commit olduktan sonra güncel yerel stok
+      // 9 üzerinden -1 delta uygulayıp 8 bırakması gerekir.
+      syncPromise = applyWithLease([item(raceKey, 9, "race-next")]);
+      let observedLockWait = false;
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        const waiting = await pool.query<{ waiting: string }>(`
+          SELECT count(*)::text AS waiting
+          FROM pg_stat_activity
+          WHERE pid <> pg_backend_pid()
+            AND wait_event_type = 'Lock'
+            AND query ILIKE '%product_variants%'
+        `);
+        if (Number(waiting.rows[0]?.waiting ?? 0) > 0) {
+          observedLockWait = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(observedLockWait).toBe(true);
+
+      await checkout.query("COMMIT");
+      committed = true;
+      await syncPromise;
+
+      const [variant] = await db.select().from(schema.productVariants)
+        .where(eq(schema.productVariants.id, feedItem!.variantId!));
+      expect(variant?.stock).toBe(8);
+    } finally {
+      if (!committed) await checkout.query("ROLLBACK").catch(() => undefined);
+      checkout.release();
+      if (!committed) await syncPromise?.catch(() => undefined);
+    }
+  });
+
   it("atomically fail-closes stock when a source is paused", async () => {
     const paused = await setFeedSourceStatus(source.vendorId, source.id, "paused");
     expect(paused?.status).toBe("paused");
