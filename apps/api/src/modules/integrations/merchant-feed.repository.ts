@@ -176,6 +176,25 @@ export async function listFeedRuns(vendorId: number, sourceId: number, limit = 2
     .orderBy(desc(vendorFeedSyncRuns.startedAt)).limit(safeLimit);
 }
 
+export async function listAdminFeedRuns(sourceId: number, limit = 20) {
+  const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+  return db.select({
+    id: vendorFeedSyncRuns.id,
+    status: vendorFeedSyncRuns.status,
+    httpStatus: vendorFeedSyncRuns.httpStatus,
+    itemCount: vendorFeedSyncRuns.itemCount,
+    createdCount: vendorFeedSyncRuns.createdCount,
+    updatedCount: vendorFeedSyncRuns.updatedCount,
+    unchangedCount: vendorFeedSyncRuns.unchangedCount,
+    deactivatedCount: vendorFeedSyncRuns.deactivatedCount,
+    error: vendorFeedSyncRuns.error,
+    startedAt: vendorFeedSyncRuns.startedAt,
+    finishedAt: vendorFeedSyncRuns.finishedAt,
+  }).from(vendorFeedSyncRuns)
+    .where(eq(vendorFeedSyncRuns.sourceId, sourceId))
+    .orderBy(desc(vendorFeedSyncRuns.startedAt)).limit(safeLimit);
+}
+
 export async function createFeedRun(sourceId: number) {
   const [row] = await db.insert(vendorFeedSyncRuns).values({ sourceId, status: "running" }).returning({ id: vendorFeedSyncRuns.id });
   if (!row) throw new Error("Feed çalışma kaydı oluşturulamadı");

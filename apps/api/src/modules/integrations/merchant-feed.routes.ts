@@ -12,6 +12,7 @@ import {
   createFeedSource,
   getOwnedFeedSource,
   listAdminFeedSources,
+  listAdminFeedRuns,
   listFeedRuns,
   listVendorFeedSources,
   setFeedSourceStatus,
@@ -146,6 +147,11 @@ const merchantFeedRoutes: FastifyPluginAsync = async (app) => {
 
   app.get("/admin/feed-sources", { preHandler: app.requireAdmin }, async (_request, reply) => {
     return reply.send(await listAdminFeedSources());
+  });
+
+  app.get("/admin/feed-sources/:id/runs", { preHandler: app.requireAdmin }, async (request, reply) => {
+    const { id } = idParams.parse(request.params);
+    return reply.send(await listAdminFeedRuns(id));
   });
 };
 
