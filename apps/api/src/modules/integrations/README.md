@@ -28,6 +28,25 @@ düşümü, transactional outbox, retry ve mutabakat worker'ı bağlıdır.
    olarak tanımlanır. Aynı olay ikinci kez gelirse idempotency kaydı stok düşümünü tekrar ettirmez.
 5. `0063` ve `0064` migration'ları uygulandıktan sonra kanal panelde görünür.
 
+## İzinli feed pilotunu doğrulama
+
+XML/CSV/JSON bağlantısını panele almadan önce production ile aynı HTTPS,
+SSRF, boyut, timeout ve parser kurallarıyla kontrol etmek için URL'yi komut
+satırına yazmadan ortam değişkeniyle verin:
+
+```bash
+MERCHANT_FEED_AUTHORIZED=true \
+MERCHANT_FEED_URL='https://magaza.example/izinli-feed.xml?token=secret' \
+MERCHANT_FEED_FORMAT=auto \
+pnpm --filter @gulumsalim/api feed:verify
+```
+
+Çıktı URL/token veya ürün içeriğini yazmaz; yalnız host, format, ürün/stok
+sayıları, eşlenen alanlar ve SHA-256 özeti gösterilir. Özel kolonlar için
+`MERCHANT_FEED_MAPPING_JSON` kullanılabilir. `mapping_required` sonucu exit 3,
+geçersiz/erişilemeyen kaynak exit 1 döndürür. Satıcının yazılı izni olmadan
+feed doğrulaması veya periyodik indirme yapılmamalıdır.
+
 ## Güvenlik
 Ticimax URL'si yalnız HTTPS origin kabul eder; localhost/IP/private DNS
 çözümleri ve yönlendirmeler engellenir. Dış çağrılar timeout'ludur. Stok olayları
