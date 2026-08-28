@@ -10,6 +10,7 @@ describe.runIf(Boolean(integrationDatabaseUrl))("merchant feed database integrat
   let schema: typeof import("../../db/schema/index");
   let applyFeedItems: (typeof import("./merchant-feed.repository"))["applyFeedItems"];
   let claimOwnedFeedSource: (typeof import("./merchant-feed.repository"))["claimOwnedFeedSource"];
+  let listAdminFeedRuns: (typeof import("./merchant-feed.repository"))["listAdminFeedRuns"];
   let markFeedSourceFailure: (typeof import("./merchant-feed.repository"))["markFeedSourceFailure"];
   let markFeedSourceSuccess: (typeof import("./merchant-feed.repository"))["markFeedSourceSuccess"];
   let setFeedSourceStatus: (typeof import("./merchant-feed.repository"))["setFeedSourceStatus"];
@@ -20,7 +21,7 @@ describe.runIf(Boolean(integrationDatabaseUrl))("merchant feed database integrat
     process.env.DATABASE_URL = integrationDatabaseUrl!;
     ({ db, pool } = await import("../../db/client"));
     schema = await import("../../db/schema/index");
-    ({ applyFeedItems, claimOwnedFeedSource, markFeedSourceFailure, markFeedSourceSuccess, setFeedSourceStatus } = await import("./merchant-feed.repository"));
+    ({ applyFeedItems, claimOwnedFeedSource, listAdminFeedRuns, markFeedSourceFailure, markFeedSourceSuccess, setFeedSourceStatus } = await import("./merchant-feed.repository"));
 
     const suffix = Date.now();
     const [category] = await db.insert(schema.categories).values({ name: "Feed test", slug: `feed-test-${suffix}` }).returning();
@@ -127,6 +128,33 @@ describe.runIf(Boolean(integrationDatabaseUrl))("merchant feed database integrat
     expect(reset?.lastEtag).toBeNull();
     expect(reset?.lastModified).toBeNull();
     expect(reset?.lastContentHash).toBeNull();
+  });
+
+  it("exposes immutable per-run counts to admin monitoring", async () => {
+    const [run] = await db.insert(schema.vendorFeedSyncRuns).values({
+      sourceId: source.id,
+      status: "success",
+      httpStatus: 200,
+      itemCount: 12,
+      createdCount: 3,
+      updatedCount: 4,
+      unchangedCount: 5,
+      deactivatedCount: 1,
+      finishedAt: new Date(),
+    }).returning({ id: schema.vendorFeedSyncRuns.id });
+
+    const rows = await listAdminFeedRuns(source.id);
+    expect(rows[0]).toMatchObject({
+      id: run!.id,
+      status: "success",
+      httpStatus: 200,
+      itemCount: 12,
+      createdCount: 3,
+      updatedCount: 4,
+      unchangedCount: 5,
+      deactivatedCount: 1,
+      error: null,
+    });
   });
 
   it("serializes checkout and feed stock changes without losing the local sale", async () => {

@@ -50,6 +50,11 @@ const envSchema = z.object({
   // google-signin-button.tsx NEXT_PUBLIC_GOOGLE_CLIENT_ID yoksa butonu hiç
   // göstermez - özellik yapılandırılmamışken sessizce devre dışı kalır.
   GOOGLE_CLIENT_ID: z.string().optional(),
+
+  // Resmi XML/CSV/JSON feed worker kapasitesi. DB lease/fencing birden fazla
+  // API instance'inda da ayni kaynagin iki kez calismasini engeller.
+  MERCHANT_FEED_POLL_INTERVAL_MS: z.coerce.number().int().min(5_000).max(300_000).default(15_000),
+  MERCHANT_FEED_BATCH_SIZE: z.coerce.number().int().min(1).max(10).default(4),
 });
 
 // Parsed once at boot. Fails fast with a readable error if the environment

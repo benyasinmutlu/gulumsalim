@@ -1,15 +1,17 @@
 import type { FastifyBaseLogger } from "fastify";
+import { env } from "../../config/env";
 import { claimDueFeedSources } from "./merchant-feed.repository";
 import { syncClaimedFeedSource } from "./merchant-feed.service";
 
 let timer: NodeJS.Timeout | null = null;
+let startupTimer: NodeJS.Timeout | null = null;
 let running = false;
 
-async function tick(log: FastifyBaseLogger) {
-  if (running) return;
+export async function runMerchantFeedSchedulerTick(log: FastifyBaseLogger): Promise<boolean> {
+  if (running) return false;
   running = true;
   try {
-    const sources = await claimDueFeedSources(2);
+    const sources = await claimDueFeedSources(env.MERCHANT_FEED_BATCH_SIZE);
     await Promise.all(sources.map((source) => syncClaimedFeedSource(source).catch((error) => {
       log.warn({ sourceId: source.id, error: error instanceof Error ? error.message : "feed error" }, "merchant feed senkronu başarısız");
     })));
@@ -18,16 +20,23 @@ async function tick(log: FastifyBaseLogger) {
   } finally {
     running = false;
   }
+  return true;
 }
 
 export function startMerchantFeedScheduler(log: FastifyBaseLogger) {
   if (timer) return;
-  timer = setInterval(() => void tick(log), 60_000);
+  timer = setInterval(() => void runMerchantFeedSchedulerTick(log), env.MERCHANT_FEED_POLL_INTERVAL_MS);
   timer.unref();
-  setTimeout(() => void tick(log), 5_000).unref();
+  startupTimer = setTimeout(() => {
+    startupTimer = null;
+    void runMerchantFeedSchedulerTick(log);
+  }, Math.min(5_000, env.MERCHANT_FEED_POLL_INTERVAL_MS));
+  startupTimer.unref();
 }
 
 export function stopMerchantFeedScheduler() {
   if (timer) clearInterval(timer);
+  if (startupTimer) clearTimeout(startupTimer);
   timer = null;
+  startupTimer = null;
 }

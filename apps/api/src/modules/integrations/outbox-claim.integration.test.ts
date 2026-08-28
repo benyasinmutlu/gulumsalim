@@ -60,7 +60,7 @@ describe.runIf(Boolean(integrationDatabaseUrl))("outbox claim integration", () =
       "INSERT INTO stock_sync_outbox (listing_id, target_stock) VALUES ($1, 9), ($1, 8), ($1, 7), ($2, 9)",
       [firstListing.rows[0]!.id, secondListing.rows[0]!.id],
     );
-  });
+  }, 30_000);
 
   afterAll(async () => {
     await pool?.end();
