@@ -61,11 +61,24 @@ async function resolvePublicHost(hostname: string): Promise<{ address: string; f
   return addresses[0]!;
 }
 
-async function requestOnce(url: URL, headers: Record<string, string>): Promise<FeedHttpResult & { location?: string }> {
-  const resolved = await resolvePublicHost(url.hostname);
-  const pinnedLookup = ((_hostname: string, _options: unknown, callback: (error: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
+export function createPinnedLookup(resolved: { address: string; family: number }): LookupFunction {
+  // Node 20 bazı TLS yollarında tek adres callback'i, Node 24 ise
+  // autoSelectFamily nedeniyle options.all=true ile adres dizisi bekliyor.
+  // Her iki durumda da önceden güvenliği doğrulanmış aynı IP'yi döndürerek
+  // DNS rebinding penceresini kapalı tutarız.
+  return ((_hostname: string, options: unknown, callback: (...args: unknown[]) => void) => {
+    const wantsAll = Boolean(options && typeof options === "object" && "all" in options && (options as { all?: boolean }).all);
+    if (wantsAll) {
+      callback(null, [{ address: resolved.address, family: resolved.family }]);
+      return;
+    }
     callback(null, resolved.address, resolved.family);
   }) as LookupFunction;
+}
+
+async function requestOnce(url: URL, headers: Record<string, string>): Promise<FeedHttpResult & { location?: string }> {
+  const resolved = await resolvePublicHost(url.hostname);
+  const pinnedLookup = createPinnedLookup(resolved);
 
   return new Promise((resolve, reject) => {
     const req = request(url, {
