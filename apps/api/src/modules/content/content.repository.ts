@@ -14,6 +14,7 @@ import {
   vendors,
 } from "../../db/schema/index";
 import { findProductsByIds } from "../catalog/catalog.repository";
+import { normalizePublicLink } from "../../lib/public-url";
 
 // Footer/site iletişim bilgisi gibi herkese açık ayarlar için: settings
 // tablosundaki her şeyi değil, sadece istenen (izin verilen) anahtarları
@@ -38,7 +39,8 @@ export async function listFooterPages() {
 }
 
 export async function listActiveSliders() {
-  return db.select().from(sliders).where(eq(sliders.isActive, true)).orderBy(sliders.sortOrder);
+  const rows = await db.select().from(sliders).where(eq(sliders.isActive, true)).orderBy(sliders.sortOrder);
+  return rows.map((row) => ({ ...row, linkUrl: row.linkUrl ? normalizePublicLink(row.linkUrl) : null }));
 }
 
 // admin/promo-banners.php'deki "Ek Görseller (döngü için)" özelliğinin
@@ -85,7 +87,7 @@ export async function resolveCollectionLink(linkType: string | null, linkValue: 
   // tamamı seçilebilsin.
   if (linkType === "all_vendors") return "/magazalar";
   if (!linkValue) return null;
-  if (linkType === "url") return linkValue;
+  if (linkType === "url") return normalizePublicLink(linkValue);
   if (linkType === "category") {
     const [row] = await db.select({ slug: categories.slug }).from(categories).where(eq(categories.slug, linkValue)).limit(1);
     return row ? `/kategori/${row.slug}` : null;

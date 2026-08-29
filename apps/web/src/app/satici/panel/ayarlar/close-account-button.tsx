@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { hardNavigateInternal } from "@/lib/navigation";
 
 const CONFIRM_PHRASE = "HESABIMI KAPAT";
 
@@ -18,7 +19,7 @@ export default function CloseAccountButton() {
     setError(null);
     try {
       await mutateJson("/vendor/auth/me", "DELETE");
-      window.location.href = "/";
+      hardNavigateInternal("/");
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Hesap kapatılamadı, tekrar deneyin.");
       setLoading(false);

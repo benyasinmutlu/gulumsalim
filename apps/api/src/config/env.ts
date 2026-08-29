@@ -24,6 +24,10 @@ const envSchema = z.object({
   // origin (örn. https://www.gulumsalim.com). Callback URL'i bunu kullanır.
   SITE_URL: z.string().url(),
 
+  // Virgülle ayrılmış ek web origin'leri. Kimlik bilgili CORS yalnız SITE_URL
+  // ve bu allowlist için açılır; boş bırakıldığında canonical site yeterlidir.
+  CORS_ALLOWED_ORIGINS: z.string().optional(),
+
   UPLOADS_DIR: z.string().default("./uploads"),
 
   // Görsel/video deposu. Varsayılan "local" (UPLOADS_DIR'e yazar, /uploads/..

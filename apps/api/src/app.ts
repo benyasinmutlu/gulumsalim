@@ -72,6 +72,8 @@ import adminDashboardRoutes from "./modules/admin/admin-dashboard.routes";
 import adminContentAnalyticsRoutes from "./modules/admin/admin-content-analytics.routes";
 import presenceRoutes from "./modules/analytics/presence.routes";
 import supportRoutes from "./modules/support/support.routes";
+import { env } from "./config/env";
+import { buildCorsAllowlist, isCorsOriginAllowed } from "./lib/cors-origin";
 
 export function buildApp() {
   const app = Fastify({
@@ -89,10 +91,13 @@ export function buildApp() {
     trustProxy: "loopback",
   });
 
-  // origin:true, isteğin kendi Origin header'ını yansıtır - nginx arkasında
-  // (tek origin) prod'da zaten devreye girmez, sadece Next.js dev server'ın
-  // API'den farklı porttan çalıştığı yerel geliştirmede işe yarar.
-  app.register(cors, { origin: true, credentials: true });
+  const allowedCorsOrigins = buildCorsAllowlist(env.SITE_URL, env.CORS_ALLOWED_ORIGINS);
+  app.register(cors, {
+    credentials: true,
+    origin(origin, callback) {
+      callback(null, isCorsOriginAllowed(origin, allowedCorsOrigins));
+    },
+  });
   // iyzico ödeme sonucu callback'ini form-encoded (application/x-www-form-
   // urlencoded) POST ile gönderir - Fastify varsayılan olarak sadece JSON
   // gövdesini ayrıştırır.

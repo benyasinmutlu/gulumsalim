@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { hardNavigateInternal } from "@/lib/navigation";
 import type { CustomerProfile } from "@/lib/types";
 
 interface GoogleCredentialResponse {
@@ -42,7 +43,7 @@ export default function GoogleSignInButton({ onError }: { onError: (message: str
     async function handleCredential(response: GoogleCredentialResponse) {
       try {
         const customer = await mutateJson<CustomerProfile>("/auth/google/login", "POST", { idToken: response.credential });
-        window.location.href = customer.needsConsent ? "/uyelik-tamamla" : "/";
+        hardNavigateInternal(customer.needsConsent ? "/uyelik-tamamla" : "/");
       } catch (err) {
         onError(err instanceof ClientApiError ? err.message : "Google ile giriş başarısız oldu");
       }

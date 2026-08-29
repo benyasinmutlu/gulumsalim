@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClientApiError, mutateJson } from "../lib/client-api";
+import { hardNavigateInternal } from "../lib/navigation";
 
 // gulumsalim.com'daki .fav-badge'in karşılığı - her zaman görünen (hover
 // gerektirmez) favori kalp butonu. Ürün listesi/detay sayfalarında başlangıç
@@ -39,7 +40,7 @@ export default function FavoriteButton({
         // router.push burada güvenilir değil (bkz. logout-button.tsx /
         // follow-button.tsx'teki aynı kök sebep) - tam sayfa yönlendirme
         // kullanılıyor.
-        window.location.href = `/giris?redirect=${encodeURIComponent(window.location.pathname)}`;
+        hardNavigateInternal(`/giris?redirect=${encodeURIComponent(window.location.pathname)}`);
       }
     } finally {
       setLoading(false);

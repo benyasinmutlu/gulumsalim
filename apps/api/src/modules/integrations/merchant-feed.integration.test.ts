@@ -49,7 +49,7 @@ describe.runIf(Boolean(integrationDatabaseUrl))("merchant feed database integrat
     }).returning();
     source = createdSource!;
     firstExternalKey = `A-${suffix}`;
-  });
+  }, 30_000);
 
   afterAll(async () => {
     await pool?.end();

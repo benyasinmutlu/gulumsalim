@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { hardNavigateInternal } from "@/lib/navigation";
 
 // gulumsalim.com'daki follow.php'nin karşılığı - .follow-btn CSS'i zaten
 // vardı (mağaza sayfası için tasarlanmıştı) ama hiçbir bileşen kullanmıyordu.
@@ -28,7 +29,7 @@ export default function FollowButton({ vendorSlug, initialFollowing }: { vendorS
         // router.push burada GÜVENİLİR DEĞİL (bkz. logout-button.tsx'teki
         // aynı kök sebep) - misafir kullanıcı butona bastığında hiçbir şey
         // olmuyormuş gibi görünüyordu. Tam sayfa yönlendirme bunu çözer.
-        window.location.href = `/giris?redirect=${encodeURIComponent(`/${vendorSlug}`)}`;
+        hardNavigateInternal(`/giris?redirect=${encodeURIComponent(`/${vendorSlug}`)}`);
         return;
       }
       setError("Bir şeyler ters gitti, tekrar deneyin");

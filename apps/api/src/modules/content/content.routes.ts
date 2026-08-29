@@ -15,6 +15,8 @@ import { insertSiteFeedback } from "./site-feedback.repository";
 import { insertCookieConsent } from "./cookie-consent.repository";
 import { insertNewsletterSubscriber } from "./newsletter.repository";
 import { findFeaturedActiveCoupon } from "../orders/coupon.repository";
+import { sanitizeCmsHtml } from "../../lib/cms-html";
+import { filterUnsafePublicSettings } from "../../lib/public-settings-security";
 
 const siteFeedbackSchema = z.object({
   rating: z.number().int().min(1).max(5).optional(),
@@ -74,7 +76,7 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
     if (!page) {
       return reply.status(404).send({ error: { message: "Sayfa bulunamadı" } });
     }
-    return reply.send(page);
+    return reply.send({ ...page, content: sanitizeCmsHtml(page.content) });
   });
 
   app.get("/footer-pages", async (_request, reply) => {
@@ -91,7 +93,7 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
 
   // admin/promo-banners.php'deki tıklama takibinin karşılığı - kimlik
   // doğrulaması/csrf gerektirmez, ziyaretçi bannera tıkladığında ateşlenir.
-  app.post("/promo-banners/:id/click", async (request, reply) => {
+  app.post("/promo-banners/:id/click", { preHandler: app.publicAnalyticsRateLimit }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
     await recordPromoBannerEvent(id, "click");
     return reply.status(204).send();
@@ -100,14 +102,14 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
   // bkz. kullanıcı isteği: "kampanyalarına kaç kişi baktı" - banner
   // IntersectionObserver ile ekranda göründüğünde bir kere ateşlenir
   // (bkz. components/promo-banner-impression.tsx).
-  app.post("/promo-banners/:id/view", async (request, reply) => {
+  app.post("/promo-banners/:id/view", { preHandler: app.publicAnalyticsRateLimit }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
     await recordPromoBannerEvent(id, "view");
     return reply.status(204).send();
   });
 
   app.get("/site-settings", async (_request, reply) => {
-    return reply.send(await getPublicSettings(PUBLIC_SETTING_KEYS));
+    return reply.send(filterUnsafePublicSettings(await getPublicSettings(PUBLIC_SETTING_KEYS)));
   });
 
   app.get("/homepage-collections", async (_request, reply) => {
@@ -132,7 +134,7 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
   // Herkese açık iletişim formu - eski sitedeki contact.php'nin karşılığı.
   // csrfProtection eklenmedi çünkü ziyaretçi henüz hiçbir oturuma sahip
   // olmayabilir (misafir); spam riskine karşı admin panelde moderasyon var.
-  app.post("/contact", async (request, reply) => {
+  app.post("/contact", { preHandler: app.loginRateLimit }, async (request, reply) => {
     const { name, email, message } = createContactMessageSchema.parse(request.body);
     const row = await insertContactMessage(name, email, message);
     return reply.status(201).send(row);
@@ -143,7 +145,7 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
   // widget.tsx belirli bir süre sonra bu uca gönderir. Misafirler de
   // gönderebilir (contact formundaki aynı gerekçe), giriş yapmışsa
   // customerId oturumdan otomatik alınır.
-  app.post("/site-feedback", async (request, reply) => {
+  app.post("/site-feedback", { preHandler: app.loginRateLimit }, async (request, reply) => {
     const input = siteFeedbackSchema.parse(request.body);
     const row = await insertSiteFeedback({ ...input, customerId: request.session.customerId });
     return reply.status(201).send(row);
@@ -166,7 +168,7 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
 
   // Footer bülten kayıt bandı - contact/site-feedback ile aynı gerekçeyle
   // CSRF yok (misafir formu).
-  app.post("/newsletter-signup", async (request, reply) => {
+  app.post("/newsletter-signup", { preHandler: app.loginRateLimit }, async (request, reply) => {
     const { email } = newsletterSignupSchema.parse(request.body);
     const row = await insertNewsletterSubscriber(email);
     return reply.status(201).send({ id: row.id });

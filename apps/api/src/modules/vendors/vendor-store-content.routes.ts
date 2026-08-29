@@ -9,17 +9,18 @@ import {
   listVendorSocialPosts,
   listVendorStoreSlides,
 } from "./vendor-store-content.repository";
+import { externalHttpUrlSchema, publicLinkUrlSchema } from "../../lib/public-url";
 
 const slideQuerySchema = z.object({
   title: z.string().optional(),
   subtitle: z.string().optional(),
   buttonText: z.string().optional(),
-  linkUrl: z.string().optional(),
+  linkUrl: publicLinkUrlSchema.optional(),
 });
 
 const socialPostSchema = z.object({
   platform: z.enum(["instagram", "tiktok", "youtube"]),
-  postUrl: z.string().url(),
+  postUrl: externalHttpUrlSchema,
   image: z.string().optional(),
   caption: z.string().max(500).optional(),
 });

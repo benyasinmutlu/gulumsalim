@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { hardNavigateInternal } from "@/lib/navigation";
 import type { AdminProfile } from "@/lib/types";
 
 export default function AdminLoginForm() {
@@ -17,7 +18,7 @@ export default function AdminLoginForm() {
     setError(null);
     try {
       await mutateJson<AdminProfile>("/admin/auth/login", "POST", { username, password });
-      window.location.href = "/admin/panel";
+      hardNavigateInternal("/admin/panel");
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Giriş başarısız oldu");
     } finally {

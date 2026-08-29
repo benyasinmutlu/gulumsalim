@@ -1,9 +1,11 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../../db/client";
 import { vendorSocialPosts, vendorStoreSlides } from "../../db/schema/index";
+import { normalizeExternalHttpUrl, normalizePublicLink } from "../../lib/public-url";
 
 export async function listVendorStoreSlides(vendorId: number) {
-  return db.select().from(vendorStoreSlides).where(eq(vendorStoreSlides.vendorId, vendorId)).orderBy(asc(vendorStoreSlides.sortOrder));
+  const rows = await db.select().from(vendorStoreSlides).where(eq(vendorStoreSlides.vendorId, vendorId)).orderBy(asc(vendorStoreSlides.sortOrder));
+  return rows.map((row) => ({ ...row, linkUrl: row.linkUrl ? normalizePublicLink(row.linkUrl) : null }));
 }
 
 export async function insertVendorStoreSlide(vendorId: number, data: { image: string; title?: string; subtitle?: string; buttonText?: string; linkUrl?: string }) {
@@ -19,7 +21,8 @@ export async function deleteVendorStoreSlide(vendorId: number, id: number) {
 }
 
 export async function listVendorSocialPosts(vendorId: number) {
-  return db.select().from(vendorSocialPosts).where(eq(vendorSocialPosts.vendorId, vendorId)).orderBy(asc(vendorSocialPosts.sortOrder));
+  const rows = await db.select().from(vendorSocialPosts).where(eq(vendorSocialPosts.vendorId, vendorId)).orderBy(asc(vendorSocialPosts.sortOrder));
+  return rows.map((row) => ({ ...row, postUrl: normalizeExternalHttpUrl(row.postUrl) ?? "#" }));
 }
 
 export async function insertVendorSocialPost(vendorId: number, data: { platform: string; postUrl: string; image?: string; caption?: string }) {

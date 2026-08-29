@@ -76,7 +76,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   // bkz. kullanıcı isteği: "email doğrulamayı zorunlu olmalı" - kayıt artık
   // otomatik giriş yapmıyor, doğrulama e-postası gönderiliyor ve müşteri
   // bağlantıya tıklayana kadar giriş yapamıyor (bkz. /auth/login).
-  app.post("/auth/register", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/auth/register", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const input = registerSchema.parse(request.body);
     try {
       const customer = await registerCustomer(input);
@@ -148,7 +148,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   // bkz. kullanıcı isteği: dogrulama e-postasi kaybolur/suresi dolarsa
   // yeniden gonderilebilsin - e-posta enumeration'a karsi her zaman ayni
   // genel yanit doner (bkz. forgot-password ile ayni desen).
-  app.post("/auth/resend-verification", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/auth/resend-verification", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const { email } = forgotPasswordSchema.parse(request.body);
     await resendCustomerVerificationEmail(email);
     return reply.send({ ok: true });
@@ -174,13 +174,13 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   // E-posta kayıtlı olsun olmasın her zaman aynı genel yanıt döner - hangi
   // e-postaların sistemde kayıtlı olduğunu dışarıya sızdırmamak için
   // (bkz. auth.service.ts requestPasswordReset).
-  app.post("/auth/forgot-password", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/auth/forgot-password", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const { email } = forgotPasswordSchema.parse(request.body);
     await requestPasswordReset(email);
     return reply.send({ ok: true });
   });
 
-  app.post("/auth/reset-password", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/auth/reset-password", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const { token, password } = resetPasswordSchema.parse(request.body);
     try {
       await resetPasswordWithToken(token, password);
