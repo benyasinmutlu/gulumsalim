@@ -5,6 +5,7 @@ import { ClientApiError, mutateJson } from "@/lib/client-api";
 import type { CustomerProfile } from "@/lib/types";
 import ConsentModal from "@/components/consent-modal";
 import ConsentDocumentCard from "@/components/consent-document-card";
+import { hardNavigateInternal } from "@/lib/navigation";
 
 export default function CompleteConsentForm() {
   const [phone, setPhone] = useState("");
@@ -30,7 +31,7 @@ export default function CompleteConsentForm() {
         marketingConsent,
         analyticsConsent,
       });
-      window.location.href = "/";
+      hardNavigateInternal("/");
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Bir şeyler ters gitti");
     } finally {

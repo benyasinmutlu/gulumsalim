@@ -76,7 +76,7 @@ function publicVendor(v: {
 const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
   // bkz. kullanıcı isteği: "email doğrulamayı zorunlu olmalı" - kayıt artık
   // otomatik giriş yapmıyor, doğrulama e-postası gönderiliyor.
-  app.post("/vendor/auth/register", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/vendor/auth/register", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const input = vendorRegisterSchema.parse(request.body);
     try {
       const vendor = await registerVendor(input);
@@ -116,7 +116,7 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  app.post("/vendor/auth/resend-verification", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/vendor/auth/resend-verification", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const { email } = vendorForgotPasswordSchema.parse(request.body);
     await resendVendorVerificationEmail(email);
     return reply.send({ ok: true });
@@ -175,13 +175,13 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
 
   // bkz. auth.routes.ts /auth/forgot-password (müşteri eşdeğeri) - aynı
   // enumeration koruması.
-  app.post("/vendor/auth/forgot-password", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/vendor/auth/forgot-password", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const { email } = vendorForgotPasswordSchema.parse(request.body);
     await requestVendorPasswordReset(email);
     return reply.send({ ok: true });
   });
 
-  app.post("/vendor/auth/reset-password", { preHandler: app.csrfProtection }, async (request, reply) => {
+  app.post("/vendor/auth/reset-password", { preHandler: [app.loginRateLimit, app.csrfProtection] }, async (request, reply) => {
     const { token, password } = vendorResetPasswordSchema.parse(request.body);
     try {
       await resetVendorPasswordWithToken(token, password);

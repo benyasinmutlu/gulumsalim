@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { hardNavigateInternal } from "@/lib/navigation";
 import type { VendorProfile } from "@/lib/types";
 
 export default function VendorLoginForm() {
@@ -22,7 +23,7 @@ export default function VendorLoginForm() {
     setResendSent(false);
     try {
       await mutateJson<VendorProfile>("/vendor/auth/login", "POST", { email, password });
-      window.location.href = "/satici/panel";
+      hardNavigateInternal("/satici/panel");
     } catch (err) {
       if (err instanceof ClientApiError) {
         setError(err.message);

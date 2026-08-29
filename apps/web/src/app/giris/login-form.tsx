@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { hardNavigateInternal } from "@/lib/navigation";
 import type { CustomerProfile } from "@/lib/types";
 import GoogleSignInButton from "@/components/google-signin-button";
 
@@ -29,7 +30,7 @@ export default function LoginForm() {
       // router.push+refresh burada güvenilir değil (bkz. logout-button.tsx'teki
       // aynı kök sebep) - giriş sonrası hedef sayfa bazen hâlâ "giriş
       // yapılmamış" gibi görünebiliyordu. Tam sayfa yönlendirme kullanılıyor.
-      window.location.href = redirect && redirect.startsWith("/") ? redirect : "/";
+      hardNavigateInternal(redirect ?? "/");
     } catch (err) {
       if (err instanceof ClientApiError) {
         setError(err.message);

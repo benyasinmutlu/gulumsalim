@@ -185,6 +185,9 @@ export default async function ProductDetailView({
       },
     }),
   };
+  // JSON-LD içinde ürün/satıcı metninden gelebilecek </script> dizisinin
+  // HTML script etiketini erken kapatmasını engeller.
+  const serializedJsonLd = JSON.stringify(jsonLd).replace(/</g, "\\u003c");
 
   // bkz. denetim raporu: "Breadcrumb ... structured data" - HTML kırıntı
   // izi zaten vardı (aşağıdaki .breadcrumb), Google'ın arama sonuçlarında
@@ -204,6 +207,7 @@ export default async function ProductDetailView({
       item: item.url,
     })),
   };
+  const serializedBreadcrumbJsonLd = JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c");
 
   const discountPercent = product.compareAtPrice
     ? Math.round((1 - Number(product.basePrice) / Number(product.compareAtPrice)) * 100)
@@ -212,8 +216,8 @@ export default async function ProductDetailView({
   return (
     <main className="main-content">
       <DwellTracker productId={product.id} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedJsonLd }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedBreadcrumbJsonLd }} />
 
       <div className="breadcrumb-bar">
         <div className="container">

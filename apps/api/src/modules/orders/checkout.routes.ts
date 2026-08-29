@@ -3,6 +3,7 @@ import { checkoutSchema, contractPreviewSchema, type SelectedLine } from "./chec
 import { hydrateCart, lineKey } from "../cart/cart.service";
 import type { CartLine } from "../cart/cart.types";
 import { syncCartProductIndex } from "../../lib/cart-product-index";
+import { env } from "../../config/env";
 
 // bkz. checkout.schemas.ts selectedLines yorumu - verilmezse sepetin tamamı
 // (eski davranış), verilirse sadece eşleşen kalemler işleme alınır.
@@ -47,6 +48,7 @@ function couponErrorReply(reply: FastifyReply, err: unknown): boolean {
 }
 
 const checkoutRoutes: FastifyPluginAsync = async (app) => {
+  const siteOrigin = new URL(env.SITE_URL).origin;
   // Misafir checkout desteklenir - preHandler'da requireCustomer yok,
   // startCheckout oturum yoksa `email` alanından bir misafir hesabı bulur/
   // oluşturur (bkz. checkout.service.ts resolveCustomerId).
@@ -137,7 +139,7 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
   app.post("/payment-callback", async (request, reply) => {
     const body = request.body as { token?: string };
     if (!body.token) {
-      return reply.redirect(`${request.protocol}://${request.hostname}/siparis-sonucu?success=false`);
+      return reply.redirect(`${siteOrigin}/siparis-sonucu?success=false`);
     }
 
     const result = await handlePaymentCallback(app, body.token);
@@ -154,7 +156,7 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
     const query = result
       ? `order=${encodeURIComponent(result.orderNumber)}&success=${result.success}&access=${createOrderAccessToken(result.orderNumber)}`
       : "success=false";
-    return reply.redirect(`${request.protocol}://${request.hostname}/siparis-sonucu?${query}`);
+    return reply.redirect(`${siteOrigin}/siparis-sonucu?${query}`);
   });
 
   app.get("/orders", { preHandler: app.requireCustomer }, async (request, reply) => {

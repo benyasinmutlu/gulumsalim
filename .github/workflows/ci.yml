@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:14.24-alpine
+        env:
+          POSTGRES_USER: gulumsalim_ci
+          POSTGRES_PASSWORD: ci-local-only
+          POSTGRES_DB: gulumsalim_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gulumsalim_ci -d gulumsalim_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgres://gulumsalim_ci:ci-local-only@127.0.0.1:5432/gulumsalim_ci
+      INTEGRATION_DATABASE_URL: postgres://gulumsalim_ci:ci-local-only@127.0.0.1:5432/gulumsalim_ci
+      REDIS_URL: redis://127.0.0.1:6379
+      SESSION_SECRET: ci-session-secret-at-least-32-characters
+      MEILISEARCH_URL: http://127.0.0.1:7700
+      MEILISEARCH_API_KEY: ci
+      DISCOVERY_SERVICE_URL: http://127.0.0.1:8081
+      DISCOVERY_SERVICE_SECRET: ci
+      IYZICO_API_KEY: ci
+      IYZICO_SECRET_KEY: ci
+      IYZICO_BASE_URL: https://sandbox-api.iyzipay.com
+      SITE_URL: http://127.0.0.1:3001
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:3000
+      RESEND_API_KEY: ci
+      SMTP_FROM: "CI <ci@example.com>"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Reject high or critical production advisories
+        run: pnpm audit --prod --audit-level high
+
+      - name: Apply migrations to an empty PostgreSQL database
+        run: pnpm --filter @gulumsalim/api db:migrate
+
+      - name: API tests including PostgreSQL race tests
+        run: pnpm --filter @gulumsalim/api test
+
+      - name: Typecheck all workspaces
+        run: pnpm -r typecheck
+
+      - name: Lint web application
+        run: pnpm --filter @gulumsalim/web lint
+
+      - name: Build production web application
+        run: pnpm --filter @gulumsalim/web build
+
+  discovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/discovery
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: services/discovery/go.mod
+          cache-dependency-path: services/discovery/go.sum
+
+      - name: Test discovery service
+        run: go test ./...
+
+      - name: Build discovery service
+        run: go build ./...

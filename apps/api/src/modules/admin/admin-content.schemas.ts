@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { publicLinkUrlSchema } from "../../lib/public-url";
 
 // Oluşturma isteklerinde görsel multipart gövdede, diğer alanlar query
 // string'de taşınır - tek bir multipart isteğinde hem dosya hem metin
 // alanlarını güvenilir şekilde ayrıştırmak yerine bu daha basit yol
 // tercih edildi.
 export const createSliderQuerySchema = z.object({
-  linkUrl: z.string().optional(),
+  linkUrl: publicLinkUrlSchema.optional(),
   title: z.string().optional(),
   subtitle: z.string().optional(),
   buttonText: z.string().optional(),
@@ -14,7 +15,7 @@ export const createSliderQuerySchema = z.object({
 });
 
 export const updateSliderSchema = z.object({
-  linkUrl: z.string().optional(),
+  linkUrl: publicLinkUrlSchema.optional(),
   title: z.string().optional(),
   subtitle: z.string().optional(),
   buttonText: z.string().optional(),
@@ -28,7 +29,7 @@ const bannerAnimStyleSchema = z.enum(["none", "fade-up", "zoom-in", "slide-left"
 
 export const createPromoBannerQuerySchema = z.object({
   title: z.string().min(1),
-  linkUrl: z.string().optional(),
+  linkUrl: publicLinkUrlSchema.optional(),
   linkType: z.enum(["url", "category", "vendor", "all_vendors", "collection"]).optional(),
   animStyle: bannerAnimStyleSchema.optional(),
   subtitle: z.string().optional(),
@@ -39,7 +40,7 @@ export const createPromoBannerQuerySchema = z.object({
 
 export const updatePromoBannerSchema = z.object({
   title: z.string().min(1).optional(),
-  linkUrl: z.string().optional(),
+  linkUrl: publicLinkUrlSchema.optional(),
   linkType: z.enum(["url", "category", "vendor", "all_vendors", "collection"]).optional(),
   animStyle: bannerAnimStyleSchema.optional(),
   subtitle: z.string().optional(),
