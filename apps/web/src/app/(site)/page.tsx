@@ -12,6 +12,7 @@ import type {
   ResolvedHomepageSection,
   SiteSettings,
 } from "@/lib/types";
+import { getSiteStats } from "@/lib/site-stats";
 import PopularVendorsSection from "@/components/popular-vendors-section";
 import CampaignVendorsSection from "@/components/campaign-vendors-section";
 import HeroSlider from "@/components/hero-slider";
@@ -272,7 +273,7 @@ async function getCampaignVendors(): Promise<CampaignVendor[]> {
 }
 
 export default async function Home() {
-  const [categories, sliders, discover, sections, saleProducts, homepageCollections, settings, customer, featuredCoupon, vendors, campaignVendors] =
+  const [categories, sliders, discover, sections, saleProducts, homepageCollections, settings, customer, featuredCoupon, vendors, campaignVendors, siteStats] =
     await Promise.all([
       getCategories(),
       getSliders(),
@@ -285,6 +286,7 @@ export default async function Home() {
       getFeaturedCoupon(),
       getVendors(),
       getCampaignVendors(),
+      getSiteStats(),
     ]);
   const heroIntervalMs = settings.hero_interval_ms ? Number(settings.hero_interval_ms) : undefined;
 
@@ -340,7 +342,7 @@ export default async function Home() {
             </section>
           )}
         </div>
-        <HomeHeroCards featuredCoupon={featuredCoupon} />
+        <HomeHeroCards featuredCoupon={featuredCoupon} saleProducts={saleProducts} siteStats={siteStats} />
       </div>
 
       <div className="container">

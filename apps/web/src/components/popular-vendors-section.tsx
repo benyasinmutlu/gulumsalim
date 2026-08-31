@@ -7,7 +7,13 @@ import type { PublicVendorListItem } from "../lib/types";
 // gerekmedi - sadece en popüler (takipçiye göre) mağazaları dairesel
 // avatar şeridinde gösteren yeni bir bileşen.
 export default function PopularVendorsSection({ vendors }: { vendors: PublicVendorListItem[] }) {
-  const popular = [...vendors].sort((a, b) => b.followerCount - a.followerCount).slice(0, 10);
+  // bkz. denetim raporu madde 2: "0 ürünlü mağazalar ana sayfada
+  // gösterilmesin" - /magazalar sayfasında zaten uygulanan
+  // productCount > 0 filtresi buraya da taşındı.
+  const popular = vendors
+    .filter((v) => v.productCount > 0)
+    .sort((a, b) => b.followerCount - a.followerCount)
+    .slice(0, 10);
   if (popular.length === 0) return null;
 
   return (
@@ -25,7 +31,7 @@ export default function PopularVendorsSection({ vendors }: { vendors: PublicVend
               <div className="popular-vendor-avatar">
                 {v.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={v.logo} alt={v.storeName} />
+                  <img src={v.logo} alt={v.storeName} loading="lazy" decoding="async" />
                 ) : (
                   v.storeName.charAt(0)
                 )}

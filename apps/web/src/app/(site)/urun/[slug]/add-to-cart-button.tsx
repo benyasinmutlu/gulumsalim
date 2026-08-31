@@ -14,6 +14,9 @@ interface Props {
   // varyantsız ürünlerde artık gerçek bir stok var, sadece variants boşken
   // kullanılır.
   stock: number;
+  // bkz. denetim raporu madde 4/7/8: satıcının bu ürüne özel girdiği ölçü
+  // tablosu (cm). Verilmemişse (çoğu ürün) standart referans tabloya düşülür.
+  sizeChart?: Record<string, { bust?: number; waist?: number; hip?: number }> | null;
 }
 
 const SIZE_CHART_ROWS: { size: string; bust: string; waist: string; hip: string }[] = [
@@ -25,11 +28,27 @@ const SIZE_CHART_ROWS: { size: string; bust: string; waist: string; hip: string 
   { size: "XXL", bust: "104-110", waist: "86-92", hip: "112-118" },
 ];
 
-// bkz. kullanıcı isteği (tasarım brief'i, 2026-08-02): "Beden Tablosu" modal
-// tetikleyicisi - ürüne özel ölçü verisi katalogda yok, bu yüzden genel
-// kadın giyim beden tablosu (göğüs/bel/kalça cm) gösteriliyor; referans
-// amaçlı, ürün-spesifik değil.
-function SizeChartModal({ onClose }: { onClose: () => void }) {
+// bkz. denetim raporu madde 4/7/8: önceden bu modal HER ürün için aynı genel
+// tabloyu gösteriyordu, satıcının girdiği gerçek product.sizeChart'la hiç
+// bağlantısı yoktu (o veri sadece "Bedenime Uygun" fit motorunda kullanılıyordu).
+// Satıcı bu ürüne özel ölçü girdiyse artık burada da gösterilir; girmediyse
+// genel referans tabloya düşülür (bu durumda not metni bunu açıkça belirtir).
+function SizeChartModal({
+  onClose,
+  productSizeChart,
+}: {
+  onClose: () => void;
+  productSizeChart?: Record<string, { bust?: number; waist?: number; hip?: number }> | null;
+}) {
+  const hasProductChart = productSizeChart && Object.keys(productSizeChart).length > 0;
+  const rows = hasProductChart
+    ? Object.entries(productSizeChart).map(([size, m]) => ({
+        size,
+        bust: m.bust ? `${m.bust}` : "—",
+        waist: m.waist ? `${m.waist}` : "—",
+        hip: m.hip ? `${m.hip}` : "—",
+      }))
+    : SIZE_CHART_ROWS;
   return (
     <>
       <div className="overlay active" onClick={onClose} role="presentation" />
@@ -40,7 +59,9 @@ function SizeChartModal({ onClose }: { onClose: () => void }) {
             <i className="fas fa-times" />
           </button>
         </div>
-        <p className="size-chart-note">Ölçüler santimetre (cm) cinsindendir, genel referans tablosudur.</p>
+        <p className="size-chart-note">
+          Ölçüler santimetre (cm) cinsindendir{hasProductChart ? ", bu ürün için satıcının girdiği gerçek ölçülerdir." : ", genel referans tablosudur."}
+        </p>
         <table className="size-chart-table">
           <thead>
             <tr>
@@ -51,7 +72,7 @@ function SizeChartModal({ onClose }: { onClose: () => void }) {
             </tr>
           </thead>
           <tbody>
-            {SIZE_CHART_ROWS.map((row) => (
+            {rows.map((row) => (
               <tr key={row.size}>
                 <td>{row.size}</td>
                 <td>{row.bust}</td>
@@ -68,7 +89,7 @@ function SizeChartModal({ onClose }: { onClose: () => void }) {
 
 // gulumsalim.com'daki .detail-options / .size-options / .quantity-selector
 // yapısının birebir karşılığı.
-export default function AddToCartButton({ productId, variants, price, stock }: Props) {
+export default function AddToCartButton({ productId, variants, price, stock, sizeChart }: Props) {
   const router = useRouter();
   const sizes = useMemo(() => [...new Set(variants.map((v) => v.size).filter((s): s is string => !!s))], [variants]);
   const colors = useMemo(() => [...new Set(variants.map((v) => v.color).filter((c): c is string => !!c))], [variants]);
@@ -169,7 +190,7 @@ export default function AddToCartButton({ productId, variants, price, stock }: P
         </div>
       )}
 
-      {sizeChartOpen && <SizeChartModal onClose={() => setSizeChartOpen(false)} />}
+      {sizeChartOpen && <SizeChartModal onClose={() => setSizeChartOpen(false)} productSizeChart={sizeChart} />}
 
       {colors.length > 0 && (
         <div className="option-group">

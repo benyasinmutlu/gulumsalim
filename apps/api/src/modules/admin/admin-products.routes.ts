@@ -3,6 +3,7 @@ import { z } from "zod";
 import { deleteObject } from "../../lib/storage";
 import { findProductsByIds } from "../catalog/catalog.repository";
 import { removeProductFromIndex, syncProductToIndex } from "../catalog/search-index.service";
+import { recordAdminAction } from "./admin-audit.repository";
 import { countProductsByStatus, deleteProduct, listAllProducts, ProductHasOrdersError, updateProductStatus } from "./admin-products.repository";
 import { productIdParamsSchema, productListQuerySchema, updateProductStatusSchema } from "./admin-products.schemas";
 
@@ -28,6 +29,7 @@ const adminProductsRoutes: FastifyPluginAsync = async (app) => {
     const { status } = updateProductStatusSchema.parse(request.body);
     const row = await updateProductStatus(id, status);
     if (!row) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+    recordAdminAction(request.session.adminId!, status, "product", id, `"${row.name}" ürününün durumu "${status}" olarak değiştirildi`).catch(() => {});
     syncProductToIndex(id).catch(() => {});
     return reply.send(row);
   });

@@ -69,6 +69,9 @@ import adminHomepageCollectionsRoutes from "./modules/admin/admin-homepage-colle
 import vendorPromoBannersRoutes from "./modules/vendors/vendor-promo-banners.routes";
 import adminDashboardRoutes from "./modules/admin/admin-dashboard.routes";
 import adminContentAnalyticsRoutes from "./modules/admin/admin-content-analytics.routes";
+import adminAuditRoutes from "./modules/admin/admin-audit.routes";
+import adminBrandsRoutes from "./modules/admin/admin-brands.routes";
+import brandsRoutes from "./modules/catalog/brands.routes";
 import presenceRoutes from "./modules/analytics/presence.routes";
 import supportRoutes from "./modules/support/support.routes";
 
@@ -167,6 +170,9 @@ export function buildApp() {
   app.register(vendorPromoBannersRoutes);
   app.register(adminDashboardRoutes);
   app.register(adminContentAnalyticsRoutes);
+  app.register(adminAuditRoutes);
+  app.register(adminBrandsRoutes);
+  app.register(brandsRoutes);
   app.register(presenceRoutes);
   app.register(supportRoutes);
 

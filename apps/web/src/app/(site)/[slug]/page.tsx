@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { apiFetch, apiFetchJson } from "@/lib/api";
+import { SITE_ORIGIN } from "@/lib/env";
 import type { Category, ResolvedHomepageSection, SiteSettings } from "@/lib/types";
 import ContactForm from "./contact-form";
 import VendorStorefrontView, { getVendorMetaTitle } from "@/components/vendor-storefront";
@@ -104,16 +105,57 @@ async function getSectionBySlug(slug: string): Promise<ResolvedHomepageSection |
   return res.json();
 }
 
+// bkz. denetim raporu: canonical URL, OG, boş kategori noindex politikası
+// hiçbirinde yoktu - sadece bir <title> dönülüyordu. `/{slug}` hem kategori
+// hem mağaza hem CMS sayfası hem anasayfa bölümü olabildiği için (aynı ad
+// alanını paylaşırlar, bkz. isSeoSlugTaken yorumu) canonical her zaman
+// KENDİ temiz URL'i - ikinci bir erişim yolu yok, ama ileride slug
+// değişirse/aynı içeriğe iki path'ten erişilirse diye açıkça belirtiliyor.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const canonical = `${SITE_ORIGIN}/${slug}`;
   const page = await getPage(slug);
-  if (page) return { title: `${page.title} | Gülüm Şalım` };
+  if (page) {
+    return {
+      title: `${page.title} | Gülüm Şalım`,
+      alternates: { canonical },
+    };
+  }
   const vendorTitle = await getVendorMetaTitle(slug);
-  if (vendorTitle) return { title: `${vendorTitle} | Gülüm Şalım` };
+  if (vendorTitle) {
+    return {
+      title: `${vendorTitle} | Gülüm Şalım`,
+      description: `${vendorTitle} mağazasının ürünlerini Gülüm Şalım'da keşfedin.`,
+      alternates: { canonical },
+      openGraph: { title: vendorTitle, type: "website", url: canonical },
+    };
+  }
   const section = await getSectionBySlug(slug);
-  if (section) return { title: `${section.title} | Gülüm Şalım` };
+  if (section) {
+    return {
+      title: `${section.title} | Gülüm Şalım`,
+      alternates: { canonical },
+    };
+  }
   const category = await findCategoryBySlug(slug);
-  if (category) return { title: `${category.name} | Gülüm Şalım` };
+  if (category) {
+    // bkz. denetim raporu: "Boş kategori index politikası" - 0 ürünlü bir
+    // kategori sayfası arama motoruna gerçek içerik vaat edip boş çıkmasın.
+    let hasProducts = true;
+    try {
+      const result = await apiFetchJson<{ items: unknown[] }>(`/products?category=${category.slug}&limit=1`);
+      hasProducts = result.items.length > 0;
+    } catch {
+      hasProducts = true; // API geçiciyse yanlışlıkla noindex'e düşme
+    }
+    return {
+      title: `${category.name} | Gülüm Şalım`,
+      description: `Gülüm Şalım'da ${category.name} kategorisindeki kadın giyim ürünlerini keşfedin.`,
+      alternates: { canonical },
+      openGraph: { title: category.name, type: "website", url: canonical },
+      ...(hasProducts ? {} : { robots: { index: false, follow: true } }),
+    };
+  }
   return { title: "Sayfa bulunamadı" };
 }
 

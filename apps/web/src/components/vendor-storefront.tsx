@@ -203,7 +203,7 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
           <div className="collection-cover">
             {c.coverImage ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={c.coverImage} alt={c.name} />
+              <img src={c.coverImage} alt={c.name} loading="lazy" decoding="async" />
             ) : (
               <i className="fas fa-layer-group" />
             )}
@@ -280,7 +280,7 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
               <a key={p.id} href={p.postUrl} target="_blank" rel="noreferrer" className="vstore-social-item">
                 {p.image && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.image} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover" }} />
+                  <img src={p.image} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover" }} loading="lazy" decoding="async" />
                 )}
                 <div className={`vstore-social-badge ${p.platform}`}>
                   <i className={`fab fa-${p.platform}`} /> {p.caption || p.platform}
@@ -453,8 +453,17 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
                 <span>
                   <FollowerCountStat initialCount={vendor.followerCount} /> Takipçi
                 </span>
-                <span>{vendorYears > 0 ? `${vendorYears} Yıl` : "Yeni"} Mağaza</span>
+                <span title={`Katılım: ${new Date(vendor.createdAt).toLocaleDateString("tr-TR", { year: "numeric", month: "long" })}`}>
+                  {vendorYears > 0 ? `${vendorYears} Yıl` : "Yeni"} Mağaza
+                </span>
                 {vendor.successRate !== null && <span>%{vendor.successRate} Başarılı Satıcı</span>}
+                {/* bkz. denetim raporu madde 14: "Satış sayısı ... gösterilebilsin" -
+                    önceden sadece türetilmiş successRate vardı, ham sayı yoktu. */}
+                {vendor.salesCount > 0 && (
+                  <span>
+                    <i className="fas fa-bag-shopping" /> {vendor.salesCount} Satış
+                  </span>
+                )}
               </div>
             </div>
             <div className="vendor-header-actions">

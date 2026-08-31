@@ -8,7 +8,10 @@ interface Props {
   searchParams: Promise<{ s?: string; sort?: string; verified?: string }>;
 }
 
-export const metadata: Metadata = { title: "Mağazalar | Gülüm Şalım" };
+export const metadata: Metadata = {
+  title: "Mağazalar | Gülüm Şalım",
+  description: "Gülüm Şalım'daki tüm satıcı mağazalarını keşfedin, favori butiklerinizi takip edin.",
+};
 
 async function getVendors(): Promise<PublicVendorListItem[]> {
   try {

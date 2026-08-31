@@ -92,7 +92,7 @@ export default function ProductCardImage({ href, images, alt }: Props) {
           {images.map((url, i) => (
             <div className="product-image-slide" key={url + i}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={`${alt} - ${i + 1}`} draggable={false} />
+              <img src={url} alt={`${alt} - ${i + 1}`} draggable={false} loading="lazy" decoding="async" />
             </div>
           ))}
         </div>

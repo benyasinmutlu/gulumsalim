@@ -1,5 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { productListQuerySchema } from "./vendor-products.schemas";
+import { createProductSchema, productListQuerySchema } from "./vendor-products.schemas";
+
+const validProduct = {
+  categoryId: 1,
+  name: "Çiçekli Yazlık Elbise",
+  slug: "cicekli-yazlik-elbise",
+  condition: "very_good" as const,
+  basePrice: 199.9,
+};
+
+describe("createProductSchema", () => {
+  it("accepts a valid minimal product", () => {
+    expect(() => createProductSchema.parse(validProduct)).not.toThrow();
+  });
+
+  it("requires a condition (denetim raporu madde 1)", () => {
+    const { condition: _condition, ...withoutCondition } = validProduct;
+    expect(() => createProductSchema.parse(withoutCondition)).toThrow();
+  });
+
+  it("rejects a title over 200 characters", () => {
+    expect(() => createProductSchema.parse({ ...validProduct, name: "a".repeat(201) })).toThrow();
+  });
+
+  it("rejects an all-caps shouting title", () => {
+    expect(() => createProductSchema.parse({ ...validProduct, name: "SÜPER İNDİRİM ELBİSE" })).toThrow();
+  });
+
+  it("requires a defect description when hasDefect is true", () => {
+    expect(() => createProductSchema.parse({ ...validProduct, hasDefect: true })).toThrow();
+    expect(() =>
+      createProductSchema.parse({ ...validProduct, hasDefect: true, defectDescription: "sol kolda küçük leke" }),
+    ).not.toThrow();
+  });
+});
 
 describe("productListQuerySchema", () => {
   it("defaults sort to newest and leaves optional filters undefined", () => {

@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
+import { recordAdminAction } from "./admin-audit.repository";
 import { confirmRefundReleaseAfterProviderCheck, countRefundsByStatus, listRefunds, resetRefundReleaseClaim, MissingPaymentInfoError, RefundNotFoundError, InvalidRefundStateError } from "./admin-refunds.repository";
 import { RefundApiError, releaseRefund } from "./admin-refunds.service";
 import { refundIdParamsSchema, refundListQuerySchema, refundReconcileSchema } from "./admin-refunds.schemas";
@@ -19,6 +20,7 @@ const adminRefundsRoutes: FastifyPluginAsync = async (app) => {
     const { id } = refundIdParamsSchema.parse(request.params);
     try {
       const row = await releaseRefund(id, request.ip);
+      recordAdminAction(request.session.adminId!, "release", "refund", id, `#${id} numaralı iade için para iadesi tetiklendi`).catch(() => {});
       return reply.send(row);
     } catch (err) {
       if (err instanceof RefundNotFoundError) {

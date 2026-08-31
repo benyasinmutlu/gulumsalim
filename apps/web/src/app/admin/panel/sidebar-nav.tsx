@@ -35,6 +35,10 @@ export default function AdminSidebarNav() {
           <i className="fas fa-tags" />
           <span>Kategoriler</span>
         </Link>
+        <Link href="/admin/panel/markalar" className={cls("/admin/panel/markalar")}>
+          <i className="fas fa-copyright" />
+          <span>Markalar</span>
+        </Link>
       </div>
 
       <div className="sidebar-section">
@@ -130,6 +134,10 @@ export default function AdminSidebarNav() {
         <Link href="/admin/panel/ayarlar" className={cls("/admin/panel/ayarlar")}>
           <i className="fas fa-cog" />
           <span>Ayarlar</span>
+        </Link>
+        <Link href="/admin/panel/islem-loglari" className={cls("/admin/panel/islem-loglari")}>
+          <i className="fas fa-clipboard-list" />
+          <span>İşlem Logları</span>
         </Link>
         <Link href="/" target="_blank" className="sidebar-link">
           <i className="fas fa-external-link-alt" />

@@ -1,10 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import VendorLoginForm from "./login-form";
+import { getSiteStats } from "@/lib/site-stats";
+import { formatStatCount } from "@/lib/format-stat-count";
 
 export const metadata: Metadata = { title: "Kurumsal Üye Girişi | Gülüm Şalım" };
 
-export default function VendorLoginPage() {
+export default async function VendorLoginPage() {
+  const stats = await getSiteStats();
+  const buyerPhrase = stats.customers > 0 ? `${formatStatCount(stats.customers)} alıcıya anında ulaş` : "Alıcılara anında ulaş";
   return (
     <>
       <Link href="/" className="ga-back">
@@ -23,7 +27,7 @@ export default function VendorLoginPage() {
             <p>Satıcı panelinizden ürünlerinizi, siparişlerinizi ve kazançlarınızı takip edin.</p>
             <div className="ga-perks">
               <div className="ga-perk">
-                <i className="fas fa-store" /> Binlerce alıcıya anında ulaş
+                <i className="fas fa-store" /> {buyerPhrase}
               </div>
               <div className="ga-perk">
                 <i className="fas fa-bolt" /> Dakikalar içinde kurulan satıcı paneli

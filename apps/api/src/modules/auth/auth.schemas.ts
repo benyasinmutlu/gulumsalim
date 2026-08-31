@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { toTitleCaseTr } from "../../lib/name-case";
+
+const fullNameSchema = z.string().trim().min(2).max(120).transform(toTitleCaseTr);
 
 const emailSchema = z.string().trim().email().max(254).transform((value) => value.toLowerCase());
 const passwordSchema = z
@@ -10,7 +13,7 @@ const passwordSchema = z
 export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  fullName: z.string().trim().min(2).max(120),
+  fullName: fullNameSchema,
   phone: z.string().trim().max(30).optional(),
   // Üyelik Sözleşmesi + KVKK Aydınlatma Metni - zorunlu. marketingConsent
   // (Ticari Elektronik İleti Onayı) ve analyticsConsent (Açık Rıza Metni)
@@ -61,7 +64,7 @@ export const sizePrefsSchema = z.object({
 });
 
 export const updateProfileSchema = z.object({
-  fullName: z.string().trim().min(2).max(120),
+  fullName: fullNameSchema,
   phone: z.string().trim().max(30).optional(),
   age: z.coerce.number().int().min(10).max(100).optional(),
   heightCm: z.coerce.number().int().min(100).max(230).optional(),

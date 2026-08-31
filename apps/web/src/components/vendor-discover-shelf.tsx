@@ -23,7 +23,7 @@ export default function VendorDiscoverShelf({
           <span className="deal-shelf-vendor-avatar">
             {vendor.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={vendor.logo} alt={vendor.storeName} />
+              <img src={vendor.logo} alt={vendor.storeName} loading="lazy" decoding="async" />
             ) : (
               vendor.storeName.charAt(0)
             )}

@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from "fastify";
 import { deleteObject } from "../../lib/storage";
+import { recordAdminAction } from "./admin-audit.repository";
 import { countVendorsByStatus, countVendorsByType, listVendorsByStatus, updateVendorCommission } from "./admin-vendors.repository";
 import { updateVendorCommissionSchema, updateVendorStatusSchema, vendorIdParamsSchema, vendorStatusFilterSchema } from "./admin-vendors.schemas";
 import {
@@ -27,6 +28,7 @@ const adminVendorsRoutes: FastifyPluginAsync = async (app) => {
     const { action } = updateVendorStatusSchema.parse(request.body);
     try {
       const updated = await applyVendorAction(id, action);
+      recordAdminAction(request.session.adminId!, action, "vendor", id, `"${updated.storeName}" mağazasına "${action}" uygulandı`).catch(() => {});
       return reply.send(updated);
     } catch (err) {
       if (err instanceof VendorNotFoundError) {
@@ -56,6 +58,7 @@ const adminVendorsRoutes: FastifyPluginAsync = async (app) => {
     const { id } = vendorIdParamsSchema.parse(request.params);
     try {
       const mediaUrls = await removeVendor(id);
+      recordAdminAction(request.session.adminId!, "delete", "vendor", id, `#${id} numaralı satıcı kalıcı olarak silindi`).catch(() => {});
       for (const url of mediaUrls) deleteObject(url).catch(() => {});
       return reply.send({ ok: true });
     } catch (err) {

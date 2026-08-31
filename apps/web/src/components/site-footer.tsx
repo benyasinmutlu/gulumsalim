@@ -148,9 +148,9 @@ export default async function SiteFooter() {
                     kendi sunucumuzdan servis ediliyor, dış bağımlılık yok. */}
                 {/* SVG marka ölçüleri CSS ile yönetiliyor; raster optimizasyon gerekmez. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/payment-badges/iyzico.svg" alt="iyzico ile öde" className="payment-badge-img" style={{ height: 20 }} />
+                <img src="/payment-badges/iyzico.svg" alt="iyzico ile öde" className="payment-badge-img" style={{ height: 20 }} loading="lazy" />
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/payment-badges/troy.svg" alt="Troy" className="payment-badge-img" style={{ height: 20 }} />
+                <img src="/payment-badges/troy.svg" alt="Troy" className="payment-badge-img" style={{ height: 20 }} loading="lazy" />
               </div>
             </div>
           </div>

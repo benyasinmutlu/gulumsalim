@@ -4,6 +4,7 @@ import { db } from "../../db/client";
 import {
   productFavorites,
   productImages,
+  productSlugHistory,
   products,
   productVariants,
 } from "../../db/schema/index";
@@ -32,6 +33,10 @@ export async function listVendorProducts(vendorId: number) {
       videoUrl: products.videoUrl,
       freeShipping: products.freeShipping,
       isSecondHand: products.isSecondHand,
+      condition: products.condition,
+      hasDefect: products.hasDefect,
+      defectDescription: products.defectDescription,
+      defectPhotoUrl: sql<string | null>`(SELECT ${productImages.url} FROM ${productImages} WHERE ${productImages.productId} = ${outer(products.id)} AND ${productImages.isDefectPhoto} = true LIMIT 1)`,
       status: products.status,
       viewCount: products.viewCount,
       createdAt: products.createdAt,
@@ -96,6 +101,9 @@ interface ProductWriteInput {
   status?: "draft" | "pending" | "active" | "inactive";
   freeShipping?: boolean;
   isSecondHand?: boolean;
+  condition?: "new_with_tags" | "new_without_tags" | "very_good" | "good" | "used";
+  hasDefect?: boolean;
+  defectDescription?: string;
   videoUrl?: string | null;
   stock?: number;
   sizeChart?: ProductSizeChartInput;
@@ -111,6 +119,9 @@ interface ProductCreateInput {
   basePrice: string;
   compareAtPrice?: string;
   isSecondHand?: boolean;
+  condition?: "new_with_tags" | "new_without_tags" | "very_good" | "good" | "used";
+  hasDefect?: boolean;
+  defectDescription?: string;
   // bkz. olay: 2026-08-02 - bireysel satıcı ürünleri "pending" olarak
   // oluşturulur (bkz. vendor-products.routes.ts POST), kurumsal satıcılarda
   // belirtilmezse şema varsayılanı "draft" kalır.
@@ -129,6 +140,14 @@ export async function insertVendorProduct(vendorId: number, data: ProductCreateI
     .returning();
   if (!row) throw new Error("Ürün oluşturulamadı");
   return row;
+}
+
+// bkz. denetim raporu: "301 yönlendirmeleri" - eski slug'ı, yeni slug'a
+// yazılmadan hemen ÖNCE (route katmanında) kaydeder ki eski bağlantı
+// /products/by-old-slug ile çözülebilsin (bkz. catalog.repository.ts
+// findRedirectForOldProductSlug).
+export async function recordProductSlugChange(productId: number, oldSlug: string): Promise<void> {
+  await db.insert(productSlugHistory).values({ productId, oldSlug });
 }
 
 export async function updateVendorProduct(vendorId: number, productId: number, data: ProductWriteInput) {
@@ -168,10 +187,28 @@ export async function listProductImages(productId: number) {
   return db.select().from(productImages).where(eq(productImages.productId, productId)).orderBy(productImages.sortOrder);
 }
 
-export async function insertProductImage(productId: number, url: string, isPrimary: boolean, sortOrder: number) {
-  const [row] = await db.insert(productImages).values({ productId, url, isPrimary, sortOrder }).returning();
+export async function insertProductImage(
+  productId: number,
+  url: string,
+  isPrimary: boolean,
+  sortOrder: number,
+  isDefectPhoto = false,
+) {
+  const [row] = await db.insert(productImages).values({ productId, url, isPrimary, sortOrder, isDefectPhoto }).returning();
   if (!row) throw new Error("Görsel kaydedilemedi");
   return row;
+}
+
+// bkz. denetim raporu madde 2: "kusur ise fotoğraf zorunlu olsun" - ürün
+// yayına/onaya gönderilirken (bkz. vendor-products.routes.ts PATCH) kontrol
+// edilir.
+export async function hasDefectPhoto(productId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: productImages.id })
+    .from(productImages)
+    .where(and(eq(productImages.productId, productId), eq(productImages.isDefectPhoto, true)))
+    .limit(1);
+  return !!row;
 }
 
 export async function findProductImageOwnedByVendor(vendorId: number, imageId: number) {

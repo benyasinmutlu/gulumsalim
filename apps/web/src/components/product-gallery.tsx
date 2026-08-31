@@ -91,7 +91,14 @@ export default function ProductGallery({ productId, productName, images }: Props
           {images.map((img, i) => (
             <div key={img.url} className="gallery-slide">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.url} alt={`${productName} - ${i + 1}`} draggable={false} />
+              <img
+                src={img.url}
+                alt={`${productName} - ${i + 1}`}
+                draggable={false}
+                loading={i === 0 ? "eager" : "lazy"}
+                decoding="async"
+                fetchPriority={i === 0 ? "high" : undefined}
+              />
             </div>
           ))}
         </div>
@@ -114,7 +121,7 @@ export default function ProductGallery({ productId, productName, images }: Props
               onClick={() => setActive(i)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.url} alt={`${productName} - küçük resim ${i + 1}`} />
+              <img src={img.url} alt={`${productName} - küçük resim ${i + 1}`} loading="lazy" decoding="async" />
             </div>
           ))}
         </div>

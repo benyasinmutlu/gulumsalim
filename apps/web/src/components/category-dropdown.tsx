@@ -52,7 +52,7 @@ export default function CategoryDropdown({ categories }: { categories: Category[
                     <span className="header-cat-thumb">
                       {c.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.image} alt="" />
+                        <img src={c.image} alt="" loading="lazy" decoding="async" />
                       ) : c.icon && !c.icon.startsWith("fa") ? (
                         <span aria-hidden>{c.icon}</span>
                       ) : (
@@ -69,7 +69,7 @@ export default function CategoryDropdown({ categories }: { categories: Category[
                           <span className="header-cat-thumb">
                             {child.image ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={child.image} alt="" />
+                              <img src={child.image} alt="" loading="lazy" decoding="async" />
                             ) : child.icon && !child.icon.startsWith("fa") ? (
                               <span aria-hidden>{child.icon}</span>
                             ) : (

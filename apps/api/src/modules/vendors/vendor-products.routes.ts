@@ -5,6 +5,7 @@ import { InvalidVideoError, saveVideo } from "../../lib/video-upload";
 import { deleteObject } from "../../lib/storage";
 import { getCartCounts } from "../../lib/cart-product-index";
 import { findVendorById } from "./vendor.repository";
+import { notifyFavoritersOfPriceDrop, notifyFollowersOfNewProduct } from "../notifications/product-notification-triggers";
 import { cleanDescription, normalizeBrand, normalizeTitle } from "../product-intelligence/normalize/text";
 import { z } from "zod";
 import { normalizeProductInput } from "../product-intelligence/normalize/index";
@@ -20,10 +21,12 @@ import {
   findProductImageOwnedByVendor,
   findVariantOwnedByVendor,
   findVendorProduct,
+  hasDefectPhoto,
   insertProductImage,
   insertProductVariant,
   insertVendorProduct,
   listProductImages,
+  recordProductSlugChange,
   listProductVariants,
   listVendorProducts,
   setPrimaryProductImage,
@@ -35,6 +38,7 @@ import {
   createVariantSchema,
   productIdParamsSchema,
   productImageParamsSchema,
+  productImageUploadQuerySchema,
   productVariantParamsSchema,
   updateProductSchema,
   updateVariantSchema,
@@ -122,6 +126,9 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       // göstermiyor, ama doğrudan API isteğiyle atlatılamasın diye burada da
       // zorlanıyor.
       isSecondHand: vendor?.vendorType === "individual" ? input.isSecondHand : false,
+      condition: input.condition,
+      hasDefect: input.hasDefect,
+      defectDescription: input.hasDefect ? input.defectDescription : undefined,
       status: initialStatus,
       // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
       // zorunlu olarak girilmeli bireysel satıcıların ise ... stoğu 1
@@ -225,6 +232,16 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       }
     }
 
+    // bkz. denetim raporu madde 17: fiyat düşüşü/ilk yayın bildirimlerinin
+    // "öncesi" durumla kıyaslanması gerekiyor - aşağıdaki kontrol bloklarının
+    // tekrar tekrar aynı ürünü çekmesini önlemek için burada bir kez alınır.
+    const current = await findVendorProduct(request.session.vendorId!, id);
+
+    // bkz. denetim raporu: "301 yönlendirmeleri" - eski bağlantı kırılmasın.
+    if (current && input.slug && current.slug !== input.slug) {
+      recordProductSlugChange(id, current.slug).catch(() => {});
+    }
+
     // bkz. olay: 2026-08-02 - bireysel satıcı bir ürünü taslak/reddedildi/
     // onay bekliyor durumundan doğrudan "aktif"e çekemez, admin onayından
     // geçmesi gerekir (bkz. POST handler'daki aynı gerekçe). Daha önce
@@ -237,15 +254,14 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
     // ürünü stok girmeden aktife çekemez (varyantı varsa stok zaten
     // variant seviyesinde tutuluyor, bkz. vendor-products.repository.ts
     // listVendorProducts totalStock).
-    if (input.status === "active") {
-      const current = await findVendorProduct(request.session.vendorId!, id);
+    if (input.status === "active" || input.status === "pending") {
       const vendor = await findVendorById(request.session.vendorId!);
-      if (current && current.status !== "inactive" && vendor?.vendorType === "individual") {
+      if (input.status === "active" && current && current.status !== "inactive" && vendor?.vendorType === "individual") {
         return reply.status(403).send({
           error: { message: "Ürününüz yayınlanmadan önce admin onayından geçmesi gerekiyor. Önce 'Onaya Gönder'i kullanın." },
         });
       }
-      if (current && vendor?.vendorType !== "individual") {
+      if (input.status === "active" && current && vendor?.vendorType !== "individual") {
         const variants = await listProductVariants(id);
         const effectiveStock = input.stock ?? current.stock;
         if (variants.length === 0 && effectiveStock <= 0) {
@@ -254,11 +270,22 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
           });
         }
       }
+      // bkz. denetim raporu madde 2: "kusur ise fotoğraf zorunlu olsun" -
+      // ürün onaya gönderilirken (bireysel) veya aktife çekilirken
+      // (kurumsal) kontrol edilir. hasDefect bu istekte değişmiyorsa mevcut
+      // DB değeri geçerlidir.
+      if (current) {
+        const effectiveHasDefect = input.hasDefect ?? current.hasDefect;
+        if (effectiveHasDefect && !(await hasDefectPhoto(id))) {
+          return reply.status(400).send({
+            error: { message: "Kusur/deformasyon fotoğrafı yüklemeden ürün yayınlanamaz." },
+          });
+        }
+      }
     }
 
 
     if (input.basePrice !== undefined || input.compareAtPrice !== undefined) {
-      const current = await findVendorProduct(request.session.vendorId!, id);
       if (current) {
         const effectiveBasePrice = input.basePrice ?? Number(current.basePrice);
         const effectiveCompareAtPrice = input.compareAtPrice ?? (current.compareAtPrice ? Number(current.compareAtPrice) : undefined);
@@ -288,10 +315,22 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       if (vendor?.vendorType !== "individual") stockPatch = inputStock;
     }
 
+    // bkz. denetim raporu madde 5: create'te (normalizeTitle/cleanDescription/
+    // normalizeBrand) uygulanan metin temizliği PATCH'te hiç yapılmıyordu -
+    // bir satıcı düzenlemede fazla boşluk/kontrol karakteri eklerse temiz
+    // kalmıyordu.
+    const cleanName = restInput.name !== undefined ? (normalizeTitle(restInput.name).value ?? restInput.name) : undefined;
+    const cleanDesc = restInput.description !== undefined ? (cleanDescription(restInput.description).value ?? restInput.description) : undefined;
+    const cleanBrand = restInput.brand !== undefined ? (normalizeBrand(restInput.brand).value ?? restInput.brand) : undefined;
+
     const updated = await updateVendorProduct(request.session.vendorId!, id, {
       ...restInput,
+      ...(cleanName !== undefined ? { name: cleanName } : {}),
+      ...(cleanDesc !== undefined ? { description: cleanDesc } : {}),
+      ...(cleanBrand !== undefined ? { brand: cleanBrand } : {}),
       basePrice: input.basePrice?.toFixed(2),
       compareAtPrice: input.compareAtPrice?.toFixed(2),
+      defectDescription: input.hasDefect === false ? undefined : restInput.defectDescription,
       ...(isSecondHandOverride !== undefined ? { isSecondHand: isSecondHandOverride } : {}),
       ...(stockPatch !== undefined ? { stock: stockPatch } : {}),
     });
@@ -299,6 +338,22 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     }
     syncProductToIndex(id).catch(() => {});
+
+    // bkz. denetim raporu madde 17: "Favori ürün fiyat düştüğünde bildirim" -
+    // yanıt süresini etkilemesin diye await edilmez (ateşle-unut, bkz.
+    // incrementProductViewCount ile aynı desen).
+    if (current && input.basePrice !== undefined && input.basePrice < Number(current.basePrice)) {
+      notifyFavoritersOfPriceDrop(id, updated.name, updated.slug).catch(() => {});
+    }
+    // bkz. denetim raporu madde 17: "Takip edilen mağaza yeni ürün
+    // eklediğinde bildirim" - ürün oluşturulduğunda değil, GERÇEKTEN
+    // yayına girdiğinde (draft/pending -> active) tetiklenir; aksi halde
+    // takipçiye henüz görünmeyen/onay bekleyen bir ürün linki gönderilirdi.
+    if (current && input.status === "active" && (current.status === "draft" || current.status === "pending")) {
+      const vendor = await findVendorById(request.session.vendorId!);
+      if (vendor) notifyFollowersOfNewProduct(vendor.id, vendor.storeName, updated.name, updated.slug).catch(() => {});
+    }
+
     return reply.send(updated);
   });
 
@@ -331,6 +386,7 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/vendor/products/:id/images", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
     const { id } = productIdParamsSchema.parse(request.params);
+    const { isDefectPhoto } = productImageUploadQuerySchema.parse(request.query);
     const product = await findVendorProduct(request.session.vendorId!, id);
     if (!product) {
       return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
@@ -352,7 +408,7 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
         storedUrl = null;
         return reply.status(409).send({ error: { message: "Bir ürüne en fazla 8 görsel eklenebilir" } });
       }
-      const image = await insertProductImage(id, url, existingImages.length === 0, existingImages.length);
+      const image = await insertProductImage(id, url, existingImages.length === 0, existingImages.length, isDefectPhoto ?? false);
       return reply.status(201).send(image);
     } catch (err) {
       if (storedUrl) await deleteObject(storedUrl);

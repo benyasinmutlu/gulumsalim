@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, lte, lt, or, sql, type SQL } from "drizzle-orm";
 import { outer } from "../../lib/sql-helpers";
 import { db } from "../../db/client";
-import { categories, orderItems, orders, productFavorites, productImages, productReviews, products, productVariants, vendors } from "../../db/schema/index";
+import { categories, orderItems, orders, productFavorites, productImages, productReviews, productSlugHistory, products, productVariants, vendors } from "../../db/schema/index";
 
 // Ürün listesi sorgularında (listActiveProducts, findProductsByIds) tekrar
 // eden puan/yorum sayısı hesaplaması - korelasyonlu alt sorgu, sadece
@@ -17,14 +17,16 @@ const reviewCountExpr = sql<number>`(SELECT COUNT(*) FROM ${productReviews} WHER
 // ürün listesi/kartı için toplumsal kanıt (social proof) sayaçları. Görüntülenme
 // sayısı ayrı bir alt sorgu gerektirmez, doğrudan products.viewCount kolonu
 // (bkz. catalog.routes.ts incrementProductViewCount) SELECT'e eklenir.
-const favoriteCountExpr = sql<number>`(SELECT COUNT(*) FROM ${productFavorites} WHERE ${productFavorites.productId} = ${outer(products.id)})`.mapWith(
+// export edilir - search-index.service.ts Meilisearch dokümanında aynı
+// sayaçları (sıralama amaçlı) kullanır, sorguyu tekrar yazmasın diye.
+export const favoriteCountExpr = sql<number>`(SELECT COUNT(*) FROM ${productFavorites} WHERE ${productFavorites.productId} = ${outer(products.id)})`.mapWith(
   Number,
 );
 // Sadece ödemesi tamamlanmış siparişler sayılır - "pending"/"failed" bir
 // checkout denemesi satış sayısına dahil edilmez. DISTINCT customer_id
 // kullanılır ki aynı müşterinin aynı ürünü birden fazla siparişte alması
 // sayıyı yapay şekilde şişirmesin, kaç FARKLI kişinin satın aldığı ölçülsün.
-const purchaseCountExpr = sql<number>`(SELECT COUNT(DISTINCT ${orders.customerId}) FROM ${orderItems} INNER JOIN ${orders} ON ${outer(orders.id)} = ${orderItems.orderId} WHERE ${orderItems.productId} = ${outer(products.id)} AND ${orders.paymentStatus} = 'paid')`.mapWith(
+export const purchaseCountExpr = sql<number>`(SELECT COUNT(DISTINCT ${orders.customerId}) FROM ${orderItems} INNER JOIN ${orders} ON ${outer(orders.id)} = ${orderItems.orderId} WHERE ${orderItems.productId} = ${outer(products.id)} AND ${orders.paymentStatus} = 'paid')`.mapWith(
   Number,
 );
 
@@ -139,6 +141,10 @@ interface ListProductsParams {
   saleOnly?: boolean;
   minDiscountPercent?: number;
   secondHand?: boolean;
+  // bkz. denetim raporu madde 11: "Ürün Durumu, Satıcı tipi, Ücretsiz kargo".
+  condition?: "new_with_tags" | "new_without_tags" | "very_good" | "good" | "used";
+  freeShipping?: boolean;
+  vendorType?: "individual" | "business";
   cursor?: Cursor | null;
   limit: number;
 }
@@ -202,6 +208,9 @@ export async function listActiveProducts(params: ListProductsParams) {
     );
   }
   if (params.secondHand) conditions.push(eq(products.isSecondHand, true));
+  if (params.condition) conditions.push(eq(products.condition, params.condition));
+  if (params.freeShipping) conditions.push(eq(products.freeShipping, true));
+  if (params.vendorType) conditions.push(eq(vendors.vendorType, params.vendorType));
   if (params.cursor) {
     const cursorDate = new Date(params.cursor.createdAt);
     const cursorCondition = or(
@@ -357,6 +366,10 @@ export async function findProductBySlug(slug: string) {
       videoUrl: products.videoUrl,
       stock: products.stock,
       sizeChart: products.sizeChart,
+      isSecondHand: products.isSecondHand,
+      condition: products.condition,
+      hasDefect: products.hasDefect,
+      defectDescription: products.defectDescription,
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))
@@ -365,7 +378,7 @@ export async function findProductBySlug(slug: string) {
   if (!product) return null;
 
   const images = await db
-    .select({ url: productImages.url, isPrimary: productImages.isPrimary, sortOrder: productImages.sortOrder })
+    .select({ url: productImages.url, isPrimary: productImages.isPrimary, sortOrder: productImages.sortOrder, isDefectPhoto: productImages.isDefectPhoto })
     .from(productImages)
     .where(eq(productImages.productId, product.id))
     .orderBy(productImages.sortOrder);
@@ -384,6 +397,23 @@ export async function findProductBySlug(slug: string) {
     .orderBy(productVariants.id);
 
   return { ...product, images, variants };
+}
+
+// bkz. denetim raporu: "301 yönlendirmeleri" - satıcı ürün adresini
+// değiştirdiğinde eski bağlantı 404 vermesin, aktif ürünün GÜNCEL kategori/
+// slug'ına yönlendirilebilsin.
+export async function findRedirectForOldProductSlug(oldSlug: string): Promise<{ slug: string; categorySlug: string | null } | null> {
+  const [row] = await db
+    .select({ slug: products.slug, categorySlug: categories.slug, status: products.status, vendorStatus: vendors.status })
+    .from(productSlugHistory)
+    .innerJoin(products, eq(productSlugHistory.productId, products.id))
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .innerJoin(vendors, eq(products.vendorId, vendors.id))
+    .where(eq(productSlugHistory.oldSlug, oldSlug))
+    .orderBy(desc(productSlugHistory.createdAt))
+    .limit(1);
+  if (!row || row.status !== "active" || row.vendorStatus !== "active") return null;
+  return { slug: row.slug, categorySlug: row.categorySlug };
 }
 
 // gulumsalim.com'daki products.views sayacının karşılığı - admin

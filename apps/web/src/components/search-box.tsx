@@ -19,6 +19,32 @@ const DELETE_MS = 35;
 const HOLD_MS = 1400;
 const NEXT_WORD_MS = 400;
 
+// bkz. denetim raporu madde 16: "Son aramalar" - sunucuda kalıcı bir
+// arama geçmişi tablosu gerektirmeden, sadece bu tarayıcıya özel basit bir
+// çözüm (gizlilik açısından da daha güvenli - arama geçmişi sunucuya gitmez).
+const RECENT_SEARCHES_KEY = "gs-recent-searches";
+const RECENT_SEARCHES_MAX = 6;
+
+function loadRecentSearches(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_SEARCHES_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentSearch(term: string) {
+  const trimmed = term.trim();
+  if (!trimmed) return;
+  try {
+    const existing = loadRecentSearches().filter((t) => t.toLocaleLowerCase("tr-TR") !== trimmed.toLocaleLowerCase("tr-TR"));
+    localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify([trimmed, ...existing].slice(0, RECENT_SEARCHES_MAX)));
+  } catch {
+    /* localStorage dolu/kapalıysa sessizce yoksay - arama akışını bozmasın */
+  }
+}
+
 function useTypewriterPlaceholder(active: boolean, words: string[]) {
   const [text, setText] = useState("");
 
@@ -77,11 +103,17 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [typewriterWords, setTypewriterWords] = useState<string[]>(FALLBACK_WORDS);
   const typewriterPlaceholder = useTypewriterPlaceholder(query.length === 0, typewriterWords);
+  // bkz. denetim raporu madde 16: "Popüler aramalar" + "Son aramalar" -
+  // kutu boşken (henüz bir şey yazılmamışken) odaklanınca gösterilir.
+  const [trendingSearches, setTrendingSearches] = useState<string[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [emptyPanelOpen, setEmptyPanelOpen] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setEmptyPanelOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -96,14 +128,23 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    setRecentSearches(loadRecentSearches());
+    fetchJson<string[]>("/search-trending")
+      .then(setTrendingSearches)
+      .catch(() => {});
+  }, []);
+
   function handleChange(value: string) {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.trim().length < 2) {
       setSuggestions([]);
       setOpen(false);
+      setEmptyPanelOpen(value.trim().length === 0);
       return;
     }
+    setEmptyPanelOpen(false);
     debounceRef.current = setTimeout(async () => {
       try {
         const results = await fetchJson<SearchSuggestion[]>(`/search-suggest?q=${encodeURIComponent(value.trim())}`);
@@ -113,6 +154,21 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
         setSuggestions([]);
       }
     }, 250);
+  }
+
+  // bkz. denetim raporu madde 16: hem "gönder" düğmesine basınca hem bir
+  // öneriye tıklanınca son aramalara eklenir.
+  function handleSubmit() {
+    saveRecentSearch(query);
+    setOpen(false);
+    setEmptyPanelOpen(false);
+  }
+
+  function goToTerm(term: string) {
+    saveRecentSearch(term);
+    setOpen(false);
+    setEmptyPanelOpen(false);
+    router.push(`/arama?search=${encodeURIComponent(term)}`);
   }
 
   function suggestionHref(s: SearchSuggestion) {
@@ -134,7 +190,7 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
     <div className="search-box" ref={containerRef}>
       <form
         action="/arama"
-        onSubmit={() => setOpen(false)}
+        onSubmit={handleSubmit}
       >
         {topLevelCategories.length > 0 && (
           <select name="category" className="search-box-category" defaultValue="" aria-label="Kategori seç">
@@ -154,13 +210,49 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
           autoFocus={autoFocus}
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => suggestions.length > 0 && setOpen(true)}
+          onFocus={() => {
+            if (suggestions.length > 0) setOpen(true);
+            else if (query.trim().length === 0) setEmptyPanelOpen(true);
+          }}
           autoComplete="off"
         />
         <button type="submit" aria-label="Ara">
           <i className="fas fa-search" />
         </button>
       </form>
+
+      {emptyPanelOpen && (recentSearches.length > 0 || trendingSearches.length > 0) && (
+        <div className="search-suggest show search-suggest-empty">
+          {recentSearches.length > 0 && (
+            <div className="ss-term-group">
+              <span className="ss-term-group-label">
+                <i className="fas fa-clock-rotate-left" /> Son Aramalar
+              </span>
+              <div className="ss-term-chips">
+                {recentSearches.map((term) => (
+                  <button key={term} type="button" className="ss-term-chip" onClick={() => goToTerm(term)}>
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {trendingSearches.length > 0 && (
+            <div className="ss-term-group">
+              <span className="ss-term-group-label">
+                <i className="fas fa-fire" /> Popüler Aramalar
+              </span>
+              <div className="ss-term-chips">
+                {trendingSearches.map((term) => (
+                  <button key={term} type="button" className="ss-term-chip" onClick={() => goToTerm(term)}>
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {open && suggestions.length > 0 && (
         <div className="search-suggest show">

@@ -33,6 +33,16 @@ export const productStatusEnum = pgEnum("product_status", [
   "rejected",
 ]);
 
+// bkz. denetim raporu madde 5: ürün kondisyonu artık serbest metin
+// (attributes jsonb) değil, yapılandırılmış ve zorunlu bir alan.
+export const productConditionEnum = pgEnum("product_condition", [
+  "new_with_tags",
+  "new_without_tags",
+  "very_good",
+  "good",
+  "used",
+]);
+
 export const reviewStatusEnum = pgEnum("review_status", [
   "pending",
   "approved",

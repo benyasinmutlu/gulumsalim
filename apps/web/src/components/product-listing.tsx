@@ -17,10 +17,15 @@ export interface ProductListingParams {
   size?: string;
   fitToMe?: string;
   color?: string;
+  brand?: string;
   vendor?: string;
   minPrice?: string;
   maxPrice?: string;
   sort?: string;
+  // bkz. denetim raporu madde 11: "Ürün Durumu, Satıcı tipi, Ücretsiz kargo".
+  condition?: string;
+  freeShipping?: string;
+  vendorType?: string;
 }
 
 async function getProducts(params: ProductListingParams): Promise<ProductListResponse> {
@@ -51,6 +56,21 @@ async function getVendors(): Promise<PublicVendorListItem[]> {
   }
 }
 
+// bkz. denetim raporu madde 11: "Marka" filtresi - sabit bir liste değil,
+// mevcut kategori/fiyat/vb. filtrelere göre GERÇEKTEN sonuç döndürecek
+// marka/renk değerleri (bkz. catalog.search.ts getProductFacets).
+async function getFacets(params: ProductListingParams): Promise<{ brands: string[]; colors: string[] }> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value && key !== "brand" && key !== "color" && key !== "sort" && key !== "cursor") query.set(key, value);
+  }
+  try {
+    return await apiFetchJson<{ brands: string[]; colors: string[] }>(`/products/facets?${query.toString()}`);
+  } catch {
+    return { brands: [], colors: [] };
+  }
+}
+
 interface Props {
   params: ProductListingParams;
   heading?: string;
@@ -70,10 +90,11 @@ export default async function ProductListing({
   lockedCategorySlug,
   beforeToolbar,
 }: Props) {
-  const [{ items, nextCursor }, categories, vendors] = await Promise.all([
+  const [{ items, nextCursor }, categories, vendors, facets] = await Promise.all([
     getProducts(params),
     getCategories(),
     getVendors(),
+    getFacets(params),
   ]);
 
   const matchedCategory = params.category ? categories.find((c) => c.slug === params.category) : undefined;
@@ -123,6 +144,8 @@ export default async function ProductListing({
         <ProductToolbar
           categories={categories}
           vendors={vendors}
+          brands={facets.brands}
+          colors={facets.colors}
           initial={params}
           basePath={basePath}
           lockedCategorySlug={lockedCategorySlug}

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
-import type { CartResponse } from "@/lib/types";
+import type { CartResponse, SiteStats } from "@/lib/types";
+import { formatStatCount } from "@/lib/format-stat-count";
 
 function lineId(productId: number, variantId?: number) {
   return `${productId}:${variantId ?? 0}`;
@@ -30,6 +31,7 @@ export default function CartPage() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [stockNotices, setStockNotices] = useState<CartResponse["stockNotices"]>([]);
   const [quote, setQuote] = useState<CartResponse | null>(null);
+  const [siteStats, setSiteStats] = useState<SiteStats | null>(null);
 
   async function load() {
     const data = await fetchJson<CartResponse>("/cart");
@@ -47,6 +49,11 @@ export default function CartPage() {
 
   useEffect(() => {
     load();
+    // bkz. denetim raporu madde 4: boş sepet mesajındaki "yüzlerce yeni
+    // model" iddiası sabitti - gerçek aktif ürün sayısıyla değiştirildi.
+    fetchJson<SiteStats>("/site-stats")
+      .then(setSiteStats)
+      .catch(() => setSiteStats(null));
   }, []);
 
   // Seçili satırlar değiştiğinde backend'e yeniden fiyatlatılır. Kampanya
@@ -202,7 +209,11 @@ export default function CartPage() {
             <div className="empty-state">
               <i className="fas fa-shopping-bag" />
               <h2>Sepetiniz Henüz Boş</h2>
-              <p>Mağazamızda yüzlerce yeni model ve indirimli ürün sizleri bekliyor.</p>
+              <p>
+                {siteStats && siteStats.activeProducts > 0
+                  ? `Mağazamızda ${formatStatCount(siteStats.activeProducts)} yeni model ve indirimli ürün sizleri bekliyor.`
+                  : "Mağazamızda sizi bekleyen yeni ürünler var."}
+              </p>
               <Link href="/urunler" className="btn btn-primary btn-lg">
                 Alışverişe Başla
               </Link>

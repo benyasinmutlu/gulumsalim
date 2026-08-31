@@ -17,7 +17,7 @@ export default function CampaignVendorsSection({ vendors }: { vendors: CampaignV
               <div className="popular-vendor-avatar">
                 {vendor.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={vendor.logo} alt={vendor.storeName} />
+                  <img src={vendor.logo} alt={vendor.storeName} loading="lazy" decoding="async" />
                 ) : vendor.storeName.charAt(0)}
               </div>
               <span className="popular-vendor-name">{vendor.storeName}</span>

@@ -12,7 +12,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { productStatusEnum, reviewStatusEnum } from "./enums";
+import { productConditionEnum, productStatusEnum, reviewStatusEnum } from "./enums";
 import { vendors } from "./vendors";
 
 export const categories = pgTable("categories", {
@@ -28,6 +28,20 @@ export const categories = pgTable("categories", {
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   seoKeywords: text("seo_keywords"),
+});
+
+// bkz. denetim raporu: "Marka yönetimi" admin panelinde yoktu -
+// products.brand her satıcının kendi yazdığı serbest metindi ("Nike",
+// "nike", "NIKE" hepsi ayrı görünüyordu). Bu tablo bilerek products.brand'i
+// DEĞİŞTİRMEDEN (mevcut ürünler bozulmasın) admin'e gerçek bir marka
+// listesi yönetme imkanı verir; satıcı formundaki Marka alanı bu listeyi
+// öneri (datalist) olarak kullanır - serbest metin girişini kilitlemez.
+export const brands = pgTable("brands", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 });
 
 export const products = pgTable("products", {
@@ -63,6 +77,16 @@ export const products = pgTable("products", {
   // kişilerde satış yapabilsin 2. el ürün letgo dolap gibi" - ürün
   // listelemede/kartlarda "2. El" rozeti ve ayrı filtre için.
   isSecondHand: boolean("is_second_hand").notNull().default(false),
+  // bkz. denetim raporu madde 5: "Ürün kondisyonu zorunlu olmalı" - önceden
+  // sadece bireysel satıcı akışında, serbest attributes["Durum"] anahtarına
+  // gömülü bir değerdi. Nullable kalır (mevcut ürünlerde boş) ama yeni
+  // ürün oluşturma şeması (createProductSchema) bunu zorunlu kılar.
+  condition: productConditionEnum("condition"),
+  // bkz. denetim raporu madde 6: "Kusur/deformasyon sistemi" - önceden
+  // serbest metin olarak attributes["Kusur / İz"]'e karışıyordu, ürün
+  // detay sayfasında ayrı bir uyarı olarak gösterilmiyordu.
+  hasDefect: boolean("has_defect").notNull().default(false),
+  defectDescription: text("defect_description"),
   // bkz. kullanıcı isteği: "kurumsal satıcıların stokları zorunlu olarak
   // girilmeli bireysel satıcıların ise sattığı ürünün stoğu 1 olacak sadece
   // satılınca kaldırılacak websitesinden" - önceden varyantsız ürünlerde hiç
@@ -100,6 +124,20 @@ export const products = pgTable("products", {
   stockNonnegative: check("chk_products_stock_nonnegative", sql`${table.stock} >= 0`),
 }));
 
+// bkz. denetim raporu: "301 yönlendirmeleri" - satıcı bir ürünün adresini
+// (slug) değiştirdiğinde eski bağlantılar (arama motoru sonuçları, sosyal
+// paylaşımlar, favoriler) 404 vermeye başlıyordu. Eski slug benzersizdir -
+// aynı ürün ikinci kez aynı eski adrese dönerse (nadir) tekilliği bozmasın
+// diye unique kısıt yok, sadece lookup hızlı olsun diye index var.
+export const productSlugHistory = pgTable("product_slug_history", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  productId: bigint("product_id", { mode: "number" }).notNull().references(() => products.id),
+  oldSlug: text("old_slug").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  oldSlugIdx: index("idx_product_slug_history_old_slug").on(table.oldSlug),
+}));
+
 export const productVariants = pgTable("product_variants", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   productId: bigint("product_id", { mode: "number" }).notNull().references(() => products.id),
@@ -119,6 +157,10 @@ export const productImages = pgTable("product_images", {
   url: text("url").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   isPrimary: boolean("is_primary").notNull().default(false),
+  // bkz. denetim raporu madde 6: kusur/deformasyon fotoğrafını genel ürün
+  // görsellerinden ayırt eder - ürün detay sayfasındaki kusur uyarısı bu
+  // bayrağı taşıyan görselleri ayrıca gösterir.
+  isDefectPhoto: boolean("is_defect_photo").notNull().default(false),
 }, (table) => ({
   productIdx: index("idx_images_product").on(table.productId),
 }));
@@ -150,6 +192,18 @@ export const productQuestions = pgTable("product_questions", {
   answer: text("answer"),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 });
+
+// bkz. denetim raporu madde 18: "Faydalı soru-cevapların ürün sayfasında
+// yayınlanması" - cevaplı sorular arasında en faydalı bulunanların öne
+// çıkması için oylama. helpfulCount denormalize edilmedi (drift riski
+// yaratmaz) - listAnsweredQuestions bunu bu tablodan COUNT ile hesaplar.
+export const productQuestionVotes = pgTable("product_question_votes", {
+  questionId: bigint("question_id", { mode: "number" }).notNull().references(() => productQuestions.id),
+  customerId: bigint("customer_id", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  pk: uniqueIndex("pk_question_votes").on(table.questionId, table.customerId),
+}));
 
 export const productFavorites = pgTable("product_favorites", {
   customerId: bigint("customer_id", { mode: "number" }).notNull(),

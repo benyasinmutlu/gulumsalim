@@ -2,11 +2,17 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 
+// bkz. denetim raporu madde 12: product-toolbar.tsx'teki SORT_OPTIONS ile
+// aynı tutulmalı (bu bileşen şu an hiçbir sayfadan render edilmiyor, ama
+// ileride kullanılırsa iki listenin birbirinden sapmaması için).
 const SORT_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "Önerilen" },
   { value: "newest", label: "En Yeniler" },
   { value: "price-asc", label: "Fiyat: Düşükten Yükseğe" },
   { value: "price-desc", label: "Fiyat: Yüksekten Düşüğe" },
+  { value: "best_selling", label: "En Çok Satan" },
+  { value: "most_favorited", label: "En Çok Beğenilen" },
+  { value: "highest_discount", label: "En Yüksek İndirim" },
 ];
 
 // bkz. kullanıcı isteği (mockup): "Sırala" seçici artık kenar çubuğundaki

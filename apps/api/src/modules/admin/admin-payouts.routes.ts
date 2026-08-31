@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
+import { recordAdminAction } from "./admin-audit.repository";
 import { getPlatformFinanceStats, listProcessedPayouts, listVendorFinanceSummaries } from "./admin-finance.repository";
 import { listPayouts } from "./admin-payouts.repository";
 import { payoutIdParamsSchema, payoutStatusFilterSchema, processPayoutSchema } from "./admin-payouts.schemas";
@@ -27,6 +28,7 @@ const adminPayoutsRoutes: FastifyPluginAsync = async (app) => {
         action === "approve"
           ? await approvePayout(id, request.session.adminId!, transferReference!)
           : await rejectPayout(id, request.session.adminId!, reason);
+      recordAdminAction(request.session.adminId!, action, "payout", id, `#${id} numaralı ödeme talebi "${action}" olarak işlendi`).catch(() => {});
       return reply.send(updated);
     } catch (err) {
       if (err instanceof PayoutNotFoundError) {

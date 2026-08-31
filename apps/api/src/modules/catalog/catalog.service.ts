@@ -61,6 +61,9 @@ export async function getProducts(query: ListProductsQuery, sizePrefs?: SizePref
     maxPrice: query.maxPrice,
     saleOnly: query.saleOnly,
     secondHand: query.secondHand,
+    condition: query.condition,
+    freeShipping: query.freeShipping,
+    vendorType: query.vendorType,
     sort: query.sort,
   };
 
@@ -94,6 +97,9 @@ export async function getProducts(query: ListProductsQuery, sizePrefs?: SizePref
     saleOnly: query.saleOnly,
     minDiscountPercent: query.minDiscountPercent,
     secondHand: query.secondHand,
+    condition: query.condition,
+    freeShipping: query.freeShipping,
+    vendorType: query.vendorType,
     cursor,
     limit: query.limit,
   });
@@ -136,6 +142,9 @@ export async function getProductFacets(query: ListProductsQuery) {
     maxPrice: query.maxPrice,
     saleOnly: query.saleOnly,
     secondHand: query.secondHand,
+    condition: query.condition,
+    freeShipping: query.freeShipping,
+    vendorType: query.vendorType,
   });
 }
 

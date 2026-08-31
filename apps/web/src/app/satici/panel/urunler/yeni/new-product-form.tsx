@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ClientApiError, fetchJson, mutateJson, uploadFile } from "@/lib/client-api";
-import type { Category, VendorProduct } from "@/lib/types";
+import type { Category, ProductCondition, VendorProduct } from "@/lib/types";
+import { PRODUCT_CONDITIONS, isSecondHandCondition } from "@/lib/product-condition";
 import { useIsIndividualVendor } from "../../vendor-type-context";
 
 function slugify(value: string) {
@@ -67,7 +68,16 @@ export default function NewProductForm() {
   const [brand, setBrand] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [compareAtPrice, setCompareAtPrice] = useState("");
-  const [isSecondHand, setIsSecondHand] = useState(false);
+  // bkz. denetim raporu madde 1: "Ürün kondisyonu zorunlu olmalı" - artık
+  // attributes jsonb'sine gömülen serbest metin değil, yapılandırılmış ve
+  // zorunlu bir alan (bkz. products.condition, her iki satıcı tipinde de).
+  const [condition, setCondition] = useState<ProductCondition | "">("");
+  // bkz. denetim raporu madde 2: "Kusur/deformasyon sistemi" - evet ise
+  // açıklama VE fotoğraf zorunlu (bkz. handleSubmit doğrulaması).
+  const [hasDefect, setHasDefect] = useState(false);
+  const [defectDescription, setDefectDescription] = useState("");
+  const [defectPhoto, setDefectPhoto] = useState<StagedImage | null>(null);
+  const defectPhotoInputRef = useRef<HTMLInputElement>(null);
   // bkz. kullanıcı isteği: "satıcılar ürünleri yüklerken o ürünün
   // renklerinden kaç tane olduğunu girebilsinler toplam bu ürünün stok ne
   // kadar gibi şeyler olsun" - sadece kurumsal satıcı akışında (bireysel
@@ -97,6 +107,13 @@ export default function NewProductForm() {
   // mevcut kategorilerden seçilir.
   useEffect(() => {
     fetchJson<Category[]>("/categories").then(setCategories);
+  }, []);
+
+  // bkz. denetim raporu: "Marka yönetimi" - admin onaylı markalar
+  // datalist önerisi olarak sunulur, serbest metin girişi kilitlenmez.
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    fetchJson<string[]>("/brands").then(setBrandSuggestions).catch(() => {});
   }, []);
 
   // Seçilen görseller yüklenmeden önce önizlenir; ürün oluşturulunca hepsi
@@ -139,6 +156,26 @@ export default function NewProductForm() {
     }
     setError(null);
     setVideo(file);
+  }
+
+  // bkz. denetim raporu madde 2: kusur fotoğrafı genel galeri görsellerinden
+  // ayrı, tekil bir alan - "Bu üründe kusur var" işaretlenince zorunlu.
+  function handleDefectPhoto(file: File | undefined) {
+    if (!file) {
+      setDefectPhoto(null);
+      return;
+    }
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setError("Kusur fotoğrafı için yalnız JPG, PNG, WebP veya GIF yükleyebilirsiniz.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setError("Kusur fotoğrafı en fazla 12 MB olabilir.");
+      return;
+    }
+    setError(null);
+    if (defectPhoto) URL.revokeObjectURL(defectPhoto.url);
+    setDefectPhoto({ file, url: URL.createObjectURL(file) });
   }
 
   function removeImage(index: number) {
@@ -201,8 +238,8 @@ export default function NewProductForm() {
     const result: Record<string, string> = { ...(aiResult?.suggestions.attributes ?? {}) };
     const mappings = isIndividual
       ? [
-          ["condition", "Durum"], ["size", "Beden"], ["color", "Renk"],
-          ["material", "Materyal"], ["usage", "Kullanım"], ["defects", "Kusur / İz"],
+          ["size", "Beden"], ["color", "Renk"],
+          ["material", "Materyal"], ["usage", "Kullanım"],
         ]
       : [
           ["productType", "Ürün Tipi"], ["material", "Materyal"], ["pattern", "Desen"],
@@ -231,9 +268,9 @@ export default function NewProductForm() {
       const categoryName = categories.find((c) => c.id === categoryId)?.name;
       const facts = isIndividual
         ? {
-            condition: aiFacts.condition,
+            condition: PRODUCT_CONDITIONS.find((c) => c.value === condition)?.label,
             usage: aiFacts.usage,
-            defects: aiFacts.defects,
+            defects: hasDefect ? defectDescription : "yok",
             color: aiFacts.color,
             material: aiFacts.material,
             pattern: aiFacts.pattern,
@@ -313,6 +350,18 @@ export default function NewProductForm() {
       setError("Lütfen bir kategori seçin");
       return;
     }
+    if (!condition) {
+      setError("Lütfen ürün durumunu seçin");
+      return;
+    }
+    if (hasDefect && defectDescription.trim().length < 5) {
+      setError("Kusuru en az birkaç kelimeyle açıklayın");
+      return;
+    }
+    if (hasDefect && !defectPhoto) {
+      setError("Kusur/deformasyon fotoğrafı yükleyin");
+      return;
+    }
     if (!isIndividual && colorRows.length === 0 && (!plainStock || Number(plainStock) <= 0)) {
       setError("Lütfen stok adedi girin veya en az bir renk/stok satırı ekleyin.");
       return;
@@ -327,9 +376,12 @@ export default function NewProductForm() {
         description: description || undefined,
         attributes: buildAttributes(),
         brand: brand || undefined,
+        condition,
+        hasDefect,
+        defectDescription: hasDefect ? defectDescription : undefined,
         basePrice: Number(basePrice),
         compareAtPrice: compareAtPrice ? Number(compareAtPrice) : undefined,
-        isSecondHand: isIndividual ? isSecondHand : false,
+        isSecondHand: isIndividual ? isSecondHandCondition(condition) : false,
         stock: !isIndividual && colorRows.length === 0 ? Number(plainStock) : undefined,
         sizeChart: buildSizeChart(),
       });
@@ -372,7 +424,20 @@ export default function NewProductForm() {
         }
       }
 
+      // bkz. denetim raporu madde 2: kusur fotoğrafı, genel görsel yükleme
+      // ucuna isDefectPhoto=true sorgu parametresiyle gönderilir (bkz.
+      // vendor-products.routes.ts) - ayrı bir endpoint gerekmedi.
+      if (hasDefect && defectPhoto) {
+        setUploadStatus("Kusur fotoğrafı yükleniyor...");
+        try {
+          await uploadFile(`/vendor/products/${product.id}/images?isDefectPhoto=true`, defectPhoto.file);
+        } catch {
+          /* kusur fotoğrafı yüklenemezse ürün oluşturma engellenmez, düzenleme sayfasından tekrar denenebilir */
+        }
+      }
+
       images.forEach((img) => URL.revokeObjectURL(img.url));
+      if (defectPhoto) URL.revokeObjectURL(defectPhoto.url);
       router.push(`/satici/panel/urunler/${product.id}`);
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Ürün oluşturulamadı");
@@ -443,6 +508,57 @@ export default function NewProductForm() {
     </div>
   );
 
+  // bkz. denetim raporu madde 1: her iki satıcı tipinde de zorunlu.
+  const conditionBlock = (
+    <div className="fg">
+      <label>Ürün Durumu</label>
+      <select className="fi" required value={condition} onChange={(e) => setCondition(e.target.value as ProductCondition)}>
+        <option value="">Seçin...</option>
+        {PRODUCT_CONDITIONS.map((c) => (
+          <option key={c.value} value={c.value}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  // bkz. denetim raporu madde 2: "kusur ise açıklama VE fotoğraf zorunlu".
+  const defectBlock = (
+    <div className="fg">
+      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="checkbox" checked={hasDefect} onChange={(e) => setHasDefect(e.target.checked)} style={{ width: "auto" }} />
+        Üründe kusur/deformasyon var
+      </label>
+      {hasDefect && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+          <textarea
+            className="fi"
+            rows={2}
+            required
+            value={defectDescription}
+            onChange={(e) => setDefectDescription(e.target.value)}
+            placeholder="Kusuru açıkça tarif edin (ör. sol kolda küçük leke)"
+          />
+          <div className="file-drop">
+            <input
+              ref={defectPhotoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => handleDefectPhoto(e.target.files?.[0])}
+            />
+            <i className="fas fa-camera" />
+            <p>{defectPhoto ? defectPhoto.file.name : "Kusuru gösteren fotoğraf yükleyin (zorunlu)"}</p>
+          </div>
+          {defectPhoto && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={defectPhoto.url} alt="" style={{ width: 92, height: 92, objectFit: "cover", borderRadius: 10, border: "1px solid var(--br)" }} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   if (!isIndividual) {
     return (
       <div className="card">
@@ -463,7 +579,7 @@ export default function NewProductForm() {
           </div>
           <div className="fg">
             <label>Ürün Adı</label>
-            <input className="fi" required value={name} onChange={(e) => handleNameChange(e.target.value)} />
+            <input className="fi" required maxLength={200} value={name} onChange={(e) => handleNameChange(e.target.value)} />
           </div>
           <div className="fg">
             <label>Ürün Adresi</label>
@@ -528,7 +644,12 @@ export default function NewProductForm() {
           <div className="row2">
             <div className="fg">
               <label>Marka</label>
-              <input className="fi" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Opsiyonel" />
+              <input className="fi" list="brand-suggestions" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Opsiyonel" />
+              <datalist id="brand-suggestions">
+                {brandSuggestions.map((b) => (
+                  <option key={b} value={b} />
+                ))}
+              </datalist>
             </div>
             <div className="fg">
               <label>Fiyat (₺)</label>
@@ -539,6 +660,9 @@ export default function NewProductForm() {
             <label>İndirimli Fiyat (₺)</label>
             <input className="fi" type="number" min={0} step="0.01" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} placeholder="Opsiyonel" />
           </div>
+
+          {conditionBlock}
+          {defectBlock}
 
           <div className="fg">
             <label>Renkler &amp; Stok</label>
@@ -638,7 +762,13 @@ export default function NewProductForm() {
 
   // --- Bireysel satıcı: adım adım sihirbaz ---
   const canAdvance =
-    step === 0 ? images.length > 0 : step === 1 ? categoryId !== "" && name.trim().length > 1 : step === 2 ? basePrice !== "" && Number(basePrice) > 0 : true;
+    step === 0
+      ? images.length > 0
+      : step === 1
+        ? categoryId !== "" && name.trim().length > 1 && condition !== ""
+        : step === 2
+          ? basePrice !== "" && Number(basePrice) > 0
+          : true;
   const categoryName = categories.find((c) => c.id === categoryId)?.name;
   const isLastStep = step === WIZARD_STEPS.length - 1;
 
@@ -681,37 +811,20 @@ export default function NewProductForm() {
               </div>
               <div className="fg">
                 <label>Ürün Adı</label>
-                <input className="fi" required value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="ör. Çiçek Desenli Yazlık Elbise" />
+                <input className="fi" required maxLength={200} value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="ör. Çiçek Desenli Yazlık Elbise" />
               </div>
               <div className="fg">
                 <label>Marka</label>
                 <input className="fi" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Opsiyonel" />
               </div>
+              {conditionBlock}
               <div className="row2">
-                <div className="fg">
-                  <label>Ürün kullanım durumu</label>
-                  <select
-                    className="fi"
-                    value={aiFacts.condition ?? ""}
-                    onChange={(e) => {
-                      updateAiFact("condition", e.target.value);
-                      if (e.target.value) setIsSecondHand(!["Sıfır / kullanılmamış", "Etiketli, hiç kullanılmadı"].includes(e.target.value));
-                    }}
-                  >
-                    <option value="">Seçin...</option>
-                    <option value="Sıfır / kullanılmamış">Sıfır / kullanılmamış</option>
-                    <option value="Etiketli, hiç kullanılmadı">Etiketli, hiç kullanılmadı</option>
-                    <option value="Az kullanıldı, çok iyi durumda">Az kullanıldı, çok iyi durumda</option>
-                    <option value="Kullanıldı, iyi durumda">Kullanıldı, iyi durumda</option>
-                    <option value="Belirgin kullanım izi var">Belirgin kullanım izi var</option>
-                  </select>
-                </div>
                 <div className="fg"><label>Beden</label><input className="fi" value={aiFacts.size ?? ""} onChange={(e) => updateAiFact("size", e.target.value)} placeholder="ör. M / 38" /></div>
                 <div className="fg"><label>Renk</label><input className="fi" value={aiFacts.color ?? ""} onChange={(e) => updateAiFact("color", e.target.value)} placeholder="ör. lacivert" /></div>
                 <div className="fg"><label>Materyal</label><input className="fi" value={aiFacts.material ?? ""} onChange={(e) => updateAiFact("material", e.target.value)} placeholder="Yalnız etikette yazıyorsa" /></div>
               </div>
               <div className="fg"><label>Kullanım bilgisi</label><input className="fi" value={aiFacts.usage ?? ""} onChange={(e) => updateAiFact("usage", e.target.value)} placeholder="ör. iki kez kullanıldı" /></div>
-              <div className="fg"><label>Kusur / kullanım izi</label><input className="fi" value={aiFacts.defects ?? ""} onChange={(e) => updateAiFact("defects", e.target.value)} placeholder="Yoksa 'yok', varsa açıkça yazın" /></div>
+              {defectBlock}
               <div className="fg">
                 <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                   <span>Açıklama</span>
@@ -741,17 +854,6 @@ export default function NewProductForm() {
                 <label>İndirimli Fiyat (₺)</label>
                 <input className="fi" type="number" min={0} step="0.01" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} placeholder="Opsiyonel" />
               </div>
-              <div className="fg">
-                <label>Ürün Durumu</label>
-                <div className="wizard-condition">
-                  <button type="button" className={`wizard-condition-btn${!isSecondHand ? " active" : ""}`} onClick={() => setIsSecondHand(false)}>
-                    <i className="fas fa-wand-magic-sparkles" /> Sıfır
-                  </button>
-                  <button type="button" className={`wizard-condition-btn${isSecondHand ? " active" : ""}`} onClick={() => setIsSecondHand(true)}>
-                    <i className="fas fa-recycle" /> 2. El
-                  </button>
-                </div>
-              </div>
             </>
           )}
 
@@ -768,7 +870,7 @@ export default function NewProductForm() {
                 </div>
                 <div className="wizard-preview-tags">
                   {categoryName && <span className="st st-muted">{categoryName}</span>}
-                  <span className="st st-muted">{isSecondHand ? "2. El" : "Sıfır"}</span>
+                  {condition && <span className="st st-muted">{PRODUCT_CONDITIONS.find((c) => c.value === condition)?.label}</span>}
                   <span className="st st-muted">{images.length} fotoğraf</span>
                 </div>
                 <p className="wizard-preview-hint">

@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import {
   categories,
+  customers,
   homepageSectionBanners,
   homepageSections,
   orderItems,
@@ -13,6 +14,29 @@ import {
   vendors,
 } from "../../db/schema/index";
 import { resolveCollectionLink } from "../content/content.repository";
+import { DEFAULT_COMMISSION_RATE } from "../vendors/commission";
+
+// bkz. denetim raporu madde 4: "Yüzlerce satıcı/binlerce ürün/milyonlarca
+// müşteri" gibi anasayfa/satıcı-kayıt metinleri sabit kodluydu, gerçek
+// platform büyüklüğüyle uyuşmuyordu. Herkese açık, önbelleksiz gerçek
+// sayaçlar - admin-dashboard.repository.ts'teki getDashboardStats ile aynı
+// COUNT deseni, sadece public'e (kimlik doğrulama olmadan) açık alt küme.
+export async function getPublicSiteStats() {
+  const [[vendorRow], [productRow], [customerRow]] = await Promise.all([
+    db.select({ count: count() }).from(vendors).where(eq(vendors.status, "active")),
+    db.select({ count: count() }).from(products).where(eq(products.status, "active")),
+    db.select({ count: count() }).from(customers),
+  ]);
+  return {
+    activeVendors: vendorRow?.count ?? 0,
+    activeProducts: productRow?.count ?? 0,
+    customers: customerRow?.count ?? 0,
+    // bkz. denetim raporu madde 15: "Komisyon oranı" satıcı kayıt sayfasında
+    // hiç gösterilmiyordu - platform varsayılan oranı (satıcıya özel bir
+    // oran atanmışsa o, kayıt öncesi bilinemeyeceği için varsayılan gösterilir).
+    defaultCommissionRate: DEFAULT_COMMISSION_RATE,
+  };
+}
 
 export async function listActiveSections() {
   return db

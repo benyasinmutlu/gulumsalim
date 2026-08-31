@@ -173,7 +173,10 @@ export interface ProductImage {
   url: string;
   isPrimary: boolean;
   sortOrder: number;
+  isDefectPhoto?: boolean;
 }
+
+export type ProductCondition = "new_with_tags" | "new_without_tags" | "very_good" | "good" | "used";
 
 export interface ProductVariant {
   id: number;
@@ -205,6 +208,18 @@ export interface ProductDetail {
   // varyantı olmayan ürünlerde stok kaynağı budur (bkz.
   // add-to-cart-button.tsx, variants.length > 0 iken variant.stock kullanılır).
   stock: number;
+  isSecondHand: boolean;
+  // bkz. denetim raporu madde 1/7: ürün kondisyonu, ürün detay sayfasında
+  // gösterilir (bkz. product-detail-view.tsx).
+  condition: ProductCondition | null;
+  // bkz. denetim raporu madde 2/7: kusur/deformasyon uyarısı.
+  hasDefect: boolean;
+  defectDescription: string | null;
+  // bkz. denetim raporu madde 4/7/8: satıcının girdiği ürüne-özel ölçü
+  // tablosu (opsiyonel, cm) - "Bedenime Uygun" fit motoru zaten bunu
+  // kullanıyordu, ama detay sayfasındaki genel beden tablosu modalı bundan
+  // habersizdi (bkz. add-to-cart-button.tsx).
+  sizeChart: Record<string, { bust?: number; waist?: number; hip?: number }> | null;
 }
 
 export interface CartItem {
@@ -346,6 +361,10 @@ export interface VendorProduct {
   status: "draft" | "pending" | "active" | "inactive" | "rejected";
   freeShipping: boolean;
   isSecondHand?: boolean;
+  condition?: ProductCondition | null;
+  hasDefect?: boolean;
+  defectDescription?: string | null;
+  defectPhotoUrl?: string | null;
   viewCount: number;
   favoriteCount: number;
   cartCount: number;
@@ -616,6 +635,16 @@ export interface FooterPage {
   title: string;
 }
 
+// bkz. denetim raporu madde 4: /site-stats'ten gelen gerçek platform
+// sayaçları - "binlerce ürün/milyonlarca müşteri" gibi sabit pazarlama
+// metinlerinin yerine.
+export interface SiteStats {
+  activeVendors: number;
+  activeProducts: number;
+  customers: number;
+  defaultCommissionRate: number;
+}
+
 export interface SiteSettings {
   site_name?: string;
   site_email?: string;
@@ -747,6 +776,9 @@ export interface PublicVendorProfile {
   followerCount: number;
   createdAt: string;
   successRate: number | null;
+  // bkz. denetim raporu madde 14: ham satış sayısı - önceden sadece
+  // türetilmiş successRate gösteriliyordu.
+  salesCount: number;
   answeredQuestionCount: number;
 }
 
@@ -820,6 +852,10 @@ export interface ProductQuestion {
   answer: string | null;
   createdAt: string;
   customerName: string;
+  // bkz. denetim raporu madde 18: "Faydalı soru-cevapların ürün sayfasında
+  // yayınlanması" - en faydalı bulunanlar önce sıralanır.
+  helpfulCount?: number;
+  hasVoted?: boolean;
 }
 
 export interface AdminPendingReview {
@@ -976,6 +1012,26 @@ export interface AdminCategory {
   seoKeywords: string | null;
   productCount: number;
   childCount: number;
+}
+
+// bkz. denetim raporu: "Marka yönetimi".
+export interface AdminBrand {
+  id: number;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// bkz. denetim raporu: "İşlem logları".
+export interface AdminAuditLogEntry {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  summary: string;
+  createdAt: string;
+  adminName: string;
 }
 
 export interface AdminProductRow {

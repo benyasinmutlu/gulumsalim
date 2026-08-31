@@ -2,7 +2,7 @@ import { and, avg, count, eq } from "drizzle-orm";
 import { db } from "../../db/client";
 import { categories, productReviews, products, productVariants, vendors } from "../../db/schema/index";
 import { meiliClient, PRODUCTS_INDEX } from "../../lib/meilisearch";
-import { attachPrimaryImages } from "./catalog.repository";
+import { attachPrimaryImages, favoriteCountExpr, purchaseCountExpr } from "./catalog.repository";
 
 // Meilisearch dokümanı - Postgres ana kaynak olarak kalır, bu sadece bir
 // arama/filtre projeksiyonu. `visible`, ürünün VE satıcının aynı anda aktif
@@ -29,6 +29,16 @@ async function buildProductDocument(productId: number) {
       vendorType: vendors.vendorType,
       productStatus: products.status,
       vendorStatus: vendors.status,
+      // bkz. denetim raporu madde 11: "Ürün Durumu, Ücretsiz kargo" filtreleri.
+      condition: products.condition,
+      freeShipping: products.freeShipping,
+      // bkz. denetim raporu madde 12: "En çok satan / En çok beğenilen"
+      // sıralamaları - burada sadece SIRALAMA için kullanılır, gerçek
+      // görüntülenen sayı arama sonrası Postgres'ten tazelenir (bkz.
+      // catalog.service.ts fetchSocialProofByIds), bu yüzden hafif gecikmeli
+      // olması (senkronizasyon anındaki değer) sorun değil.
+      salesCount: purchaseCountExpr,
+      favoriteCount: favoriteCountExpr,
     })
     .from(products)
     .innerJoin(vendors, eq(products.vendorId, vendors.id))
@@ -76,6 +86,17 @@ async function buildProductDocument(productId: number) {
     isSecondHand: row.isSecondHand,
     vendorIsIndividual: row.vendorType === "individual",
     visible: row.productStatus === "active" && row.vendorStatus === "active",
+    condition: row.condition,
+    freeShipping: row.freeShipping,
+    salesCount: row.salesCount,
+    favoriteCount: row.favoriteCount,
+    // bkz. denetim raporu madde 12: "En yüksek indirim" sıralaması - gerçek
+    // basePrice/compareAtPrice farkından hesaplanır (sahte bir yüzde alanı
+    // tutulmuyor, bkz. catalog.repository.ts listActiveProducts aynı gerekçe).
+    discountPercent:
+      row.compareAtPrice !== null && Number(row.compareAtPrice) > 0
+        ? Math.round((1 - Number(row.basePrice) / Number(row.compareAtPrice)) * 100)
+        : 0,
   };
 }
 

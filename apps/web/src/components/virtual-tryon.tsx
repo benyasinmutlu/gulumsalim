@@ -283,12 +283,27 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
             </div>
 
             {!photo ? (
-              <label className="tryon-upload">
-                <input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0])} hidden />
-                <i className="fas fa-camera" />
-                <p>Kendi fotoğrafını yükle</p>
-                <small>Fotoğrafın cihazında kalır, sunucuya gönderilmez.</small>
-              </label>
+              <>
+                {/* bkz. denetim raporu madde 13: "kısa onboarding ve gizlilik
+                    açıklaması eklensin" - önceden sadece yükleme kutusunun
+                    altında tek satırlık bir gizlilik notu vardı, özelliğin
+                    nasıl çalıştığını anlatan bir adım yoktu. */}
+                <div className="tryon-onboarding">
+                  <p>
+                    <i className="fas fa-camera-retro" /> Boy fotoğrafını yükle, ürünü üzerine sürükleyip boyutunu ayarla.
+                  </p>
+                  <p>
+                    <i className="fas fa-lock" /> Fotoğrafın yalnızca bu cihazda (tarayıcında) işlenir; sunucumuza veya
+                    başka bir yere gönderilmez, istediğinde &quot;Fotoğrafı değiştir&quot; ile silebilirsin.
+                  </p>
+                </div>
+                <label className="tryon-upload">
+                  <input type="file" accept="image/*" onChange={(e) => handleFile(e.target.files?.[0])} hidden />
+                  <i className="fas fa-camera" />
+                  <p>Kendi fotoğrafını yükle</p>
+                  <small>Fotoğrafın cihazında kalır, sunucuya gönderilmez.</small>
+                </label>
+              </>
             ) : (
               <div className="tryon-body">
                 <div className="tryon-stage">

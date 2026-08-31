@@ -16,7 +16,11 @@ export interface SearchProductsParams {
   maxPrice?: number;
   saleOnly?: boolean;
   secondHand?: boolean;
-  sort?: "price-asc" | "price-desc" | "newest" | "popular";
+  // bkz. denetim raporu madde 11: "Ürün Durumu, Satıcı tipi, Ücretsiz kargo".
+  condition?: string;
+  freeShipping?: boolean;
+  vendorType?: "individual" | "business";
+  sort?: "price-asc" | "price-desc" | "newest" | "popular" | "best_selling" | "most_favorited" | "highest_discount";
   page: number;
   limit: number;
 }
@@ -35,7 +39,10 @@ export function needsSearchIndex(params: Omit<SearchProductsParams, "page" | "li
       params.vendorId ||
       params.minRating ||
       params.sort ||
-      params.secondHand,
+      params.secondHand ||
+      params.condition ||
+      params.freeShipping ||
+      params.vendorType,
   );
 }
 
@@ -44,6 +51,9 @@ const SORT_MAP: Record<NonNullable<SearchProductsParams["sort"]>, string[]> = {
   "price-desc": ["basePrice:desc"],
   newest: ["createdAt:desc"],
   popular: ["avgRating:desc"],
+  best_selling: ["salesCount:desc"],
+  most_favorited: ["favoriteCount:desc"],
+  highest_discount: ["discountPercent:desc"],
 };
 
 // bkz. kullanıcı isteği: "filtrelerde renk ve marka gibi şeyleri
@@ -65,6 +75,9 @@ export async function getProductFacets(params: Omit<SearchProductsParams, "page"
   if (params.maxPrice !== undefined) filters.push(`basePrice <= ${params.maxPrice}`);
   if (params.saleOnly) filters.push("onSale = true");
   if (params.secondHand) filters.push("isSecondHand = true");
+  if (params.condition) filters.push(`condition = ${JSON.stringify(params.condition)}`);
+  if (params.freeShipping) filters.push("freeShipping = true");
+  if (params.vendorType) filters.push(`vendorIsIndividual = ${params.vendorType === "individual"}`);
 
   const result = await meiliClient.index(PRODUCTS_INDEX).search(params.search ?? "", {
     filter: filters.join(" AND "),
@@ -95,6 +108,9 @@ export async function searchProducts(params: SearchProductsParams) {
   if (params.maxPrice !== undefined) filters.push(`basePrice <= ${params.maxPrice}`);
   if (params.saleOnly) filters.push("onSale = true");
   if (params.secondHand) filters.push("isSecondHand = true");
+  if (params.condition) filters.push(`condition = ${JSON.stringify(params.condition)}`);
+  if (params.freeShipping) filters.push("freeShipping = true");
+  if (params.vendorType) filters.push(`vendorIsIndividual = ${params.vendorType === "individual"}`);
 
   const result = await meiliClient.index(PRODUCTS_INDEX).search(params.search ?? "", {
     filter: filters.join(" AND "),

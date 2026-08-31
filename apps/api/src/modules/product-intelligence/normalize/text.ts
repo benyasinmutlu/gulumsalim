@@ -46,6 +46,19 @@ export function cleanDescription(raw: string | undefined | null): FieldValue<str
   return { value: cleaned, source: neededCleanup ? "rule" : "input", confidence: neededCleanup ? CONFIDENCE.CLEANED : CONFIDENCE.EXACT };
 }
 
+// bkz. denetim raporu madde 5: "büyük harf kontrolü eklensin" - başlığın
+// harf büyüklüğünü DEĞİŞTİRMİYORUZ (Türkçe marka adlarını bozar, bkz.
+// normalizeTitle yorumu), ama "TAMAMEN BÜYÜK HARFLE YAZILMIŞ SPAM BAŞLIK"
+// gibi girdileri reddetmek için ayrı bir tespit fonksiyonu. Kısa
+// başlıklarda (< 8 harf, ör. marka kısaltması) yanlış pozitif vermesin diye
+// eşik konuldu.
+export function isShoutingTitle(value: string): boolean {
+  const letters = value.replace(/[^a-zA-ZçÇğĞıİöÖşŞüÜ]/g, "");
+  if (letters.length < 8) return false;
+  const upper = letters.replace(/[^A-ZÇĞİÖŞÜ]/g, "");
+  return upper.length / letters.length > 0.7;
+}
+
 // Marka: kısa metin, kontrol karakter temizliği + kırpma. Boş -> null.
 export function normalizeBrand(raw: string | undefined | null): FieldValue<string> {
   const cleaned = stripControl(raw ?? "", false).replace(/\s+/g, " ").trim().slice(0, 100);

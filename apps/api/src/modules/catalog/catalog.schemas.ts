@@ -14,6 +14,13 @@ export const listProductsQuerySchema = z.object({
   // needsSearchIndex - direkt Postgres'te hesaplanan gerçek indirim yüzdesi).
   minDiscountPercent: z.coerce.number().min(0).max(100).optional(),
   secondHand: z.coerce.boolean().optional(),
+  // bkz. denetim raporu madde 11: "Ürün Durumu, Satıcı tipi, Ücretsiz/
+  // avantajlı kargo" filtreleri - backend'de alan zaten vardı (products.condition,
+  // products.freeShipping, vendors.vendorType), sadece sorgu/index katmanına
+  // hiç bağlanmamıştı.
+  condition: z.enum(["new_with_tags", "new_without_tags", "very_good", "good", "used"]).optional(),
+  freeShipping: z.coerce.boolean().optional(),
+  vendorType: z.enum(["individual", "business"]).optional(),
   // Meilisearch tabanlı facet filtreleri/sıralama (bkz. catalog.search.ts) -
   // bunlardan biri verilirse sorgu Postgres keyset yerine Meilisearch'e gider.
   size: z.string().optional(),
@@ -25,7 +32,13 @@ export const listProductsQuerySchema = z.object({
   brand: z.string().optional(),
   vendor: z.string().optional(),
   minRating: z.coerce.number().min(1).max(5).optional(),
-  sort: z.enum(["price-asc", "price-desc", "newest", "popular"]).optional(),
+  // bkz. denetim raporu madde 12: "En çok satan / En çok beğenilen / En
+  // yüksek indirim" sıralamaları - Meilisearch dokümanına eklenen sortable
+  // salesCount/favoriteCount/discountPercent alanlarını kullanır (bkz.
+  // catalog.search.ts SORT_MAP, search-index.service.ts).
+  sort: z
+    .enum(["price-asc", "price-desc", "newest", "popular", "best_selling", "most_favorited", "highest_discount"])
+    .optional(),
 });
 
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;

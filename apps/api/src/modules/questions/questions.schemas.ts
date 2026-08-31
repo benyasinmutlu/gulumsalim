@@ -13,3 +13,8 @@ export const questionIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
   questionId: z.coerce.number().int().positive(),
 });
+
+// bkz. denetim raporu madde 18: /products/:slug/questions/:id/helpful
+export const questionHelpfulParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});

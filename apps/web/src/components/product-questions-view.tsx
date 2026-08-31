@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCategories, getCurrentCustomer, getProduct, getQuestions } from "@/components/product-detail-view";
 import QuestionForm from "@/app/(site)/urun/[slug]/question-form";
+import QuestionHelpfulButton from "@/components/question-helpful-button";
 
 // Trendyol'daki gibi "N Soru ›" ürün sayfasından tıklanınca açılan ayrı bir
 // sayfa - soru sorma politikası + tam soru listesi + soru formu burada.
@@ -85,6 +86,14 @@ export default async function ProductQuestionsView({
                         <i className="fas fa-store" /> Satıcı Yanıtı:
                       </strong>
                       <p>{q.answer}</p>
+                      {customer && (
+                        <QuestionHelpfulButton
+                          slug={slug}
+                          questionId={q.id}
+                          initialCount={q.helpfulCount ?? 0}
+                          initialVoted={q.hasVoted ?? false}
+                        />
+                      )}
                     </div>
                   )}
                 </div>

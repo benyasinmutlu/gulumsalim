@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { isValidTurkishIban, normalizeIban } from "../../lib/iban";
+import { toTitleCaseTr } from "../../lib/name-case";
 
 const slugPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const fullNameSchema = z.string().trim().min(2).max(120).transform(toTitleCaseTr);
 const emailSchema = z.string().trim().email().max(254).transform((value) => value.toLowerCase());
 const passwordSchema = z
   .string()
@@ -22,7 +24,7 @@ export const vendorRegisterSchema = z.object({
     .regex(slugPattern, "Mağaza adresi sadece küçük harf, rakam ve tire içerebilir"),
   email: emailSchema,
   password: passwordSchema,
-  fullName: z.string().trim().min(2).max(120),
+  fullName: fullNameSchema,
   phone: z.string().trim().max(30).optional(),
   // Mesafeli Satış Sözleşmesi'nin satıcı bloğu için zorunlu (bkz.
   // vendors.ts taxId/legalAddress).
@@ -64,7 +66,7 @@ export const vendorResetPasswordSchema = z.object({
 // iki ayrı sayfaya (Mağaza Profili / Ayarlar) bölünüyor.
 export const updateVendorProfileSchema = z.object({
   storeName: z.string().min(2).optional(),
-  fullName: z.string().min(2).optional(),
+  fullName: z.string().trim().min(2).max(120).transform(toTitleCaseTr).optional(),
   phone: z.string().optional(),
   about: z.string().max(2000).optional(),
   logo: z.string().optional(),

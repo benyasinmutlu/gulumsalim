@@ -24,7 +24,7 @@ export default function PopularCategoriesRow({ categories }: { categories: Categ
               <div className="popular-category-avatar">
                 {c.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.image} alt={c.name} />
+                  <img src={c.image} alt={c.name} loading="lazy" decoding="async" />
                 ) : (
                   <i className={c.icon || "fas fa-tag"} />
                 )}

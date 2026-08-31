@@ -76,7 +76,10 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
     recordContentEvent("vendor", vendor.id, "view").catch(() => {});
 
     return reply.send({
-      vendor: { ...vendorRest, isFollowing, reviewSummary, successRate, answeredQuestionCount },
+      // bkz. denetim raporu madde 14: "Satış sayısı ... gösterilebilsin" -
+      // önceden ham deliveredCount bilerek response'tan çıkarılıp sadece
+      // türetilmiş successRate gönderiliyordu, ham sayı hiç görünmüyordu.
+      vendor: { ...vendorRest, isFollowing, reviewSummary, successRate, salesCount: deliveredCount, answeredQuestionCount },
       products: { items, nextCursor },
     });
   });

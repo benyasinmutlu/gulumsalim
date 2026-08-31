@@ -9,6 +9,7 @@ import { emailButton, emailHeading, emailProductRow, renderEmailLayout, sendMail
 import { hydrateCart } from "../cart/cart.service";
 import type { CartLine } from "../cart/cart.types";
 import type { Session } from "fastify";
+import { createCustomerNotification } from "./customer-notifications.repository";
 
 // bkz. kullanıcı isteği: "sepetteki ürünleri hatırlatma ve favoriler
 // müşteriye özel ürünler gibi mailler gönderelim". Bu ikisi de pazarlama
@@ -78,6 +79,16 @@ export async function sendCartAbandonmentReminders(redis: Redis, log: FastifyBas
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-size:16px;font-weight:700;text-align:right;padding-top:8px;">Toplam: ${Number(hydrated.subtotal).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</td></tr></table>` +
         emailButton(`${env.SITE_URL}/sepet`, "Alışverişimi Tamamla");
       await sendMail(customer.email, "Sepetinizde Ürünler Sizi Bekliyor - Gülüm Şalım", renderEmailLayout("Sepetiniz sizi bekliyor", body));
+      // bkz. denetim raporu madde 20: "Web/uygulama bildirimi" - önceden bu
+      // hatırlatma SADECE e-posta gönderiyordu, hesabım/bildirimler
+      // kutusunda hiç görünmüyordu.
+      await createCustomerNotification(
+        session.customerId,
+        "cart_reminder",
+        "Sepetinizde ürünler sizi bekliyor",
+        `${hydrated.items.length} üründen oluşan sepetiniz tamamlanmayı bekliyor.`,
+        "/sepet",
+      ).catch(() => {});
       sent += 1;
       remindedCustomerIds.add(session.customerId);
       // Aynı sepet için tekrar tekrar hatırlatma göndermemek adına oturuma

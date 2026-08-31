@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ClientApiError, fetchJson, mutateJson, uploadFile } from "@/lib/client-api";
-import type { Category, VendorProduct, VendorProductImage, VendorProductVariant } from "@/lib/types";
+import type { Category, ProductCondition, VendorProduct, VendorProductImage, VendorProductVariant } from "@/lib/types";
+import { PRODUCT_CONDITIONS } from "@/lib/product-condition";
 import { useIsIndividualVendor } from "../../vendor-type-context";
 
 const STATUS_LABEL: Record<VendorProduct["status"], string> = {
@@ -37,6 +38,9 @@ export default function EditProduct({ productId }: { productId: number }) {
   const [basePrice, setBasePrice] = useState("");
   const [compareAtPrice, setCompareAtPrice] = useState("");
   const [brand, setBrand] = useState("");
+  // bkz. denetim raporu: "Marka yönetimi" - admin onaylı markalar datalist
+  // önerisi olarak sunulur (bkz. new-product-form.tsx aynı desen).
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [attributes, setAttributes] = useState<Record<string, string>>({});
   const [newAttributeKey, setNewAttributeKey] = useState("");
@@ -44,6 +48,14 @@ export default function EditProduct({ productId }: { productId: number }) {
   const [status, setStatus] = useState<VendorProduct["status"]>("draft");
   const [freeShipping, setFreeShipping] = useState(false);
   const [isSecondHand, setIsSecondHand] = useState(false);
+  // bkz. denetim raporu madde 1/2: önceden bu alan sadece ürün oluşturma
+  // formunda vardı, düzenleme formunda hiç yoktu.
+  const [condition, setCondition] = useState<ProductCondition | "">("");
+  const [hasDefect, setHasDefect] = useState(false);
+  const [defectDescription, setDefectDescription] = useState("");
+  const [defectPhotoUrl, setDefectPhotoUrl] = useState<string | null>(null);
+  const [defectPhotoUploading, setDefectPhotoUploading] = useState(false);
+  const defectPhotoInputRef = useRef<HTMLInputElement>(null);
   // bkz. kullanıcı isteği (2026-08-03): "kurumsal satıcıların stokları
   // zorunlu olarak girilmeli" - sadece varyantsız (renk/beden eklenmemiş)
   // kurumsal ürünlerde gösterilir, load() içinde totalStock'tan doldurulur
@@ -84,6 +96,10 @@ export default function EditProduct({ productId }: { productId: number }) {
       setStatus(found.status);
       setFreeShipping(found.freeShipping);
       setIsSecondHand(found.isSecondHand ?? false);
+      setCondition(found.condition ?? "");
+      setHasDefect(found.hasDefect ?? false);
+      setDefectDescription(found.defectDescription ?? "");
+      setDefectPhotoUrl(found.defectPhotoUrl ?? null);
       setStock(String(found.totalStock));
     }
     setImages(imageList);
@@ -92,12 +108,24 @@ export default function EditProduct({ productId }: { productId: number }) {
   }
 
   useEffect(() => {
+    fetchJson<string[]>("/brands").then(setBrandSuggestions).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     load();
     // load yalnızca productId değiştiğinde yeniden çalışmalıdır.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   async function handleSave() {
+    if (!condition) {
+      setMessage("Lütfen ürün durumunu seçin");
+      return;
+    }
+    if (hasDefect && defectDescription.trim().length < 5) {
+      setMessage("Kusuru en az birkaç kelimeyle açıklayın");
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
@@ -109,6 +137,9 @@ export default function EditProduct({ productId }: { productId: number }) {
         brand: brand || undefined,
         description: description || undefined,
         attributes,
+        condition,
+        hasDefect,
+        defectDescription: hasDefect ? defectDescription : undefined,
         // bkz. olay: 2026-08-02 - bireysel satıcı durumu bu formdan
         // değiştiremez (bkz. handleSubmitForApproval), göndermeden atlanır.
         ...(isIndividual ? {} : { status }),
@@ -121,6 +152,25 @@ export default function EditProduct({ productId }: { productId: number }) {
       setMessage(err instanceof ClientApiError ? err.message : "Kaydedilemedi");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // bkz. denetim raporu madde 2: kusur fotoğrafı - genel görsel yükleme
+  // ucuna isDefectPhoto=true sorgu parametresiyle gönderilir (bkz.
+  // vendor-products.routes.ts), aynı desende new-product-form.tsx.
+  async function handleDefectPhotoSelected() {
+    const file = defectPhotoInputRef.current?.files?.[0];
+    if (!file) return;
+    setDefectPhotoUploading(true);
+    setMessage(null);
+    try {
+      await uploadFile(`/vendor/products/${productId}/images?isDefectPhoto=true`, file);
+      await load();
+    } catch (err) {
+      setMessage(err instanceof ClientApiError ? err.message : "Kusur fotoğrafı yüklenemedi");
+    } finally {
+      setDefectPhotoUploading(false);
+      if (defectPhotoInputRef.current) defectPhotoInputRef.current.value = "";
     }
   }
 
@@ -234,7 +284,7 @@ export default function EditProduct({ productId }: { productId: number }) {
         <div className="fc" style={{ padding: "20px" }}>
           <div className="fg">
             <label>Ürün Adı</label>
-            <input className="fi" value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="fi" maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="fg">
             <label>Kategori</label>
@@ -248,7 +298,56 @@ export default function EditProduct({ productId }: { productId: number }) {
           </div>
           <div className="fg">
             <label>Marka</label>
-            <input className="fi" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Opsiyonel" />
+            <input className="fi" list="brand-suggestions" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Opsiyonel" />
+            <datalist id="brand-suggestions">
+              {brandSuggestions.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
+          </div>
+          <div className="fg">
+            <label>Ürün Durumu</label>
+            <select className="fi" required value={condition} onChange={(e) => setCondition(e.target.value as ProductCondition)}>
+              <option value="">Seçin...</option>
+              {PRODUCT_CONDITIONS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="fg">
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" checked={hasDefect} onChange={(e) => setHasDefect(e.target.checked)} />
+              Üründe kusur/deformasyon var
+            </label>
+            {hasDefect && (
+              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                <textarea
+                  className="fi"
+                  rows={2}
+                  value={defectDescription}
+                  onChange={(e) => setDefectDescription(e.target.value)}
+                  placeholder="Kusuru açıkça tarif edin (ör. sol kolda küçük leke)"
+                />
+                {defectPhotoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={defectPhotoUrl} alt="" style={{ width: 92, height: 92, objectFit: "cover", borderRadius: 10, border: "1px solid var(--br)" }} />
+                ) : (
+                  <p style={{ fontSize: "0.8rem", color: "var(--er)" }}>
+                    Kusur fotoğrafı henüz yüklenmedi - yüklemeden ürün onaya/aktife gönderilemez.
+                  </p>
+                )}
+                <input
+                  ref={defectPhotoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleDefectPhotoSelected}
+                  disabled={defectPhotoUploading}
+                />
+                {defectPhotoUploading && <small>Yükleniyor...</small>}
+              </div>
+            )}
           </div>
           <div className="row2">
             <div className="fg">

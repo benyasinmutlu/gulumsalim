@@ -430,6 +430,17 @@ button {
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* bkz. denetim raporu madde 16: "Popüler aramalar" + "Son aramalar" -
+   kutu boşken odaklanınca gösterilen chip listeleri. */
+.search-suggest-empty { padding: 14px; }
+.ss-term-group { margin-bottom: 14px; }
+.ss-term-group:last-child { margin-bottom: 0; }
+.ss-term-group-label { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--color-text-light); margin-bottom: 8px; }
+.ss-term-group-label i { color: var(--color-primary); font-size: 11px; }
+.ss-term-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ss-term-chip { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--color-border); background: var(--color-bg-alt); font-size: 12.5px; color: var(--color-text); cursor: pointer; transition: var(--transition-fast); }
+.ss-term-chip:hover { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
 .ss-item {
     display: flex;
     align-items: center;
@@ -5220,6 +5231,33 @@ body.no-main-nav .product-toolbar {
     accent-color: var(--color-primary);
 }
 
+/* bkz. denetim raporu madde 11: İndirimli/2. El/Ücretsiz Kargo filtreleri -
+   .pt-panel-label ile aynı görsel dil, ama checkbox + tek satır etiket. */
+.pt-panel-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    color: var(--color-text);
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.pt-panel-checkbox:last-child {
+    margin-bottom: 0;
+}
+
+.pt-panel-checkbox input {
+    accent-color: var(--color-primary);
+}
+
+.pt-panel-checkbox i {
+    color: var(--color-primary);
+    font-size: 12px;
+    width: 14px;
+    text-align: center;
+}
+
 /* bkz. kullanıcı isteği (mockup): renk filtresi serbest metin yerine
    tıklanabilir renk daireleri. */
 .pt-color-list {
@@ -6499,6 +6537,16 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .ga-footer a { color: var(--color-primary); font-weight: 700; text-decoration: none; }
 .ga-footer a:hover { text-decoration: underline; }
 
+/* bkz. denetim raporu madde 15: satıcı kayıt sayfasında komisyon/ödeme/
+   bireysel-kurumsal fark özeti. */
+.ga-terms-summary { margin-top: 22px; padding: 16px 18px; border-radius: 14px; background: var(--color-bg-alt); border: 1px solid var(--color-border); }
+.ga-terms-summary h3 { font-size: 14px; margin: 0 0 10px; color: var(--color-text); }
+.ga-terms-summary ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.ga-terms-summary li { font-size: 12.5px; line-height: 1.5; color: var(--color-text-muted); }
+.ga-terms-links { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+.ga-terms-links a { font-size: 12px; color: var(--color-primary); text-decoration: none; font-weight: 600; }
+.ga-terms-links a:hover { text-decoration: underline; }
+
 @media (max-width: 960px) {
     .ga-wrap { grid-template-columns: 1fr; }
     .ga-visual { display: none; }
@@ -6792,6 +6840,11 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
   border-radius: var(--radius-sm);
   font-size: 13px;
 }
+
+/* bkz. denetim raporu madde 18: "faydalı bulundu" oylaması */
+.question-helpful-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface); font-size: 12px; color: var(--color-text-light); cursor: pointer; transition: var(--transition-fast); }
+.question-helpful-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.question-helpful-btn.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
 
 .review-form-box {
   background: var(--color-surface);
@@ -7238,6 +7291,10 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .tryon-modal{background:#fff;border-radius:20px;width:min(560px,100%);max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.4)}
 .tryon-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee}
 .tryon-close{width:34px;height:34px;border-radius:10px;border:none;background:#f3f0f7;cursor:pointer}
+/* bkz. denetim raporu madde 13: kısa onboarding/gizlilik adımı */
+.tryon-onboarding{display:flex;flex-direction:column;gap:8px;padding:16px 20px 0}
+.tryon-onboarding p{display:flex;align-items:flex-start;gap:8px;margin:0;font-size:13px;color:#555;line-height:1.4}
+.tryon-onboarding i{color:var(--color-primary,#C06C84);margin-top:2px;flex-shrink:0}
 .tryon-upload{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:48px 20px;margin:20px;border:2px dashed #d9d2e6;border-radius:16px;cursor:pointer;text-align:center}
 .tryon-upload i{font-size:32px;color:var(--color-primary,#C06C84)}
 .tryon-upload small{color:#888;font-size:12px}

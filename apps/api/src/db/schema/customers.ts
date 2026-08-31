@@ -123,6 +123,24 @@ export const adminUsers = pgTable("admin_users", {
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 });
 
+// bkz. denetim raporu: "İşlem logları" hiç yoktu - admin panelinde kimin
+// ne zaman hangi karar (satıcı onayı/yasaklama, ürün moderasyonu, iade/
+// ödeme kararı) verdiğine dair hiçbir kayıt tutulmuyordu. Başlangıç kapsamı
+// en hassas/geri döndürülemez kararlarla sınırlı (bkz. admin-audit.ts
+// çağrı yerleri) - kapsam genişletilebilir, ama HER admin mutasyonunu
+// tek seferde kaydetmek yerine önce en kritik olanlar seçildi.
+export const adminAuditLog = pgTable("admin_audit_log", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  adminId: bigint("admin_id", { mode: "number" }).notNull().references(() => adminUsers.id),
+  action: text("action").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: bigint("entity_id", { mode: "number" }),
+  summary: text("summary").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  createdAtIdx: index("idx_admin_audit_log_created_at").on(table.createdAt),
+}));
+
 export const contactMessages = pgTable("contact_messages", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
   name: text("name").notNull(),

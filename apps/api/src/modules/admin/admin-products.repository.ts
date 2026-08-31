@@ -67,7 +67,7 @@ export async function listAllProducts({ status, search, vendorId, categoryId, st
 }
 
 export async function updateProductStatus(id: number, status: "draft" | "pending" | "active" | "inactive" | "rejected") {
-  const [row] = await db.update(products).set({ status, updatedAt: new Date() }).where(eq(products.id, id)).returning({ id: products.id });
+  const [row] = await db.update(products).set({ status, updatedAt: new Date() }).where(eq(products.id, id)).returning({ id: products.id, name: products.name });
   return row ?? null;
 }
 

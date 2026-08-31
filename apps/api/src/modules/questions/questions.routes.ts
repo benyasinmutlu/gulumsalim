@@ -1,7 +1,13 @@
 import { FastifyPluginAsync } from "fastify";
 import { findActiveProductIdBySlug } from "../catalog/catalog.repository";
-import { insertQuestion, listAnsweredQuestions, listQuestionsByCustomer } from "./questions.repository";
-import { createQuestionSchema } from "./questions.schemas";
+import {
+  findQuestionForProduct,
+  insertQuestion,
+  listAnsweredQuestions,
+  listQuestionsByCustomer,
+  toggleQuestionHelpful,
+} from "./questions.repository";
+import { createQuestionSchema, questionHelpfulParamsSchema } from "./questions.schemas";
 
 const questionsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/my/questions", { preHandler: app.requireCustomer }, async (request, reply) => {
@@ -14,8 +20,29 @@ const questionsRoutes: FastifyPluginAsync = async (app) => {
     if (!product) {
       return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     }
-    return reply.send(await listAnsweredQuestions(product.id));
+    return reply.send(await listAnsweredQuestions(product.id, request.session.customerId));
   });
+
+  // bkz. denetim raporu madde 18: "Faydalı soru-cevapların ürün sayfasında
+  // yayınlanması" - bir soruyu faydalı bulma/geri çekme (toggle).
+  app.post(
+    "/products/:slug/questions/:id/helpful",
+    { preHandler: [app.requireCustomer, app.csrfProtection] },
+    async (request, reply) => {
+      const { slug } = request.params as { slug: string };
+      const { id } = questionHelpfulParamsSchema.parse(request.params);
+      const product = await findActiveProductIdBySlug(slug);
+      if (!product) {
+        return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+      }
+      const question = await findQuestionForProduct(product.id, id);
+      if (!question) {
+        return reply.status(404).send({ error: { message: "Soru bulunamadı" } });
+      }
+      const voted = await toggleQuestionHelpful(id, request.session.customerId!);
+      return reply.send({ voted });
+    },
+  );
 
   app.post(
     "/products/:slug/questions",

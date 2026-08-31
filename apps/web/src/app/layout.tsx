@@ -45,6 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     metadataBase: new URL(SITE_URL),
+    alternates: { canonical: SITE_URL },
     openGraph: {
       type: "website",
       siteName: settings.site_name || "Gülüm Şalım",
@@ -52,6 +53,30 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       url: SITE_URL,
     },
+    // bkz. denetim raporu: "Open Graph ve sosyal paylaşım metadata" -
+    // Twitter/X kart etiketi hiç yoktu, site genelinde bu tek yerden gelir
+    // (sayfa bazlı generateMetadata'lar - bkz. getProductMeta - kendi
+    // title/description/images'ıyla üzerine yazar).
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
+
+// bkz. denetim raporu: "Organization ... structured data" hiç yoktu -
+// Google'ın bilgi panelinde/arama sonucunda marka kimliğini (logo, ad,
+// iletişim) tanıyabilmesi için.
+function organizationJsonLd(settings: SiteSettings) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: settings.site_name || "Gülüm Şalım",
+    url: SITE_URL,
+    ...(settings.site_logo && { logo: settings.site_logo }),
+    ...(settings.site_email && { email: settings.site_email }),
+    ...(settings.site_phone && { telephone: settings.site_phone }),
   };
 }
 
@@ -85,6 +110,7 @@ export default async function RootLayout({
         {/* gulumsalim.com'daki ikon setiyle birebir aynı - Font Awesome 6.5.1 */}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
         {colorOverrides && <style dangerouslySetInnerHTML={{ __html: `:root { ${colorOverrides} }` }} />}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd(settings)) }} />
 
         {/* admin/settings.php > Analitik sekmesinin karşılığı - üçü de
             admin ayarlarında boşsa hiç enjekte edilmez. */}

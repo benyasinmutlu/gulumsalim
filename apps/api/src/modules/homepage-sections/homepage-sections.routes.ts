@@ -1,7 +1,22 @@
 import { FastifyPluginAsync } from "fastify";
+import { getPublicSiteStats } from "./homepage-sections.repository";
+import { DEFAULT_COMMISSION_RATE } from "../vendors/commission";
 import { resolveHomepageSections, resolveSectionBySlug } from "./homepage-sections.service";
 
 const homepageSectionsRoutes: FastifyPluginAsync = async (app) => {
+  // bkz. denetim raporu madde 4: pazarlama metinlerindeki ("binlerce ürün",
+  // "milyonlarca müşteri" vb.) sabit sayıların yerini alacak, herkese açık
+  // gerçek platform sayaçları.
+  app.get("/site-stats", async (request, reply) => {
+    try {
+      const stats = await getPublicSiteStats();
+      return reply.send(stats);
+    } catch (err) {
+      request.log.warn({ err }, "site istatistikleri alınamadı");
+      return reply.send({ activeVendors: 0, activeProducts: 0, customers: 0, defaultCommissionRate: DEFAULT_COMMISSION_RATE });
+    }
+  });
+
   app.get("/homepage-sections", async (request, reply) => {
     try {
       const sections = await resolveHomepageSections(app.redis, request.session.customerId);

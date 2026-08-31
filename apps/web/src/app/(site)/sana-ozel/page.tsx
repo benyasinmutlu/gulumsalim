@@ -1,9 +1,19 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { apiFetchJson } from "@/lib/api";
 import type { Category, CustomerProfile, ProductListItem, TopViewedCategory } from "@/lib/types";
 import ProductCard from "@/components/product-card";
 import HscrollArrows from "@/components/hscroll-arrows";
 import { CategoryNavSync } from "@/components/category-nav-context";
+
+// bkz. denetim raporu: bu sayfanın içeriği müşteriye/oturuma göre değişir
+// (kişiselleştirilmiş akış) - arama motoruna aynı URL için farklı
+// kullanıcılarda farklı içerik göstermek ince/kopya içerik riski taşır,
+// bu yüzden noindex (link takip edilsin, sadece index'e girmesin).
+export const metadata: Metadata = {
+  title: "Sana Özel | Gülüm Şalım",
+  robots: { index: false, follow: true },
+};
 
 interface DiscoverFeed {
   items: ProductListItem[];

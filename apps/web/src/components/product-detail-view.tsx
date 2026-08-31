@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { apiFetch, apiFetchJson } from "@/lib/api";
+import { SITE_ORIGIN } from "@/lib/env";
 import type { Category, CustomerProfile, ProductDetail, ProductListItem, ProductQuestion, ProductReviewsResponse, PublicVendorProfile } from "@/lib/types";
 import AddToCartButton from "@/app/(site)/urun/[slug]/add-to-cart-button";
 import ReviewForm from "@/app/(site)/urun/[slug]/review-form";
@@ -13,6 +14,8 @@ import DwellTracker from "@/components/dwell-tracker";
 import ProductCampaignBadge from "@/components/product-campaign-badge";
 import FollowButton from "@/components/follow-button";
 import FollowerCountStat from "@/components/follower-count-stat";
+import QuestionHelpfulButton from "@/components/question-helpful-button";
+import { CONDITION_LABELS } from "@/lib/product-condition";
 
 export async function getProduct(slug: string): Promise<ProductDetail | null> {
   const res = await apiFetch(`/products/${slug}`);
@@ -65,15 +68,59 @@ async function getRelatedProducts(slug: string): Promise<ProductListItem[]> {
   }
 }
 
+// bkz. denetim raporu madde 19: "Aynı Mağazadan" - kategori bazlı
+// "Benzer Ürünler"den (getRelatedProducts) ayrı, satıcının diğer ürünleri.
+async function getSameVendorProducts(slug: string): Promise<ProductListItem[]> {
+  try {
+    return await apiFetchJson<ProductListItem[]>(`/products/${slug}/same-vendor`);
+  } catch {
+    return [];
+  }
+}
+
+interface DiscoverFeed {
+  items: ProductListItem[];
+  strategy: "personalized" | "cold_start" | "unavailable";
+}
+
+// bkz. denetim raporu madde 19: "Bunları da Beğenebilirsiniz" - anasayfadaki
+// "Sana Özel" ile AYNI kişiselleştirme motoru (bkz. discovery.routes.ts
+// GET /discover), burada da yeniden kullanılıyor. Sadece GERÇEKTEN
+// kişiselleştirilmiş bir sonuç varsa gösterilir (cold-start'ta hiç
+// gösterilmez) - aksi halde "İlginizi Çekebilecek Diğer Ürünler" ile aynı
+// şeyi tekrar etmiş, yanıltıcı bir "sana özel" iddiası yapmış olurduk.
+async function getDiscoverFeed(): Promise<DiscoverFeed> {
+  try {
+    return await apiFetchJson<DiscoverFeed>("/discover");
+  } catch {
+    return { items: [], strategy: "unavailable" };
+  }
+}
+
 export async function getProductMeta(slug: string) {
-  const product = await getProduct(slug);
+  const [product, categories] = await Promise.all([getProduct(slug), getCategories()]);
   if (!product) return null;
+  // bkz. denetim raporu: "Canonical URL" hiç yoktu - bu ürüne HEM /urun/{slug}
+  // HEM /{kategori}/{slug} üzerinden erişilebiliyor (bkz. app/(site)/urun/
+  // [slug]/page.tsx ve app/(site)/[slug]/[product]/page.tsx yorumları), arama
+  // motoruna hangisinin "asıl" olduğu söylenmezse içerik ikiye bölünmüş sayılır.
+  const category = categories.find((c) => c.id === product.categoryId);
+  const canonicalPath = category ? `/${category.slug}/${product.slug}` : `/urun/${product.slug}`;
+  const canonical = `${SITE_ORIGIN}${canonicalPath}`;
   return {
     title: `${product.name} | Gülüm Şalım`,
     description: product.description ?? undefined,
+    alternates: { canonical },
+    twitter: {
+      card: "summary_large_image" as const,
+      title: product.name,
+      description: product.description ?? undefined,
+      images: product.images[0]?.url ? [product.images[0].url] : undefined,
+    },
     openGraph: {
       title: product.name,
       description: product.description ?? undefined,
+      url: canonical,
       images: product.images[0]?.url ? [product.images[0].url] : undefined,
     },
   };
@@ -94,14 +141,19 @@ export default async function ProductDetailView({
   const product = await getProduct(slug);
   if (!product) return null;
 
-  const [{ reviews, summary }, questions, customer, categories, relatedProducts, vendorSummary] = await Promise.all([
-    getReviews(slug),
-    getQuestions(slug),
-    getCurrentCustomer(),
-    getCategories(),
-    getRelatedProducts(slug),
-    getVendorSummary(product.vendorSlug),
-  ]);
+  const [{ reviews, summary }, questions, customer, categories, relatedProducts, vendorSummary, sameVendorProducts, discoverFeed] =
+    await Promise.all([
+      getReviews(slug),
+      getQuestions(slug),
+      getCurrentCustomer(),
+      getCategories(),
+      getRelatedProducts(slug),
+      getVendorSummary(product.vendorSlug),
+      getSameVendorProducts(slug),
+      getDiscoverFeed(),
+    ]);
+  const personalizedProducts =
+    discoverFeed.strategy === "personalized" ? discoverFeed.items.filter((p) => p.id !== product.id).slice(0, 8) : [];
 
   const category = categories.find((c) => c.id === product.categoryId);
   if (expectedCategorySlug && category?.slug !== expectedCategorySlug) return null;
@@ -121,7 +173,7 @@ export default async function ProductDetailView({
     image: product.images.map((img) => img.url),
     offers: {
       "@type": "Offer",
-      url: `https://gulumsalim.com/${category?.slug ?? "urun"}/${product.slug}`,
+      url: `${SITE_ORIGIN}/${category?.slug ?? "urun"}/${product.slug}`,
       price: product.basePrice,
       priceCurrency: "TRY",
       availability: totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
@@ -136,6 +188,25 @@ export default async function ProductDetailView({
     }),
   };
 
+  // bkz. denetim raporu: "Breadcrumb ... structured data" - HTML kırıntı
+  // izi zaten vardı (aşağıdaki .breadcrumb), Google'ın arama sonuçlarında
+  // yol gösterebilmesi için schema.org BreadcrumbList karşılığı yoktu.
+  const breadcrumbItems = [
+    { name: "Ana Sayfa", url: SITE_ORIGIN },
+    ...(category ? [{ name: category.name, url: `${SITE_ORIGIN}/${category.slug}` }] : []),
+    { name: product.name, url: `${SITE_ORIGIN}/${category?.slug ?? "urun"}/${product.slug}` },
+  ];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+
   const discountPercent = product.compareAtPrice
     ? Math.round((1 - Number(product.basePrice) / Number(product.compareAtPrice)) * 100)
     : null;
@@ -144,6 +215,7 @@ export default async function ProductDetailView({
     <main className="main-content">
       <DwellTracker productId={product.id} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
 
       <div className="breadcrumb-bar">
         <div className="container">
@@ -166,6 +238,14 @@ export default async function ProductDetailView({
 
             <div className="product-detail-info">
               <h1 className="detail-name">{product.name}</h1>
+
+              {(product.brand || product.condition) && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                  {product.brand && <span className="st st-muted">{product.brand}</span>}
+                  {product.condition && <span className="st st-muted">{CONDITION_LABELS[product.condition]}</span>}
+                  {product.isSecondHand && <span className="st st-muted">2. El</span>}
+                </div>
+              )}
 
               <div className="detail-vendor-card">
                 <Link href={`/${product.vendorSlug}`} className="detail-vendor-link">
@@ -198,6 +278,11 @@ export default async function ProductDetailView({
                     <span>
                       <FollowerCountStat initialCount={vendorSummary.followerCount} /> Takipçi
                     </span>
+                    {vendorSummary.city && (
+                      <span>
+                        <i className="fas fa-location-dot" /> {vendorSummary.city}
+                      </span>
+                    )}
                     {vendorSummary.answeredQuestionCount > 0 && (
                       <span>
                         <i className="fas fa-circle-question" /> {vendorSummary.answeredQuestionCount} Soru Cevaplandı
@@ -264,9 +349,36 @@ export default async function ProductDetailView({
                 </div>
               )}
 
+              {product.hasDefect && (
+                <div
+                  style={{
+                    marginTop: "1rem",
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "flex-start",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid var(--er)",
+                    background: "rgba(226,59,82,.06)",
+                  }}
+                >
+                  <i className="fas fa-triangle-exclamation" style={{ color: "var(--er)", marginTop: 2 }} />
+                  <div>
+                    <strong style={{ color: "var(--er)" }}>Bu üründe kusur/deformasyon var</strong>
+                    {product.defectDescription && <p style={{ margin: "4px 0 0", fontSize: "0.9rem" }}>{product.defectDescription}</p>}
+                  </div>
+                </div>
+              )}
+
               <FitPanel slug={slug} />
 
-              <AddToCartButton productId={product.id} variants={product.variants} price={Number(product.basePrice)} stock={product.stock} />
+              <AddToCartButton
+                productId={product.id}
+                variants={product.variants}
+                price={Number(product.basePrice)}
+                stock={product.stock}
+                sizeChart={product.sizeChart}
+              />
 
               <div className="detail-features">
                 <div className="feature-item">
@@ -348,6 +460,14 @@ export default async function ProductDetailView({
                             <i className="fas fa-store" /> Satıcı Yanıtı:
                           </strong>
                           <p>{q.answer}</p>
+                          {customer && (
+                            <QuestionHelpfulButton
+                              slug={slug}
+                              questionId={q.id}
+                              initialCount={q.helpfulCount ?? 0}
+                              initialVoted={q.hasVoted ?? false}
+                            />
+                          )}
                         </div>
                       )}
                     </div>
@@ -373,10 +493,44 @@ export default async function ProductDetailView({
         <section className="products-section">
           <div className="container">
             <div className="section-header" style={{ marginBottom: 20 }}>
-              <h2 className="section-title">İlginizi Çekebilecek Diğer Ürünler</h2>
+              <h2 className="section-title">Benzer Ürünler</h2>
             </div>
             <div className="product-grid">
               {relatedProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* bkz. denetim raporu madde 19: "Bunları da Beğenebilirsiniz" -
+          anasayfadaki "Sana Özel" akışının aynısı, sadece cold-start
+          olmayan (gerçekten kişiselleştirilmiş) sonuçta gösterilir. */}
+      {personalizedProducts.length > 0 && (
+        <section className="products-section" style={{ backgroundColor: "var(--color-bg-alt)" }}>
+          <div className="container">
+            <div className="section-header" style={{ marginBottom: 20 }}>
+              <h2 className="section-title">Bunları da Beğenebilirsiniz</h2>
+            </div>
+            <div className="product-grid">
+              {personalizedProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* bkz. denetim raporu madde 19: "Aynı Mağazadan". */}
+      {sameVendorProducts.length > 0 && (
+        <section className="products-section">
+          <div className="container">
+            <div className="section-header" style={{ marginBottom: 20 }}>
+              <h2 className="section-title">{product.vendorStoreName} Mağazasından</h2>
+            </div>
+            <div className="product-grid">
+              {sameVendorProducts.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
             </div>
