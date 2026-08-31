@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ClientApiError, mutateJson } from "@/lib/client-api";
+import { hardNavigateInternal } from "@/lib/navigation";
 
 // bkz. denetim raporu madde 18: "Faydalı soru-cevapların ürün sayfasında
 // yayınlanması" - FollowButton/FavoriteButton ile aynı desen (iyimser UI,
@@ -30,7 +31,7 @@ export default function QuestionHelpfulButton({
       setCount((c) => c + (result.voted ? 1 : -1));
     } catch (err) {
       if (err instanceof ClientApiError && err.status === 401) {
-        window.location.href = `/giris?redirect=${encodeURIComponent(window.location.pathname)}`;
+        hardNavigateInternal(`/giris?redirect=${encodeURIComponent(window.location.pathname)}`);
         return;
       }
     } finally {

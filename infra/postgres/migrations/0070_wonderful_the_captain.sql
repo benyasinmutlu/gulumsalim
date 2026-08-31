@@ -1,0 +1,2 @@
+CREATE INDEX "idx_vendor_feed_items_variant" ON "vendor_feed_items" USING btree ("variant_id");--> statement-breakpoint
+CREATE INDEX "idx_vendor_feed_sources_default_category" ON "vendor_feed_sources" USING btree ("default_category_id");
