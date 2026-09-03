@@ -7,9 +7,6 @@ import "./admin.css";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="admin-body">
-      {/* Admin route grubu için bilinçli olarak izole yüklenir. */}
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       {children}
     </div>
   );

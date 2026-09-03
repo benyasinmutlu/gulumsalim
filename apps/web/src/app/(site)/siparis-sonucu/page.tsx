@@ -11,11 +11,21 @@ interface OrderSummary {
   status: string;
 }
 
-async function getOrder(orderNumber: string, access?: string): Promise<OrderSummary | null> {
+type OrderLookup =
+  | { state: "found"; order: OrderSummary }
+  | { state: "missing" }
+  | { state: "unavailable" };
+
+async function getOrder(orderNumber: string, access?: string): Promise<OrderLookup> {
   const query = access ? `?access=${encodeURIComponent(access)}` : "";
-  const res = await apiFetch(`/orders/${encodeURIComponent(orderNumber)}${query}`);
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await apiFetch(`/orders/${encodeURIComponent(orderNumber)}${query}`);
+    if (res.status === 404 || res.status === 401 || res.status === 403) return { state: "missing" };
+    if (!res.ok) return { state: "unavailable" };
+    return { state: "found", order: await res.json() };
+  } catch {
+    return { state: "unavailable" };
+  }
 }
 
 // order-success.php gerçek bir sipariş olmadan her zaman anasayfaya
@@ -24,24 +34,34 @@ async function getOrder(orderNumber: string, access?: string): Promise<OrderSumm
 // ekranı kuruldu.
 export default async function OrderResultPage({ searchParams }: Props) {
   const { order: orderNumber, success, access } = await searchParams;
-  const order = orderNumber ? await getOrder(orderNumber, access) : null;
-  const isSuccess = success === "true" && order !== null;
+  const lookup = orderNumber ? await getOrder(orderNumber, access) : { state: "missing" as const };
+  const isPending = success === "true" && lookup.state !== "found";
+  const retryHref = `/siparis-sonucu?order=${encodeURIComponent(orderNumber ?? "")}&success=true${access ? `&access=${encodeURIComponent(access)}` : ""}`;
 
   return (
     <main className="main-content">
       <section className="cart-section">
         <div className="container">
           <div className="empty-state">
-            {isSuccess ? (
+            {success === "true" && lookup.state === "found" ? (
               <>
                 <i className="fas fa-check-circle" style={{ color: "var(--color-success)" }} />
                 <h2>Siparişiniz Alındı</h2>
                 <p>
-                  Sipariş No: <strong>{order.orderNumber}</strong>
+                  Sipariş No: <strong>{lookup.order.orderNumber}</strong>
                 </p>
                 <p className="price-current" style={{ display: "block", marginBottom: "1.5rem" }}>
-                  Toplam: {Number(order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                  Toplam: {Number(lookup.order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
                 </p>
+              </>
+            ) : isPending ? (
+              <>
+                <i className="fas fa-clock" style={{ color: "var(--color-warning)" }} />
+                <h2>Siparişiniz Doğrulanıyor</h2>
+                <p>Ödeme sonucu alındı; sipariş bilgileri kısa süre içinde görünecek. Bu sırada tekrar ödeme yapmayın.</p>
+                <Link href={retryHref} className="btn btn-secondary btn-lg" style={{ marginBottom: 12 }}>
+                  Durumu Yenile
+                </Link>
               </>
             ) : (
               <>

@@ -16,6 +16,8 @@ async function getSiteSettings(): Promise<SiteSettings> {
 
 export default async function SiteFooter() {
   const [footerPages, settings] = await Promise.all([getFooterPages(), getSiteSettings()]);
+  const fixedFooterSlugs = new Set(["hakkimizda", "iletisim", "yardim"]);
+  const uniqueFooterPages = footerPages.filter((page) => !fixedFooterSlugs.has(page.slug));
 
   return (
     <footer className="site-footer">
@@ -46,12 +48,12 @@ export default async function SiteFooter() {
               style={{
                 marginTop: 20,
                 padding: 14,
-                background: "rgba(204,124,148,.06)",
-                border: "1px solid rgba(204,124,148,.15)",
+                background: "rgba(255,255,255,.045)",
+                border: "1px solid rgba(255,255,255,.12)",
                 borderRadius: 12,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-primary)", marginBottom: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-on-primary)", marginBottom: 6 }}>
                 <i className="fas fa-store" /> Kurumsal Üyelik
               </div>
               <p style={{ fontSize: 11, color: "var(--color-text-light)", marginBottom: 8 }}>
@@ -64,8 +66,8 @@ export default async function SiteFooter() {
                   fontSize: 11,
                   fontWeight: 600,
                   padding: "5px 12px",
-                  background: "var(--color-primary)",
-                  color: "#fff",
+                  background: "var(--color-on-primary)",
+                  color: "var(--color-primary)",
                   borderRadius: 6,
                 }}
               >
@@ -110,7 +112,7 @@ export default async function SiteFooter() {
               <li>
                 <Link href="/sepet">Sepetim</Link>
               </li>
-              {footerPages.map((p) => (
+              {uniqueFooterPages.map((p) => (
                 <li key={p.slug}>
                   <Link href={`/${p.slug}`}>{p.title}</Link>
                 </li>

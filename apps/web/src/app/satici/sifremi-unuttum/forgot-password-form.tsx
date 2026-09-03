@@ -7,15 +7,19 @@ export default function VendorForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
       await mutateJson("/vendor/auth/forgot-password", "POST", { email });
+      setSent(true);
+    } catch {
+      setError("Bağlantı kurulamadı. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.");
     } finally {
       setLoading(false);
-      setSent(true);
     }
   }
 
@@ -29,6 +33,11 @@ export default function VendorForgotPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit}>
+      {error && (
+        <div className="ga-alert" role="alert">
+          <i className="fas fa-circle-exclamation" /> {error}
+        </div>
+      )}
       <div className="ga-fg">
         <label>E-Posta Adresi</label>
         <div className="ga-input-wrap">

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, Playfair_Display } from "next/font/google";
+import { Cormorant_Garamond, Outfit } from "next/font/google";
 import { publicFetchJson } from "@/lib/api";
 import type { SiteSettings } from "@/lib/types";
 import PresenceHeartbeat from "@/components/presence-heartbeat";
@@ -13,33 +13,32 @@ async function getSiteSettings(): Promise<SiteSettings> {
   }
 }
 
-// Orijinal gulumsalim.com kimliğine dönüş (2026-07-21) - eski sitenin
-// assets/css/style.css'inde kullandığı fontlarla birebir aynı: gövde metni
-// Outfit, başlıklar Playfair Display.
+// Outfit arayüz ve uzun metinlerde okunaklı kalır. Cormorant Garamond yalnız
+// marka ve vitrin başlıklarında kullanılan sıcak, editoryal display yüzüdür.
 const outfit = Outfit({
   variable: "--font-outfit",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
   weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["400", "700"],
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin", "latin-ext"],
+  weight: ["400", "500", "600", "700"],
   style: ["italic", "normal"],
 });
 
 const SITE_URL = "https://gulumsalim.com";
 
-const LEGACY_DEFAULT_COLORS = {
-  primary: "#C06C84",
-  primaryDark: "#8B3A62",
-  secondary: "#6C5B7B",
-  accent: "#F67280",
+const SYSTEM_THEME_COLORS = {
+  primary: ["#C06C84", "#151515", "#24201C"],
+  primaryDark: ["#8B3A62", "#2F2F2D", "#171512"],
+  secondary: ["#6C5B7B", "#5F5F5B", "#625B53"],
+  accent: ["#F67280", "#806A4F", "#6B5D4F"],
 } as const;
 
-function customThemeColor(value: string | undefined, legacyDefault: string) {
-  if (!value || value.toUpperCase() === legacyDefault.toUpperCase()) return undefined;
+function customThemeColor(value: string | undefined, systemDefaults: readonly string[]) {
+  if (!value || systemDefaults.some((candidate) => value.toUpperCase() === candidate.toUpperCase())) return undefined;
   return value;
 }
 
@@ -109,13 +108,12 @@ export default async function RootLayout({
 }>) {
   const settings = await getSiteSettings();
   // Admin panelde gerçekten özelleştirilmiş marka renkleri varsa yeni tema
-  // varsayılanlarının üzerine yazılır. Eski pembe/mor varsayılan değerleri
-  // özelleştirme saymayız; böylece mevcut DB kaydı Fildişi temasını yanlışlıkla
-  // eski görünüme döndürmez. Adminin özel renk belirleme yeteneği korunur.
-  const customPrimary = customThemeColor(settings.color_primary, LEGACY_DEFAULT_COLORS.primary);
-  const customPrimaryDark = customThemeColor(settings.color_primary_dark, LEGACY_DEFAULT_COLORS.primaryDark);
-  const customSecondary = customThemeColor(settings.color_secondary, LEGACY_DEFAULT_COLORS.secondary);
-  const customAccent = customThemeColor(settings.color_accent, LEGACY_DEFAULT_COLORS.accent);
+  // varsayılanlarının üzerine yazılır. Önceki pembe ve Fildişi varsayılanları
+  // özelleştirme sayılmaz; gerçekten admin tarafından seçilen renkler korunur.
+  const customPrimary = customThemeColor(settings.color_primary, SYSTEM_THEME_COLORS.primary);
+  const customPrimaryDark = customThemeColor(settings.color_primary_dark, SYSTEM_THEME_COLORS.primaryDark);
+  const customSecondary = customThemeColor(settings.color_secondary, SYSTEM_THEME_COLORS.secondary);
+  const customAccent = customThemeColor(settings.color_accent, SYSTEM_THEME_COLORS.accent);
   const customPrimaryRgb = hexToRgbTriplet(customPrimary);
   const customAccentRgb = hexToRgbTriplet(customAccent);
   const colorOverrides = [
@@ -138,7 +136,7 @@ export default async function RootLayout({
   const pixelId = settings.meta_pixel_id;
 
   return (
-    <html lang="tr" className={`${outfit.variable} ${playfair.variable}`}>
+    <html lang="tr" className={`${outfit.variable} ${cormorant.variable}`}>
       <head>
         {/* gulumsalim.com'daki ikon setiyle birebir aynı - Font Awesome 6.5.1 */}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />

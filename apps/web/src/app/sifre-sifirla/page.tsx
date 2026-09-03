@@ -17,7 +17,6 @@ export default function ResetPasswordPage() {
           <div className="ga-orb ga-orb2" />
           <div className="ga-visual-inner">
             <Link href="/" className="ga-brand">
-              <div className="ga-brand-icon">GS</div>
               <div className="ga-brand-name">Gülüm Şalım</div>
             </Link>
             <h1>Yeni bir şifre belirleyin</h1>

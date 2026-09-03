@@ -8,27 +8,29 @@ html { color-scheme: light; }
 
 /* ---- CSS Variables / Design Tokens ---- */
 :root {
-    /* Fildişi Atelier: mevcut bilgi mimarisi ve bileşen yerleşimleri
-       korunurken yalnız görsel tema sadeleştirilir. Mürekkep siyahı ana
-       aksiyon, bronz ise sınırlı vurgu rengidir. */
-    --color-primary: #151515;
-    --color-primary-light: #EBE4DA;
-    --color-primary-dark: #2F2F2D;
-    --color-secondary: #5F5F5B;
-    --color-accent: #806A4F;
-    --color-gold: #806A4F;
-    --color-primary-rgb: 21, 21, 21;
-    --color-accent-rgb: 128, 106, 79;
+    /* Kaşmir: sıcak kırık beyaz, kömür ve ölçülü taupe. Yapı aynı kalır;
+       yüzeyler daha sakin, hiyerarşi daha editoryal görünür. */
+    --color-primary: #24201C;
+    --color-primary-light: #E2D9CD;
+    --color-primary-dark: #171512;
+    --color-secondary: #625B53;
+    --color-accent: #6B5D4F;
+    --color-gold: #6B5D4F;
+    --color-primary-rgb: 36, 32, 28;
+    --color-accent-rgb: 107, 93, 79;
+    --color-on-primary: #FCFAF7;
 
     /* Nötr renkler */
-    --color-bg: #F7F5F1;
-    --color-bg-alt: #EEEBE5;
-    --color-surface: #FFFFFF;
-    --color-text: #151515;
-    --color-text-light: #5F5F5B;
-    --color-text-muted: #77746D;
-    --color-border: #D8D5CE;
-    --color-border-light: #EBE8E2;
+    --color-bg: #F4F0E9;
+    --color-bg-alt: #E9E2D8;
+    --color-surface: #FCFAF7;
+    --color-surface-raised: #FFFFFF;
+    --color-text: #211E1A;
+    --color-text-light: #625B53;
+    --color-text-muted: #746C62;
+    --color-border: #D4CBC0;
+    --color-border-light: #E7E1D9;
+    --color-border-strong: #B8AB9D;
     
     /* Durum renkleri */
     --color-success: #276344;
@@ -40,7 +42,7 @@ html { color-scheme: light; }
     
     /* Tipografi */
     --font-primary: var(--font-outfit), 'Outfit', sans-serif;
-    --font-display: var(--font-playfair), 'Playfair Display', serif;
+    --font-display: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
     
     /* Boyutlar */
     --container-max: 1280px;
@@ -52,9 +54,9 @@ html { color-scheme: light; }
     --radius-xl: 28px;
     
     /* Gölgeler */
-    --shadow-sm: 0 2px 10px rgba(21,21,21,0.06);
-    --shadow-md: 0 10px 30px rgba(21,21,21,0.08);
-    --shadow-lg: 0 22px 60px rgba(21,21,21,0.12);
+    --shadow-sm: 0 2px 10px rgba(36,32,28,0.06);
+    --shadow-md: 0 10px 30px rgba(36,32,28,0.09);
+    --shadow-lg: 0 22px 60px rgba(36,32,28,0.13);
     --shadow-glow: 0 0 0 4px rgba(41,92,171,0.14);
     
     /* Geçişler */
@@ -241,10 +243,10 @@ button {
 
 .logo-text {
     font-family: var(--font-display);
-    font-size: 26px;
-    font-weight: 700;
+    font-size: 29px;
+    font-weight: 600;
     color: var(--color-primary-dark);
-    letter-spacing: -0.5px;
+    letter-spacing: -0.7px;
 }
 
 /* Arama - logo (~190px) ve sağ ikonlar (~340px) farklı genişlikte olduğu
@@ -1319,7 +1321,8 @@ button {
     justify-content: center;
     color: #fff;
     font-size: 20px;
-    box-shadow: 0 6px 16px rgba(0,0,0,.12);
+    border: 1px solid rgba(255,255,255,.36);
+    box-shadow: 0 7px 20px rgba(36,32,28,.13);
     transition: transform .2s ease;
 }
 
@@ -1678,7 +1681,7 @@ button {
 }
 
 .section-title.sec-font-sans {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-primary);
     font-weight: 800;
     letter-spacing: -.5px;
 }
@@ -2320,7 +2323,7 @@ button {
 }
 
 .countdown-timer i {
-    color: var(--color-accent, #806A4F);
+    color: var(--color-accent, #6B5D4F);
 }
 
 /* ---- Ürün Kartları ---- */
@@ -3829,7 +3832,33 @@ button {
 /* Boş sepet */
 .empty-state {
     text-align: center;
-    padding: 80px 20px;
+    padding: 56px 20px;
+}
+
+/* Tek veya az ürünlü mağazada dev bir boş beyaz kart oluşmasını önler.
+   Raf yapısı ve ürün akışı aynı kalır; yalnız mağaza rafı sayfa yüzeyine
+   daha editoryal ve hafif biçimde oturur. */
+.deal-shelf-vendor {
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+    border-radius: 0;
+    padding: 18px 0 8px;
+    box-shadow: none;
+}
+
+.deal-shelf-vendor:first-child {
+    border-top: 0;
+}
+
+.empty-state-card {
+    max-width: 660px;
+    margin: 24px auto 48px;
+    padding: 56px 32px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
 }
 
 .empty-state i {
@@ -6486,7 +6515,7 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .ga-brand { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 46px; text-decoration: none; color: #fff; }
 .ga-brand-icon { width: 46px; height: 46px; border-radius: 14px; background: rgba(255,255,255,.15); display: flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; }
 .ga-brand-icon img { width: 100%; height: 100%; object-fit: contain; }
-.ga-brand-name { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+.ga-brand-name { font-family: var(--font-display); font-size: 28px; font-weight: 600; letter-spacing: -.5px; }
 
 .ga-visual h1 { font-family: var(--font-display); font-size: 36px; line-height: 1.25; margin: 0 0 18px; font-weight: 700; }
 .ga-visual p { font-size: 15px; line-height: 1.7; color: rgba(255,255,255,.85); margin: 0 0 36px; }
@@ -6594,7 +6623,6 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .store-tab-content.active{display:block;animation:storeTabIn .35s ease}
 @keyframes storeTabIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .stars{color:#f59e0b}
-.review-card{background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;padding:16px;margin-bottom:12px}
 .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-top:20px}
 .collection-card{border-radius:14px;overflow:hidden;border:1px solid var(--color-border-light);background:var(--color-surface);transition:.2s;cursor:pointer}
 .collection-card:hover{transform:translateY(-3px);box-shadow:0 8px 25px rgba(0,0,0,.1)}
@@ -7292,8 +7320,8 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 }
 
 /* ==== Sanal Deneme (Virtual Try-On) ==== */
-.btn-tryon{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;border:1.5px solid var(--color-primary,#151515);color:var(--color-primary,#151515);background:transparent;transition:.2s}
-.btn-tryon:hover{background:var(--color-primary,#151515);color:#fff}
+.btn-tryon{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;border:1.5px solid var(--color-primary,#24201c);color:var(--color-primary,#24201c);background:transparent;transition:.2s}
+.btn-tryon:hover{background:var(--color-primary,#24201c);color:#fff}
 .tryon-backdrop{position:fixed;inset:0;background:rgba(20,16,30,.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
 .tryon-modal{background:#fff;border-radius:20px;width:min(560px,100%);max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.4)}
 .tryon-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee}
@@ -7301,9 +7329,9 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 /* bkz. denetim raporu madde 13: kısa onboarding/gizlilik adımı */
 .tryon-onboarding{display:flex;flex-direction:column;gap:8px;padding:16px 20px 0}
 .tryon-onboarding p{display:flex;align-items:flex-start;gap:8px;margin:0;font-size:13px;color:#555;line-height:1.4}
-.tryon-onboarding i{color:var(--color-primary,#151515);margin-top:2px;flex-shrink:0}
+.tryon-onboarding i{color:var(--color-primary,#24201c);margin-top:2px;flex-shrink:0}
 .tryon-upload{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:48px 20px;margin:20px;border:2px dashed #d9d2e6;border-radius:16px;cursor:pointer;text-align:center}
-.tryon-upload i{font-size:32px;color:var(--color-primary,#151515)}
+.tryon-upload i{font-size:32px;color:var(--color-primary,#24201c)}
 .tryon-upload small{color:#888;font-size:12px}
 .tryon-body{padding:16px 20px 20px}
 .tryon-stage{position:relative;display:flex;justify-content:center}

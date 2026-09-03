@@ -71,7 +71,9 @@ export default function HomeHeroCards({
         <i className="fas fa-store home-hero-card-icon" />
         <h3>Kurumsal Üye Ol</h3>
         <p>
-          Kendi mağazanı aç{siteStats.customers > 0 ? `, ${formatStatCount(siteStats.customers)} müşteriyle buluş!` : "!"}
+          {siteStats.customers >= 100
+            ? `Kendi mağazanı aç, ${formatStatCount(siteStats.customers)} müşteriyle buluş!`
+            : "Kendi mağazanı aç, yeni müşterilerle buluş!"}
         </p>
         <Link href="/satici/kayit" className="btn btn-sm btn-secondary">
           Hemen Başvur <i className="fas fa-arrow-right" style={{ fontSize: 11 }} />

@@ -4,13 +4,13 @@
    derinlik ve motion eklenir. */
 
 .page {
-  --sf-rose: var(--color-primary, #151515);
-  --sf-rose-deep: var(--color-primary-dark, #2f2f2d);
-  --sf-gold: var(--color-gold, #806a4f);
-  --sf-mauve: var(--color-secondary, #5f5f5b);
-  --sf-ink: var(--color-text, #151515);
-  --sf-muted: var(--color-text-light, #5f5f5b);
-  --sf-line: var(--color-border-light, #ebe8e2);
+  --sf-rose: var(--color-primary, #24201c);
+  --sf-rose-deep: var(--color-primary-dark, #171512);
+  --sf-gold: var(--color-gold, #6b5d4f);
+  --sf-mauve: var(--color-secondary, #625b53);
+  --sf-ink: var(--color-text, #211e1a);
+  --sf-muted: var(--color-text-light, #625b53);
+  --sf-line: var(--color-border-light, #e7e1d9);
   --sf-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --sf-shadow: 0 30px 70px -34px rgba(21, 21, 21, 0.3);
   color: var(--sf-ink);
@@ -37,7 +37,7 @@
   background:
     radial-gradient(90% 70% at 12% 8%, rgba(21, 21, 21, 0.07), transparent 60%),
     radial-gradient(85% 75% at 92% 96%, rgba(128, 106, 79, 0.18), transparent 60%),
-    linear-gradient(158deg, #f7f5f1 0%, #f2efe9 46%, #ebe4da 100%);
+    linear-gradient(158deg, #f4f0e9 0%, #e9e2d8 46%, #e2d9cd 100%);
 }
 .heroOrb {
   position: absolute;
@@ -88,7 +88,7 @@
   box-shadow: 0 6px 18px -8px rgba(21, 21, 21, 0.18);
 }
 .heroTitle {
-  font-family: var(--font-playfair), Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-weight: 700;
   font-size: clamp(2.4rem, 1.4rem + 3.6vw, 4.6rem);
   line-height: 1.04;
@@ -277,7 +277,7 @@
   color: var(--sf-gold);
 }
 .campaignText h2 {
-  font-family: var(--font-playfair), Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-weight: 700;
   font-size: clamp(1.7rem, 1.2rem + 2vw, 3rem);
   line-height: 1.08;
@@ -290,7 +290,7 @@
   padding: clamp(2.75rem, 2rem + 3vw, 5rem) 0;
 }
 .sectionAlt {
-  background: linear-gradient(180deg, #f7f5f1, #eeebe5 60%, #f7f5f1);
+  background: linear-gradient(180deg, #f4f0e9, #e9e2d8 60%, #f4f0e9);
 }
 .head {
   display: flex;
@@ -310,7 +310,7 @@
   color: var(--sf-gold);
 }
 .headTitle {
-  font-family: var(--font-playfair), Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-weight: 700;
   font-size: clamp(1.7rem, 1.3rem + 1.6vw, 2.6rem);
   line-height: 1.12;
@@ -354,7 +354,7 @@
   text-decoration: none;
   display: block;
   box-shadow: 0 18px 40px -26px rgba(21, 21, 21, 0.26);
-  background: #d8d5ce;
+  background: #d4cbc0;
 }
 .bentoTile:first-child {
   grid-column: span 2;
@@ -385,7 +385,7 @@
   z-index: 1;
 }
 .bentoLabel b {
-  font-family: var(--font-playfair), Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-size: clamp(1.05rem, 0.95rem + 0.5vw, 1.5rem);
   font-weight: 700;
   display: block;
@@ -437,7 +437,7 @@
   box-shadow: var(--sf-shadow);
 }
 .bandTitle {
-  font-family: var(--font-playfair), Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-weight: 700;
   font-size: clamp(1.8rem, 1.3rem + 2vw, 3rem);
   line-height: 1.1;

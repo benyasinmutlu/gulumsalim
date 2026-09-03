@@ -52,7 +52,6 @@ export default function AuthLayout({
         <span className={`${styles.orb} ${styles.orb2}`} aria-hidden />
         <div className={styles.brandInner}>
           <Link href="/" className={`${styles.logo} ${styles.reveal}`}>
-            <span className={styles.logoMark}>GS</span>
             <span className={styles.logoName}>Gülüm Şalım</span>
           </Link>
           <h1 className={`${styles.headline} ${styles.reveal}`}>{headline}</h1>

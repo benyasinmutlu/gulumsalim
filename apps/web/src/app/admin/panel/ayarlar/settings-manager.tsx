@@ -19,24 +19,25 @@ const TABS = [
 ] as const;
 
 const DEFAULT_COLORS = {
-  color_primary: "#151515",
-  color_primary_dark: "#2F2F2D",
-  color_secondary: "#5F5F5B",
-  color_accent: "#806A4F",
+  color_primary: "#24201C",
+  color_primary_dark: "#171512",
+  color_secondary: "#625B53",
+  color_accent: "#6B5D4F",
 };
 
-const LEGACY_DEFAULT_COLORS: SettingsMap = {
-  color_primary: "#C06C84",
-  color_primary_dark: "#8B3A62",
-  color_secondary: "#6C5B7B",
-  color_accent: "#F67280",
+const SYSTEM_DEFAULT_COLORS: Record<keyof typeof DEFAULT_COLORS, string[]> = {
+  color_primary: ["#C06C84", "#151515"],
+  color_primary_dark: ["#8B3A62", "#2F2F2D"],
+  color_secondary: ["#6C5B7B", "#5F5F5B"],
+  color_accent: ["#F67280", "#806A4F"],
 };
 
 function withEffectiveThemeDefaults(settings: SettingsMap) {
   const normalized = { ...settings };
-  for (const [key, legacyValue] of Object.entries(LEGACY_DEFAULT_COLORS)) {
-    if (!normalized[key] || normalized[key].toUpperCase() === legacyValue.toUpperCase()) {
-      normalized[key] = DEFAULT_COLORS[key as keyof typeof DEFAULT_COLORS];
+  for (const key of Object.keys(DEFAULT_COLORS) as Array<keyof typeof DEFAULT_COLORS>) {
+    const value = normalized[key];
+    if (!value || SYSTEM_DEFAULT_COLORS[key].some((candidate) => candidate.toUpperCase() === value.toUpperCase())) {
+      normalized[key] = DEFAULT_COLORS[key];
     }
   }
   return normalized;
@@ -254,21 +255,21 @@ export default function SettingsManager() {
             <div className="admin-form-row">
               <div className="admin-form-group">
                 <label>Ana Renk</label>
-                <input type="color" className="admin-form-control" value={field("color_primary") || "#151515"} onChange={(e) => setField("color_primary", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_primary") || DEFAULT_COLORS.color_primary} onChange={(e) => setField("color_primary", e.target.value)} />
               </div>
               <div className="admin-form-group">
                 <label>Ana Renk (Koyu)</label>
-                <input type="color" className="admin-form-control" value={field("color_primary_dark") || "#2F2F2D"} onChange={(e) => setField("color_primary_dark", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_primary_dark") || DEFAULT_COLORS.color_primary_dark} onChange={(e) => setField("color_primary_dark", e.target.value)} />
               </div>
             </div>
             <div className="admin-form-row">
               <div className="admin-form-group">
                 <label>İkincil Renk</label>
-                <input type="color" className="admin-form-control" value={field("color_secondary") || "#5F5F5B"} onChange={(e) => setField("color_secondary", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_secondary") || DEFAULT_COLORS.color_secondary} onChange={(e) => setField("color_secondary", e.target.value)} />
               </div>
               <div className="admin-form-group">
                 <label>Vurgu Rengi</label>
-                <input type="color" className="admin-form-control" value={field("color_accent") || "#806A4F"} onChange={(e) => setField("color_accent", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_accent") || DEFAULT_COLORS.color_accent} onChange={(e) => setField("color_accent", e.target.value)} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>

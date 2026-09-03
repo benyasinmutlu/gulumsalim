@@ -17,7 +17,7 @@ export default function VendorDiscoverShelf({
 }) {
   const storeHref = `/${vendor.storeSlug}`;
   return (
-    <div className="deal-shelf">
+    <div className="deal-shelf deal-shelf-vendor">
       <div className="deal-shelf-header">
         <Link href={storeHref} className="deal-shelf-title deal-shelf-vendor-title">
           <span className="deal-shelf-vendor-avatar">

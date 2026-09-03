@@ -1,7 +1,7 @@
 import Link from "next/link";
 import styles from "./storefront.module.css";
 
-// Storefront bölüm başlığı: eyebrow + Playfair başlık + opsiyonel alt metin +
+// Storefront bölüm başlığı: eyebrow + editoryal başlık + opsiyonel alt metin +
 // "Tümünü gör" CTA. Tüm vitrin bölümlerinde tutarlı hiyerarşi için.
 export default function SectionHeading({
   eyebrow,

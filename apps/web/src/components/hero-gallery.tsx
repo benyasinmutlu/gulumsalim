@@ -16,7 +16,7 @@ export default function HeroGallery({ slides }: { slides: AdminSlider[]; interva
       <CircularGallery
         items={items}
         bend={0.5}
-        textColor="#151515"
+        textColor="#211e1a"
         borderRadius={0.06}
         font="600 30px Georgia, serif"
         scrollSpeed={2}

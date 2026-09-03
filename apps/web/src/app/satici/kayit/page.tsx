@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "Kurumsal Üyelik Başvurusu | Gülü
 
 export default async function VendorRegisterPage() {
   const stats = await getSiteStats();
-  const customerPhrase = stats.customers > 0 ? `${formatStatCount(stats.customers)} müşteriye ulaşın` : "Müşterilerinize ulaşın";
-  const buyerPhrase = stats.customers > 0 ? `${formatStatCount(stats.customers)} alıcıya anında ulaş` : "Alıcılara anında ulaş";
+  const customerPhrase = stats.customers >= 100 ? `${formatStatCount(stats.customers)} müşteriye ulaşın` : "Yeni müşterilere ulaşın";
+  const buyerPhrase = stats.customers >= 100 ? `${formatStatCount(stats.customers)} alıcıya anında ulaş` : "Yeni alıcılara ulaş";
   return (
     <>
       <Link href="/" className="ga-back">
@@ -21,7 +21,6 @@ export default async function VendorRegisterPage() {
           <div className="ga-orb ga-orb2" />
           <div className="ga-visual-inner">
             <Link href="/" className="ga-brand">
-              <div className="ga-brand-icon">GS</div>
               <div className="ga-brand-name">Gülüm Şalım</div>
             </Link>
             <h1>{customerPhrase}</h1>

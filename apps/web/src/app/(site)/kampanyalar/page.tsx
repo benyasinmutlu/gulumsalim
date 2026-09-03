@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import type { ActiveCampaign, Category, ProductListItem, ResolvedHomepageSection } from "@/lib/types";
 import TitleBackgroundIcons from "@/components/title-background-icons";
@@ -85,7 +86,14 @@ export default async function CampaignsPage() {
         <h1 className="products-page-title">Kampanyalar</h1>
 
         {banners.length === 0 && categoryShelves.length === 0 && activeCampaigns.length === 0 ? (
-          <p className="empty-state">Şu anda aktif bir kampanya bulunmuyor, yakında burada olacak!</p>
+          <div className="empty-state empty-state-card">
+            <i className="fas fa-tag" aria-hidden />
+            <h2>Yeni kampanyalar hazırlanıyor</h2>
+            <p>Bu sırada yeni gelen ve fiyatı düşen ürünleri keşfedebilirsiniz.</p>
+            <Link href="/urunler?sort=newest" className="btn btn-primary">
+              Ürünleri Keşfet
+            </Link>
+          </div>
         ) : (
           <>
             {activeCampaigns.length > 0 && (

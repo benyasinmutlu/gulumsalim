@@ -8,12 +8,12 @@ import Link from "next/link";
 // bkz. kullanıcı isteği (2026-08-02): "Dolap 2. El başta olacak" - sıra
 // değiştirildi, diğerleri aynı kaldı.
 const LINKS: { label: string; href: string; icon: string; color: string }[] = [
-  { label: "2. El", href: "/urunler?secondHand=true", icon: "fa-recycle", color: "#151515" },
-  { label: "Fiyatı Düşenler", href: "/urunler?saleOnly=true", icon: "fa-arrow-trend-down", color: "#806A4F" },
-  { label: "Yeni Gelenler", href: "/urunler?sort=newest", icon: "fa-wand-magic-sparkles", color: "#3F3F3B" },
-  { label: "Çok Satanlar", href: "/urunler?sort=popular", icon: "fa-fire", color: "#6D5A43" },
-  { label: "Kampanyalar", href: "/kampanyalar", icon: "fa-bullhorn", color: "#2F2F2D" },
-  { label: "Mağazalar", href: "/magazalar", icon: "fa-store", color: "#5F5F5B" },
+  { label: "2. El", href: "/urunler?secondHand=true", icon: "fa-recycle", color: "var(--color-primary)" },
+  { label: "Fiyatı Düşenler", href: "/urunler?saleOnly=true", icon: "fa-arrow-trend-down", color: "var(--color-accent)" },
+  { label: "Yeni Gelenler", href: "/urunler?sort=newest", icon: "fa-wand-magic-sparkles", color: "#4D4740" },
+  { label: "Çok Satanlar", href: "/urunler?sort=popular", icon: "fa-fire", color: "#776655" },
+  { label: "Kampanyalar", href: "/kampanyalar", icon: "fa-bullhorn", color: "var(--color-primary-dark)" },
+  { label: "Mağazalar", href: "/magazalar", icon: "fa-store", color: "var(--color-secondary)" },
 ];
 
 export default function QuickLinksRow() {
