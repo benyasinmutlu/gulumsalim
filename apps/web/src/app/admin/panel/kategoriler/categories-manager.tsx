@@ -26,7 +26,7 @@ export default function CategoriesManager() {
   const [sortOrder, setSortOrder] = useState(0);
   const [parentId, setParentId] = useState<number | "">("");
   const [icon, setIcon] = useState("");
-  const [iconColor, setIconColor] = useState("#e040a0");
+  const [iconColor, setIconColor] = useState("#806a4f");
   const [seoTitle, setSeoTitle] = useState("");
   const [seoDescription, setSeoDescription] = useState("");
   const [seoKeywords, setSeoKeywords] = useState("");
@@ -50,7 +50,7 @@ export default function CategoriesManager() {
     setSortOrder((categories?.length ?? 0) * 10);
     setParentId("");
     setIcon("");
-    setIconColor("#e040a0");
+    setIconColor("#806a4f");
     setSeoTitle("");
     setSeoDescription("");
     setSeoKeywords("");
@@ -65,7 +65,7 @@ export default function CategoriesManager() {
     setSortOrder(c.sortOrder);
     setParentId(c.parentId ?? "");
     setIcon(c.icon ?? "");
-    setIconColor(c.iconColor ?? "#e040a0");
+    setIconColor(c.iconColor ?? "#806a4f");
     setSeoTitle(c.seoTitle ?? "");
     setSeoDescription(c.seoDescription ?? "");
     setSeoKeywords(c.seoKeywords ?? "");

@@ -192,7 +192,7 @@ export default function VendorMessagesManager() {
                             padding: "11px 15px",
                             fontSize: 13,
                             lineHeight: 1.55,
-                            background: isAdmin ? "linear-gradient(135deg, var(--admin-primary), #c030d0)" : "var(--admin-surface-2)",
+                            background: isAdmin ? "linear-gradient(135deg, var(--admin-primary), var(--admin-accent))" : "var(--admin-surface-2)",
                             color: isAdmin ? "#fff" : "var(--admin-text)",
                             border: isAdmin ? "none" : "1px solid var(--admin-border)",
                             borderRadius: isAdmin ? "16px 16px 4px 16px" : "16px 16px 16px 4px",

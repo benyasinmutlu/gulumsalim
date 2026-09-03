@@ -19,11 +19,28 @@ const TABS = [
 ] as const;
 
 const DEFAULT_COLORS = {
+  color_primary: "#151515",
+  color_primary_dark: "#2F2F2D",
+  color_secondary: "#5F5F5B",
+  color_accent: "#806A4F",
+};
+
+const LEGACY_DEFAULT_COLORS: SettingsMap = {
   color_primary: "#C06C84",
   color_primary_dark: "#8B3A62",
   color_secondary: "#6C5B7B",
   color_accent: "#F67280",
 };
+
+function withEffectiveThemeDefaults(settings: SettingsMap) {
+  const normalized = { ...settings };
+  for (const [key, legacyValue] of Object.entries(LEGACY_DEFAULT_COLORS)) {
+    if (!normalized[key] || normalized[key].toUpperCase() === legacyValue.toUpperCase()) {
+      normalized[key] = DEFAULT_COLORS[key as keyof typeof DEFAULT_COLORS];
+    }
+  }
+  return normalized;
+}
 
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -47,7 +64,7 @@ export default function SettingsManager() {
       fetchJson<AdminProfile>("/admin/profile"),
     ]);
     setSettings(s);
-    setForm(s);
+    setForm(withEffectiveThemeDefaults(s));
     setAdmin(a);
   }
 
@@ -63,12 +80,12 @@ export default function SettingsManager() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  async function saveFields(keys: string[]) {
+  async function saveFields(keys: string[], values: SettingsMap = form) {
     setSaving(true);
     setMessage(null);
     setError(null);
     try {
-      const payload = Object.fromEntries(keys.map((k) => [k, form[k] ?? ""]));
+      const payload = Object.fromEntries(keys.map((k) => [k, values[k] ?? ""]));
       const updated = await mutateJson<SettingsMap>("/admin/settings", "PATCH", payload);
       setSettings(updated);
       setMessage("Kaydedildi.");
@@ -237,21 +254,21 @@ export default function SettingsManager() {
             <div className="admin-form-row">
               <div className="admin-form-group">
                 <label>Ana Renk</label>
-                <input type="color" className="admin-form-control" value={field("color_primary") || "#C06C84"} onChange={(e) => setField("color_primary", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_primary") || "#151515"} onChange={(e) => setField("color_primary", e.target.value)} />
               </div>
               <div className="admin-form-group">
                 <label>Ana Renk (Koyu)</label>
-                <input type="color" className="admin-form-control" value={field("color_primary_dark") || "#8B3A62"} onChange={(e) => setField("color_primary_dark", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_primary_dark") || "#2F2F2D"} onChange={(e) => setField("color_primary_dark", e.target.value)} />
               </div>
             </div>
             <div className="admin-form-row">
               <div className="admin-form-group">
                 <label>İkincil Renk</label>
-                <input type="color" className="admin-form-control" value={field("color_secondary") || "#6C5B7B"} onChange={(e) => setField("color_secondary", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_secondary") || "#5F5F5B"} onChange={(e) => setField("color_secondary", e.target.value)} />
               </div>
               <div className="admin-form-group">
                 <label>Vurgu Rengi</label>
-                <input type="color" className="admin-form-control" value={field("color_accent") || "#F67280"} onChange={(e) => setField("color_accent", e.target.value)} />
+                <input type="color" className="admin-form-control" value={field("color_accent") || "#806A4F"} onChange={(e) => setField("color_accent", e.target.value)} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -266,8 +283,9 @@ export default function SettingsManager() {
                 className="admin-btn admin-btn-secondary"
                 disabled={saving}
                 onClick={() => {
-                  setForm((f) => ({ ...f, ...DEFAULT_COLORS }));
-                  saveFields(Object.keys(DEFAULT_COLORS));
+                  const nextForm = { ...form, ...DEFAULT_COLORS };
+                  setForm(nextForm);
+                  void saveFields(Object.keys(DEFAULT_COLORS), nextForm);
                 }}
               >
                 <i className="fas fa-rotate-left" /> Varsayılana Sıfırla

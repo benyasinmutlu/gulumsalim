@@ -622,9 +622,9 @@ export default function NewProductForm() {
                   fontWeight: 600,
                   padding: "5px 12px",
                   borderRadius: 8,
-                  border: "1px solid var(--color-primary, #8a1c4d)",
-                  background: enriching ? "var(--color-primary, #8a1c4d)" : "transparent",
-                  color: enriching ? "#fff" : "var(--color-primary, #8a1c4d)",
+                  border: "1px solid var(--color-primary, #151515)",
+                  background: enriching ? "var(--color-primary, #151515)" : "transparent",
+                  color: enriching ? "#fff" : "var(--color-primary, #151515)",
                   cursor: enriching || name.trim().length < 1 ? "default" : "pointer",
                   opacity: name.trim().length < 1 ? 0.5 : 1,
                 }}

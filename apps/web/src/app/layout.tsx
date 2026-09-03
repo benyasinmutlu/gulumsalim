@@ -31,6 +31,28 @@ const playfair = Playfair_Display({
 
 const SITE_URL = "https://gulumsalim.com";
 
+const LEGACY_DEFAULT_COLORS = {
+  primary: "#C06C84",
+  primaryDark: "#8B3A62",
+  secondary: "#6C5B7B",
+  accent: "#F67280",
+} as const;
+
+function customThemeColor(value: string | undefined, legacyDefault: string) {
+  if (!value || value.toUpperCase() === legacyDefault.toUpperCase()) return undefined;
+  return value;
+}
+
+function hexToRgbTriplet(value: string | undefined) {
+  if (!value) return undefined;
+  const raw = value.slice(1);
+  const normalized = raw.length === 3 || raw.length === 4
+    ? raw.slice(0, 3).split("").map((char) => `${char}${char}`).join("")
+    : raw.slice(0, 6);
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) return undefined;
+  return [0, 2, 4].map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16)).join(", ");
+}
+
 // gulumsalim.com'daki admin/settings.php > SEO sekmesinin karşılığı -
 // admin panelden meta başlık/açıklama girilmişse onlar kullanılır. Open
 // Graph etiketleri önceki denetimde hiç eklenmemişti - WhatsApp/Facebook/
@@ -86,14 +108,25 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const settings = await getSiteSettings();
-  // gulumsalim.com'daki admin/settings.php > Görünüm sekmesinin karşılığı -
-  // admin panelden marka renkleri girilmişse globals.css'teki varsayılanların
-  // üzerine :root özel özellikleri olarak yazılır.
+  // Admin panelde gerçekten özelleştirilmiş marka renkleri varsa yeni tema
+  // varsayılanlarının üzerine yazılır. Eski pembe/mor varsayılan değerleri
+  // özelleştirme saymayız; böylece mevcut DB kaydı Fildişi temasını yanlışlıkla
+  // eski görünüme döndürmez. Adminin özel renk belirleme yeteneği korunur.
+  const customPrimary = customThemeColor(settings.color_primary, LEGACY_DEFAULT_COLORS.primary);
+  const customPrimaryDark = customThemeColor(settings.color_primary_dark, LEGACY_DEFAULT_COLORS.primaryDark);
+  const customSecondary = customThemeColor(settings.color_secondary, LEGACY_DEFAULT_COLORS.secondary);
+  const customAccent = customThemeColor(settings.color_accent, LEGACY_DEFAULT_COLORS.accent);
+  const customPrimaryRgb = hexToRgbTriplet(customPrimary);
+  const customAccentRgb = hexToRgbTriplet(customAccent);
   const colorOverrides = [
-    settings.color_primary && `--color-primary: ${settings.color_primary};`,
-    settings.color_primary_dark && `--color-primary-dark: ${settings.color_primary_dark};`,
-    settings.color_secondary && `--color-secondary: ${settings.color_secondary};`,
-    settings.color_accent && `--color-accent: ${settings.color_accent};`,
+    customPrimary && `--color-primary: ${customPrimary};`,
+    customPrimary && `--color-primary-light: color-mix(in srgb, ${customPrimary} 14%, white);`,
+    customPrimaryRgb && `--color-primary-rgb: ${customPrimaryRgb};`,
+    customPrimaryDark && `--color-primary-dark: ${customPrimaryDark};`,
+    customSecondary && `--color-secondary: ${customSecondary};`,
+    customAccent && `--color-accent: ${customAccent};`,
+    customAccent && `--color-gold: ${customAccent};`,
+    customAccentRgb && `--color-accent-rgb: ${customAccentRgb};`,
     settings.hero_height_desktop && `--hero-height-desktop: ${settings.hero_height_desktop};`,
     settings.hero_height_mobile && `--hero-height-mobile: ${settings.hero_height_mobile};`,
   ]

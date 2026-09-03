@@ -25,9 +25,9 @@ const LEN_TEXT: Record<string, string> = { short: "Boyun uzun — boy kısa gele
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ border: "1px solid var(--color-border, #ecdfe4)", borderRadius: 14, padding: "14px 16px", background: "var(--color-surface, #fff)", marginTop: 16 }}>
+    <div style={{ border: "1px solid var(--color-border, #d8d5ce)", borderRadius: 14, padding: "14px 16px", background: "var(--color-surface, #fff)", marginTop: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <i className="fas fa-ruler-combined" style={{ color: "var(--color-primary, #b0446b)" }} />
+        <i className="fas fa-ruler-combined" style={{ color: "var(--color-primary, #151515)" }} />
         <strong style={{ fontSize: 15 }}>Beden Uyum Önerisi</strong>
       </div>
       {children}
@@ -49,8 +49,8 @@ export default function FitPanel({ slug }: { slug: string }) {
   if (data === "guest") {
     return (
       <Shell>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--color-text-light, #6b5a62)" }}>
-          Bedenine uygun beden önerisini görmek için <Link href="/giris" style={{ color: "var(--color-primary, #b0446b)", fontWeight: 600 }}>giriş yap</Link>.
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--color-text-light, #5f5f5b)" }}>
+          Bedenine uygun beden önerisini görmek için <Link href="/giris" style={{ color: "var(--color-primary, #151515)", fontWeight: 600 }}>giriş yap</Link>.
         </p>
       </Shell>
     );
@@ -59,8 +59,8 @@ export default function FitPanel({ slug }: { slug: string }) {
   if (data.status === "no_measurements") {
     return (
       <Shell>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--color-text-light, #6b5a62)" }}>
-          Sana özel beden önerisi için profilinden <Link href="/hesabim" style={{ color: "var(--color-primary, #b0446b)", fontWeight: 600 }}>beden ve boy bilgini</Link> ekle.
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--color-text-light, #5f5f5b)" }}>
+          Sana özel beden önerisi için profilinden <Link href="/hesabim" style={{ color: "var(--color-primary, #151515)", fontWeight: 600 }}>beden ve boy bilgini</Link> ekle.
         </p>
       </Shell>
     );
@@ -70,13 +70,13 @@ export default function FitPanel({ slug }: { slug: string }) {
   return (
     <Shell>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-        <span style={{ background: "var(--color-primary, #b0446b)", color: "#fff", fontWeight: 700, fontSize: 14, padding: "4px 12px", borderRadius: 999 }}>
+        <span style={{ background: "var(--color-primary, #151515)", color: "#fff", fontWeight: 700, fontSize: 14, padding: "4px 12px", borderRadius: 999 }}>
           Önerilen beden: {result.recommendedSize}
         </span>
         {result.alternativeSize && (
-          <span style={{ fontSize: 12.5, color: "var(--color-text-light, #6b5a62)" }}>alternatif: {result.alternativeSize}</span>
+          <span style={{ fontSize: 12.5, color: "var(--color-text-light, #5f5f5b)" }}>alternatif: {result.alternativeSize}</span>
         )}
-        <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--color-text-light, #6b5a62)" }} title="Güven skoru">%{result.score} güven</span>
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--color-text-light, #5f5f5b)" }} title="Güven skoru">%{result.score} güven</span>
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

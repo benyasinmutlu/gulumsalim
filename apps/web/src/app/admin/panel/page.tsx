@@ -145,7 +145,7 @@ export default async function AdminPanelIndexPage() {
             <h2><i className="fas fa-chart-line" /> Son 30 Gün Satış (Site Geneli)</h2>
           </div>
           <div className="admin-card-body">
-            <SalesLineChart data={salesTimeSeries} color="#d4308f" />
+            <SalesLineChart data={salesTimeSeries} color="#151515" />
           </div>
         </div>
         <div className="admin-card" style={{ minWidth: 0 }}>

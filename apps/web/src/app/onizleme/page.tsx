@@ -57,7 +57,7 @@ export default function HomeReplicaPreview() {
     <main className="main-content">
       {/* HERO (fallback stili) */}
       <section className="hero-section">
-        <div className="hero-slide active" style={{ background: "linear-gradient(135deg,#fdeaf0,#f9e0e6 60%,#f6ece4)" }}>
+        <div className="hero-slide active" style={{ background: "linear-gradient(135deg,#f7f5f1,#eeebe5 60%,#ebe4da)" }}>
           <div className="hero-content">
             <span className="hero-tag"><i className="fas fa-gem" /> Yeni Sezon</span>
             <h1 className="hero-title">Kadının <span>Gücü</span>,<br />zarafetiyle</h1>

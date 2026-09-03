@@ -19,7 +19,7 @@ export default function SanalDenemeDemo() {
       <img
         src={SAMPLE}
         alt="Örnek polo tişört"
-        style={{ width: 130, background: "#f3f0f7", borderRadius: 12, padding: 8, marginBottom: 16, display: "block" }}
+        style={{ width: 130, background: "#f2efe9", borderRadius: 12, padding: 8, marginBottom: 16, display: "block" }}
       />
       <VirtualTryOn productImage={SAMPLE} productName="Örnek Polo Tişört" />
     </main>

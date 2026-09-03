@@ -10,29 +10,29 @@
    ============================================ */
 
 :root {
-    --admin-bg: #f5f3f8;
+    --admin-bg: #f7f5f1;
     --admin-surface: #ffffff;
-    --admin-surface-2: #f3f0f7;
-    --admin-surface-3: #e9e5f0;
-    --admin-border: #e6e2ee;
-    --admin-text: #23222e;
-    --admin-text-secondary: #5c5b6b;
-    --admin-text-muted: #8d8b9c;
-    --admin-primary: #d4308f;
-    --admin-primary-light: rgba(212,48,143,.10);
-    --admin-primary-glow: rgba(212,48,143,.22);
-    --admin-accent: #6c63ff;
-    --admin-accent-light: rgba(108,99,255,.10);
+    --admin-surface-2: #f2efe9;
+    --admin-surface-3: #eae6de;
+    --admin-border: #d8d5ce;
+    --admin-text: #151515;
+    --admin-text-secondary: #5f5f5b;
+    --admin-text-muted: #716f69;
+    --admin-primary: #151515;
+    --admin-primary-light: rgba(21,21,21,.07);
+    --admin-primary-glow: rgba(21,21,21,.16);
+    --admin-accent: #806a4f;
+    --admin-accent-light: rgba(128,106,79,.12);
     --admin-success: #0ba36b;
     --admin-warning: #c98a00;
     --admin-error: #e23b52;
     --admin-info: #0d92b8;
-    --admin-purple: #9333ea;
+    --admin-purple: #665642;
     --admin-sidebar-width: 260px;
     --admin-header-height: 60px;
     --admin-radius: 12px;
     --admin-radius-lg: 16px;
-    --admin-shadow: 0 8px 28px rgba(30,25,55,.08);
+    --admin-shadow: 0 8px 28px rgba(21,21,21,.08);
     --admin-transition: .2s cubic-bezier(.4,0,.2,1);
 }
 
@@ -53,6 +53,11 @@ ul { list-style: none; }
 button, input, select, textarea { font-family: inherit; font-size: inherit; border: none; outline: none; background: none; }
 button { cursor: pointer; }
 img { max-width: 100%; height: auto; }
+
+:focus-visible {
+    outline: 3px solid #295cab;
+    outline-offset: 3px;
+}
 
 /* ---- Admin Layout ---- */
 .admin-wrapper {
@@ -354,7 +359,7 @@ img { max-width: 100%; height: auto; }
 .stat-card:hover {
     transform: translateY(-2px);
     border-color: var(--admin-primary);
-    box-shadow: 0 4px 20px rgba(192,108,132,0.1);
+    box-shadow: 0 4px 20px rgba(21,21,21,0.1);
 }
 
 /* finance.php'deki .fin-stat ikon-kartı düzeninin karşılığı - Ödemeler
@@ -440,7 +445,7 @@ img { max-width: 100%; height: auto; }
     font-size: 18px;
 }
 
-.stat-icon.revenue { background: rgba(192,108,132,0.15); color: var(--admin-primary); }
+.stat-icon.revenue { background: rgba(21,21,21,0.08); color: var(--admin-primary); }
 .stat-icon.orders { background: rgba(33,150,243,0.15); color: var(--admin-info); }
 .stat-icon.products { background: rgba(76,175,80,0.15); color: var(--admin-success); }
 .stat-icon.customers { background: rgba(255,152,0,0.15); color: var(--admin-warning); }
@@ -756,7 +761,7 @@ select.admin-form-control {
 }
 
 .admin-btn-primary {
-    background: linear-gradient(135deg, var(--admin-primary), #c030d0);
+    background: linear-gradient(135deg, var(--admin-primary), var(--admin-accent));
     color: #fff;
     box-shadow: 0 4px 15px var(--admin-primary-glow);
 }
@@ -846,7 +851,7 @@ select.admin-form-control {
 .upload-zone:hover,
 .upload-zone.dragover {
     border-color: var(--admin-primary);
-    background: rgba(192,108,132,0.05);
+    background: rgba(21,21,21,0.04);
 }
 
 .upload-zone i {
@@ -903,28 +908,25 @@ select.admin-form-control {
     cursor: pointer;
 }
 
-/* ---- Admin Login ----
-   admin/login.php'nin kendi kendine yeten (boot.php'ye bağlı OLMAYAN)
-   koyu temalı, admin panelinin geri kalanından tamamen bağımsız tasarımı -
-   değerler login.php'nin gömülü <style> bloğundan birebir alınmıştır. */
+/* ---- Admin Login / Fildişi Atelier renk yüzeyi ---- */
 .admin-login-page {
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background: #0b0b14;
+    background: #f7f5f1;
     padding: 20px;
 }
 
 .admin-login-card {
     max-width: 420px;
     width: 100%;
-    background: #13132a;
-    border: 1px solid #2e2e55;
+    background: #ffffff;
+    border: 1px solid #d8d5ce;
     border-radius: 20px;
     padding: 48px 36px;
     position: relative;
-    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    box-shadow: 0 20px 60px rgba(21,21,21,.14);
 }
 
 .admin-login-card::before {
@@ -935,7 +937,7 @@ select.admin-form-control {
     transform: translateX(-50%);
     width: 200px;
     height: 200px;
-    background: radial-gradient(circle, rgba(224,64,160,.15), transparent 70%);
+    background: radial-gradient(circle, rgba(128,106,79,.16), transparent 70%);
     border-radius: 50%;
     pointer-events: none;
     z-index: 0;
@@ -951,13 +953,13 @@ select.admin-form-control {
     width: 64px;
     height: 64px;
     border-radius: 18px;
-    background: linear-gradient(135deg, #e040a0, #6c63ff);
+    background: linear-gradient(135deg, var(--admin-primary), var(--admin-accent));
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-size: 32px;
     margin-bottom: 14px;
-    box-shadow: 0 8px 30px rgba(224,64,160,.3);
+    box-shadow: 0 8px 30px rgba(21,21,21,.18);
 }
 
 .admin-login-card .login-logo h1 {
@@ -965,17 +967,17 @@ select.admin-form-control {
     font-size: 22px;
     font-weight: 800;
     letter-spacing: -.5px;
-    color: #fff;
+    color: #151515;
 }
 
 .admin-login-card .login-logo p {
     font-size: 13px;
-    color: #6e6e99;
+    color: #716f69;
     margin-top: 4px;
 }
 
 .admin-login-card .admin-form-group label {
-    color: #b0b0cc;
+    color: #5f5f5b;
     font-size: 12px;
     letter-spacing: .3px;
 }
@@ -989,49 +991,49 @@ select.admin-form-control {
     left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: #6e6e99;
+    color: #716f69;
     font-size: 14px;
     z-index: 1;
 }
 
 .admin-login-card .admin-form-control {
-    background: #0b0b14;
-    border: 1.5px solid #2e2e55;
-    color: #f0f0f5;
+    background: #f7f5f1;
+    border: 1.5px solid #d8d5ce;
+    color: #151515;
     padding-left: 42px;
 }
 
 .admin-login-card .admin-form-control::placeholder {
-    color: #4a4a70;
+    color: #77746d;
 }
 
 .admin-login-card .admin-form-control:focus {
-    border-color: #e040a0;
-    box-shadow: 0 0 0 3px rgba(224,64,160,.12);
+    border-color: #295cab;
+    box-shadow: 0 0 0 3px rgba(41,92,171,.14);
 }
 
 .admin-login-card .admin-btn-primary {
-    background: linear-gradient(135deg, #e040a0, #c030d0);
+    background: linear-gradient(135deg, #151515, #806a4f);
     box-shadow: none;
     padding: 14px;
     font-size: 15px;
 }
 
 .admin-login-card .admin-btn-primary:hover {
-    box-shadow: 0 8px 25px rgba(224,64,160,.3);
+    box-shadow: 0 8px 25px rgba(21,21,21,.22);
 }
 
 .login-back-link {
     display: block;
     text-align: center;
     margin-top: 24px;
-    color: #6e6e99;
+    color: #716f69;
     font-size: 13px;
     transition: .2s;
 }
 
 .login-back-link:hover {
-    color: #e040a0;
+    color: #151515;
 }
 
 .login-error {

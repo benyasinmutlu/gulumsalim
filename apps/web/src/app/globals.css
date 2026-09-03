@@ -8,33 +8,35 @@ html { color-scheme: light; }
 
 /* ---- CSS Variables / Design Tokens ---- */
 :root {
-    /* Renk paleti - bkz. kullanıcı isteği (2026-08-03): "bundan da önceki
-       renge dönelim" - fuşya-gül denemesi (#D6336C) de değil, gulumsalim.com'un
-       yeniden yazımdan ÖNCEKİ orijinal tozlu gül/mor (mauve) tonuna (#C06C84,
-       bkz. git geçmişi commit 38cb008) geri dönüldü. */
-    --color-primary: #C06C84;
-    --color-primary-light: #F4A7BB;
-    --color-primary-dark: #8B3A62;
-    --color-secondary: #6C5B7B;
-    --color-accent: #F67280;
-    --color-gold: #D4A574;
+    /* Fildişi Atelier: mevcut bilgi mimarisi ve bileşen yerleşimleri
+       korunurken yalnız görsel tema sadeleştirilir. Mürekkep siyahı ana
+       aksiyon, bronz ise sınırlı vurgu rengidir. */
+    --color-primary: #151515;
+    --color-primary-light: #EBE4DA;
+    --color-primary-dark: #2F2F2D;
+    --color-secondary: #5F5F5B;
+    --color-accent: #806A4F;
+    --color-gold: #806A4F;
+    --color-primary-rgb: 21, 21, 21;
+    --color-accent-rgb: 128, 106, 79;
 
     /* Nötr renkler */
-    --color-bg: #FFF8F5;
-    --color-bg-alt: #FFF0EB;
+    --color-bg: #F7F5F1;
+    --color-bg-alt: #EEEBE5;
     --color-surface: #FFFFFF;
-    --color-text: #202020;
-    --color-text-light: #6B6B6B;
-    --color-text-muted: #9B9B9B;
-    --color-border: #EDEDED;
-    --color-border-light: #F3F3F3;
+    --color-text: #151515;
+    --color-text-light: #5F5F5B;
+    --color-text-muted: #77746D;
+    --color-border: #D8D5CE;
+    --color-border-light: #EBE8E2;
     
     /* Durum renkleri */
-    --color-success: #4CAF50;
-    --color-success-bg: #E8F5E9;
-    --color-warning: #FF9800;
-    --color-error: #F44336;
-    --color-info: #2196F3;
+    --color-success: #276344;
+    --color-success-bg: #E7F1EB;
+    --color-warning: #8A5D15;
+    --color-error: #A22F35;
+    --color-info: #295CAB;
+    --color-focus: #295CAB;
     
     /* Tipografi */
     --font-primary: var(--font-outfit), 'Outfit', sans-serif;
@@ -50,10 +52,10 @@ html { color-scheme: light; }
     --radius-xl: 28px;
     
     /* Gölgeler */
-    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
-    --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
-    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
-    --shadow-glow: 0 0 30px rgba(192,108,132,0.15);
+    --shadow-sm: 0 2px 10px rgba(21,21,21,0.06);
+    --shadow-md: 0 10px 30px rgba(21,21,21,0.08);
+    --shadow-lg: 0 22px 60px rgba(21,21,21,0.12);
+    --shadow-glow: 0 0 0 4px rgba(41,92,171,0.14);
     
     /* Geçişler */
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -112,6 +114,11 @@ button, input, select, textarea {
 
 button {
     cursor: pointer;
+}
+
+:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 3px;
 }
 
 .container {
@@ -1170,7 +1177,7 @@ button {
     align-items: center;
     gap: 6px;
     padding: 6px 16px;
-    background: rgba(192, 108, 132,0.1);
+    background: rgba(var(--color-primary-rgb),0.06);
     border-radius: 50px;
     font-size: 13px;
     font-weight: 500;
@@ -1571,12 +1578,12 @@ button {
 .btn-primary {
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
     color: #fff;
-    box-shadow: 0 4px 15px rgba(192, 108, 132,0.3);
+    box-shadow: 0 4px 15px rgba(var(--color-primary-rgb),0.16);
 }
 
 .btn-primary:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 25px rgba(192, 108, 132,0.4);
+    box-shadow: 0 6px 25px rgba(var(--color-primary-rgb),0.22);
 }
 
 .btn-secondary {
@@ -1975,7 +1982,7 @@ button {
 }
 
 .deal-shelf-vendor-rating i {
-    color: #D4A574;
+    color: var(--color-gold);
 }
 
 .deal-shelf-vendor-cta {
@@ -2107,7 +2114,7 @@ button {
 }
 
 .popular-vendor-rating i {
-    color: #D4A574;
+    color: var(--color-gold);
 }
 
 .popular-vendor-count {
@@ -2167,12 +2174,12 @@ button {
     object-fit: cover;
 }
 
-.popular-category-card:nth-child(6n+1) .popular-category-avatar { background: rgba(192, 108, 132,.12); color: var(--color-primary); }
-.popular-category-card:nth-child(6n+2) .popular-category-avatar { background: rgba(76,175,80,.14); color: var(--color-success); }
-.popular-category-card:nth-child(6n+3) .popular-category-avatar { background: rgba(33,150,243,.14); color: var(--color-info); }
-.popular-category-card:nth-child(6n+4) .popular-category-avatar { background: rgba(212,165,116,.22); color: #9C6B2E; }
-.popular-category-card:nth-child(6n+5) .popular-category-avatar { background: rgba(139,58,224,.12); color: #8B3AE0; }
-.popular-category-card:nth-child(6n+6) .popular-category-avatar { background: rgba(232,90,160,.14); color: #E85AA0; }
+.popular-category-card:nth-child(6n+1) .popular-category-avatar { background: rgba(var(--color-primary-rgb),.07); color: var(--color-primary); }
+.popular-category-card:nth-child(6n+2) .popular-category-avatar { background: rgba(var(--color-accent-rgb),.13); color: var(--color-accent); }
+.popular-category-card:nth-child(6n+3) .popular-category-avatar { background: rgba(var(--color-primary-rgb),.06); color: var(--color-secondary); }
+.popular-category-card:nth-child(6n+4) .popular-category-avatar { background: rgba(var(--color-accent-rgb),.16); color: var(--color-accent); }
+.popular-category-card:nth-child(6n+5) .popular-category-avatar { background: rgba(var(--color-primary-rgb),.08); color: var(--color-primary-dark); }
+.popular-category-card:nth-child(6n+6) .popular-category-avatar { background: rgba(var(--color-accent-rgb),.1); color: var(--color-accent); }
 
 .popular-category-name {
     font-size: 13px;
@@ -2210,7 +2217,7 @@ button {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(192, 108, 132,0.05), rgba(212,165,116,0.05));
+    background: linear-gradient(135deg, rgba(var(--color-primary-rgb),0.04), rgba(var(--color-accent-rgb),0.08));
     transition: var(--transition);
 }
 
@@ -2220,14 +2227,14 @@ button {
 }
 
 .category-card:hover::before {
-    background: linear-gradient(135deg, rgba(192, 108, 132,0.1), rgba(212,165,116,0.1));
+    background: linear-gradient(135deg, rgba(var(--color-primary-rgb),0.07), rgba(var(--color-accent-rgb),0.12));
 }
 
 .category-icon {
     width: 70px;
     height: 70px;
     border-radius: 50%;
-    background: rgba(192, 108, 132,0.1);
+    background: rgba(var(--color-primary-rgb),0.07);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2313,7 +2320,7 @@ button {
 }
 
 .countdown-timer i {
-    color: var(--color-accent, #F67280);
+    color: var(--color-accent, #806A4F);
 }
 
 /* ---- Ürün Kartları ---- */
@@ -3133,13 +3140,13 @@ button {
 
 .promo-cta {
     display: inline-block;
-    box-shadow: 0 4px 16px rgba(192, 108, 132,.4);
+    box-shadow: 0 4px 16px rgba(var(--color-primary-rgb),.18);
     transition: transform .25s ease, box-shadow .25s ease;
 }
 
 .promo-card:hover .promo-cta {
     transform: scale(1.06);
-    box-shadow: 0 6px 22px rgba(192, 108, 132,.55);
+    box-shadow: 0 6px 22px rgba(var(--color-primary-rgb),.24);
 }
 
 @media (max-width: 768px) {
@@ -3475,7 +3482,7 @@ button {
 .size-btn.active {
     border-color: var(--color-primary);
     color: var(--color-primary);
-    background: rgba(192, 108, 132,0.05);
+    background: rgba(var(--color-primary-rgb),0.04);
 }
 
 .size-btn.active {
@@ -3742,7 +3749,7 @@ button {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--color-primary-light, #fce8f1);
+    background: var(--color-primary-light, #ebe4da);
     color: var(--color-primary-dark);
     border-radius: 10px;
     padding: 10px 14px;
@@ -3881,7 +3888,7 @@ button {
 
 .form-control:focus {
     border-color: var(--color-primary-light);
-    box-shadow: 0 0 0 3px rgba(192, 108, 132,0.1);
+    box-shadow: 0 0 0 3px rgba(41, 92, 171, 0.14);
 }
 
 .form-control::placeholder {
@@ -5857,11 +5864,11 @@ body.no-main-nav .product-toolbar {
     display:flex;align-items:center;gap:12px;
     margin:16px 0;padding:12px 14px;
     border:1px solid var(--color-border-light,#eee);border-radius:14px;
-    background:var(--color-bg-alt,#faf7f8);
+    background:var(--color-bg-alt,#eeebe5);
     transition:border-color .2s ease, box-shadow .2s ease;
     text-decoration:none;color:inherit;
 }
-a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rgba(192, 108, 132,.12)}
+a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rgba(var(--color-primary-rgb),.12)}
 .detail-vendor-logo{
     width:46px;height:46px;flex-shrink:0;border-radius:12px;overflow:hidden;
     display:flex;align-items:center;justify-content:center;
@@ -5872,10 +5879,10 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .detail-vendor-info{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
 .detail-vendor-info small{font-size:11px;color:var(--color-text-light,#999);text-transform:uppercase;letter-spacing:.4px}
 .detail-vendor-info strong{font-size:15px;font-weight:700;color:var(--color-text,#333);line-height:1.2}
-.detail-vendor-rating{display:flex;align-items:center;gap:4px;font-size:12px;color:#D4A574;font-weight:600;margin-top:2px}
+.detail-vendor-rating{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--color-gold);font-weight:600;margin-top:2px}
 .detail-vendor-rating em{color:var(--color-text-light,#999);font-style:normal;font-weight:400}
 .detail-vendor-arrow{color:var(--color-text-light,#bbb);font-size:13px;flex-shrink:0}
-.detail-vendor--official{background:var(--color-bg-alt,#faf7f8)}
+.detail-vendor--official{background:var(--color-bg-alt,#eeebe5)}
 
 /* Ürün detay sayfasındaki satıcı kartı - eski hali logo/puan alanları
    tanımlı ama hiç kullanılmayan .detail-vendor'ı, altına ayrı stilsiz bir
@@ -5885,10 +5892,10 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
    sayısı + Takip Et - Trendyol'un ürün sayfası satıcı bloğuyla aynı desen. */
 .detail-vendor-card{
     margin:16px 0;border:1px solid var(--color-border-light,#eee);border-radius:14px;
-    background:var(--color-bg-alt,#faf7f8);overflow:hidden;
+    background:var(--color-bg-alt,#eeebe5);overflow:hidden;
     transition:border-color .2s ease, box-shadow .2s ease;
 }
-.detail-vendor-card:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rgba(192,108,132,.12)}
+.detail-vendor-card:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rgba(var(--color-primary-rgb),.12)}
 .detail-vendor-link{display:flex;align-items:center;gap:12px;padding:12px 14px;text-decoration:none;color:inherit}
 .detail-vendor-verified{margin-left:6px;color:var(--color-primary);font-size:13px;vertical-align:middle}
 .detail-vendor-stats{
@@ -6026,7 +6033,7 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
     }
 
     .nav-list li.nav-store a {
-        background: var(--color-primary-light, #fce8f1);
+        background: var(--color-primary-light, #ebe4da);
         color: var(--color-primary);
         font-weight: 700;
     }
@@ -6493,7 +6500,7 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 
 .ga-tabs { display: flex; background: var(--color-surface); border: 1.5px solid var(--color-border); border-radius: 14px; padding: 5px; margin-bottom: 28px; gap: 4px; }
 .ga-tab { flex: 1; text-align: center; padding: 11px 0; border-radius: 10px; font-size: 13px; font-weight: 700; text-decoration: none; color: var(--color-text-muted); transition: .2s ease; display: flex; align-items: center; justify-content: center; gap: 7px; border: none; background: transparent; cursor: pointer; font-family: inherit; }
-.ga-tab.active { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)); color: #fff; box-shadow: 0 6px 18px rgba(192, 108, 132,.3); }
+.ga-tab.active { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)); color: #fff; box-shadow: 0 6px 18px rgba(var(--color-primary-rgb),.18); }
 .ga-tab:not(.active):hover { color: var(--color-text); }
 
 .ga-card h2 { font-family: var(--font-display); font-size: 25px; margin: 0 0 8px; color: var(--color-text); }
@@ -6516,15 +6523,15 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .ga-input-wrap { position: relative; }
 .ga-input-wrap i.ga-ic { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--color-text-muted); font-size: 14px; }
 .ga-input { width: 100%; background: var(--color-surface); border: 1.5px solid var(--color-border); border-radius: 12px; padding: 12px 14px 12px 42px; font-size: 14px; font-family: inherit; color: var(--color-text); outline: none; transition: .2s ease; }
-.ga-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 4px rgba(192, 108, 132,.1); }
+.ga-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 4px rgba(41, 92, 171, .14); }
 .ga-pw-toggle { position: absolute; right: 13px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-text-muted); cursor: pointer; padding: 4px; font-size: 14px; }
 .ga-pw-toggle:hover { color: var(--color-text); }
 
 .ga-consent { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.4; color: var(--color-text-light); margin-bottom: 20px; cursor: pointer; }
 .ga-consent input { margin-top: 2px; accent-color: var(--color-primary); }
 
-.ga-submit { width: 100%; padding: 15px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 9px; box-shadow: 0 10px 30px rgba(192, 108, 132,.3); transition: .2s ease; }
-.ga-submit:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(192, 108, 132,.4); }
+.ga-submit { width: 100%; padding: 15px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark)); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 9px; box-shadow: 0 10px 30px rgba(var(--color-primary-rgb),.18); transition: .2s ease; }
+.ga-submit:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(var(--color-primary-rgb),.24); }
 .ga-submit:disabled { opacity: .75; cursor: default; transform: none; }
 
 .oauth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; font-size: 12px; color: var(--color-text-muted); }
@@ -6580,7 +6587,7 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .store-tab-nav{display:flex;gap:8px;max-width:1280px;margin:0 auto;padding:14px 24px;overflow-x:auto}
 .store-tab-btn{position:relative;display:inline-flex;align-items:center;gap:7px;padding:10px 20px;font-size:13px;font-weight:600;color:var(--color-text-light);background:transparent;border:none;border-radius:24px;cursor:pointer;white-space:nowrap;transition:transform .2s ease,color .2s ease,background .2s ease;font-family:inherit}
 .store-tab-btn:hover{color:var(--color-primary-dark);background:var(--color-bg-alt);transform:translateY(-1px)}
-.store-tab-btn.active{color:#fff;background:linear-gradient(135deg,var(--color-primary),var(--color-primary-dark));box-shadow:0 6px 18px rgba(192, 108, 132,.35);transform:translateY(-1px)}
+.store-tab-btn.active{color:#fff;background:linear-gradient(135deg,var(--color-primary),var(--color-primary-dark));box-shadow:0 6px 18px rgba(var(--color-primary-rgb),.2);transform:translateY(-1px)}
 .store-tab-btn i{font-size:12px;opacity:.85}
 .store-content{max-width:1280px;margin:0 auto;padding:36px 24px}
 .store-tab-content{display:none}
@@ -6617,7 +6624,7 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .vendor-verified-check{color:var(--color-success);font-size:18px}
 .vendor-header-stats{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:8px;font-size:13.5px;color:var(--color-text-light)}
 .vendor-header-stats span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.vendor-header-stats i{color:#D4A574}
+.vendor-header-stats i{color:var(--color-gold)}
 .vendor-header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .vendor-header-actions .follow-btn{background:var(--color-primary);border-color:var(--color-primary);color:#fff}
 .vendor-header-actions .follow-btn:hover{background:var(--color-primary-dark);border-color:var(--color-primary-dark);color:#fff}
@@ -6962,7 +6969,7 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 10px 28px rgba(192, 108, 132, 0.35);
+  box-shadow: 0 10px 28px rgba(var(--color-primary-rgb), 0.2);
 }
 
 .site-feedback-teaser i.fa-comment-dots {
@@ -7285,25 +7292,42 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 }
 
 /* ==== Sanal Deneme (Virtual Try-On) ==== */
-.btn-tryon{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;border:1.5px solid var(--color-primary,#C06C84);color:var(--color-primary,#C06C84);background:transparent;transition:.2s}
-.btn-tryon:hover{background:var(--color-primary,#C06C84);color:#fff}
+.btn-tryon{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;border:1.5px solid var(--color-primary,#151515);color:var(--color-primary,#151515);background:transparent;transition:.2s}
+.btn-tryon:hover{background:var(--color-primary,#151515);color:#fff}
 .tryon-backdrop{position:fixed;inset:0;background:rgba(20,16,30,.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px)}
 .tryon-modal{background:#fff;border-radius:20px;width:min(560px,100%);max-height:92vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.4)}
 .tryon-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #eee}
-.tryon-close{width:34px;height:34px;border-radius:10px;border:none;background:#f3f0f7;cursor:pointer}
+.tryon-close{width:34px;height:34px;border-radius:10px;border:none;background:#f2efe9;cursor:pointer}
 /* bkz. denetim raporu madde 13: kısa onboarding/gizlilik adımı */
 .tryon-onboarding{display:flex;flex-direction:column;gap:8px;padding:16px 20px 0}
 .tryon-onboarding p{display:flex;align-items:flex-start;gap:8px;margin:0;font-size:13px;color:#555;line-height:1.4}
-.tryon-onboarding i{color:var(--color-primary,#C06C84);margin-top:2px;flex-shrink:0}
+.tryon-onboarding i{color:var(--color-primary,#151515);margin-top:2px;flex-shrink:0}
 .tryon-upload{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:48px 20px;margin:20px;border:2px dashed #d9d2e6;border-radius:16px;cursor:pointer;text-align:center}
-.tryon-upload i{font-size:32px;color:var(--color-primary,#C06C84)}
+.tryon-upload i{font-size:32px;color:var(--color-primary,#151515)}
 .tryon-upload small{color:#888;font-size:12px}
 .tryon-body{padding:16px 20px 20px}
 .tryon-stage{position:relative;display:flex;justify-content:center}
-.tryon-canvas{width:100%;max-width:440px;border-radius:14px;background:#f3f0f7;cursor:grab;touch-action:none}
+.tryon-canvas{width:100%;max-width:440px;border-radius:14px;background:#f2efe9;cursor:grab;touch-action:none}
 .tryon-canvas:active{cursor:grabbing}
 .tryon-mag{position:absolute;pointer-events:none;border-radius:50%;box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:5}
-.tryon-status{font-size:13px;color:#7c3aed;margin-top:8px;text-align:center}
+.tryon-status{font-size:13px;color:var(--color-info);margin-top:8px;text-align:center}
+
+:where(a, button, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+    outline: 3px solid var(--color-focus) !important;
+    outline-offset: 3px;
+}
+
+/* Hareket azaltma tercihi müşteri, satıcı ve admin yüzeylerinin tamamında
+   geçerlidir; yerleşimi değiştirmeden yalnız animasyonları sakinleştirir. */
+@media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
 .tryon-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px}
 .tryon-controls label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
 .tryon-hint{font-size:12px;color:#999;margin-top:8px;text-align:center}

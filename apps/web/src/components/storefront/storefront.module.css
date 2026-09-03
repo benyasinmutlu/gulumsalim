@@ -4,15 +4,15 @@
    derinlik ve motion eklenir. */
 
 .page {
-  --sf-rose: var(--color-primary, #c06c84);
-  --sf-rose-deep: var(--color-primary-dark, #8b3a62);
-  --sf-gold: var(--color-gold, #d4a574);
-  --sf-mauve: var(--color-secondary, #6c5b7b);
-  --sf-ink: var(--color-text, #2d2d2d);
-  --sf-muted: var(--color-text-light, #6b6b6b);
-  --sf-line: var(--color-border-light, #f5ede8);
+  --sf-rose: var(--color-primary, #151515);
+  --sf-rose-deep: var(--color-primary-dark, #2f2f2d);
+  --sf-gold: var(--color-gold, #806a4f);
+  --sf-mauve: var(--color-secondary, #5f5f5b);
+  --sf-ink: var(--color-text, #151515);
+  --sf-muted: var(--color-text-light, #5f5f5b);
+  --sf-line: var(--color-border-light, #ebe8e2);
   --sf-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --sf-shadow: 0 30px 70px -34px rgba(139, 58, 98, 0.45);
+  --sf-shadow: 0 30px 70px -34px rgba(21, 21, 21, 0.3);
   color: var(--sf-ink);
   font-family: var(--font-outfit), "Outfit", system-ui, sans-serif;
 }
@@ -35,9 +35,9 @@
   isolation: isolate;
   padding: clamp(3rem, 3rem + 5vw, 7rem) 0 clamp(3rem, 3rem + 4vw, 6rem);
   background:
-    radial-gradient(90% 70% at 12% 8%, rgba(192, 108, 132, 0.24), transparent 60%),
-    radial-gradient(85% 75% at 92% 96%, rgba(212, 165, 116, 0.22), transparent 60%),
-    linear-gradient(158deg, #fff4f0 0%, #fdeaf0 46%, #f6ece4 100%);
+    radial-gradient(90% 70% at 12% 8%, rgba(21, 21, 21, 0.07), transparent 60%),
+    radial-gradient(85% 75% at 92% 96%, rgba(128, 106, 79, 0.18), transparent 60%),
+    linear-gradient(158deg, #f7f5f1 0%, #f2efe9 46%, #ebe4da 100%);
 }
 .heroOrb {
   position: absolute;
@@ -85,7 +85,7 @@
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
   backdrop-filter: blur(6px);
-  box-shadow: 0 6px 18px -8px rgba(139, 58, 98, 0.25);
+  box-shadow: 0 6px 18px -8px rgba(21, 21, 21, 0.18);
 }
 .heroTitle {
   font-family: var(--font-playfair), Georgia, serif;
@@ -125,12 +125,12 @@
   padding: 0.95rem 1.7rem;
   border-radius: 14px;
   background: linear-gradient(135deg, var(--sf-rose), var(--sf-rose-deep));
-  box-shadow: 0 16px 30px -14px rgba(139, 58, 98, 0.6);
+  box-shadow: 0 16px 30px -14px rgba(21, 21, 21, 0.34);
   transition: transform 0.2s var(--sf-ease), box-shadow 0.25s var(--sf-ease), filter 0.2s;
 }
 .btnPrimary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 22px 40px -16px rgba(139, 58, 98, 0.7);
+  box-shadow: 0 22px 40px -16px rgba(21, 21, 21, 0.42);
   filter: brightness(1.03);
 }
 .btnGhost {
@@ -183,7 +183,7 @@
   inset: 6%;
   z-index: -1;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 44%, rgba(212, 165, 116, 0.6), rgba(192, 108, 132, 0.34) 44%, transparent 70%);
+  background: radial-gradient(circle at 50% 44%, rgba(128, 106, 79, 0.44), rgba(21, 21, 21, 0.14) 44%, transparent 70%);
   filter: blur(18px);
   animation: sfPulse 6s var(--sf-ease) infinite alternate;
 }
@@ -266,7 +266,7 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(100deg, rgba(139, 58, 98, 0.82) 0%, rgba(139, 58, 98, 0.5) 42%, rgba(45, 30, 40, 0.1) 78%);
+  background: linear-gradient(100deg, rgba(21, 21, 21, 0.86) 0%, rgba(21, 21, 21, 0.56) 42%, rgba(21, 21, 21, 0.08) 78%);
 }
 .campaignText {
   color: #fff;
@@ -290,7 +290,7 @@
   padding: clamp(2.75rem, 2rem + 3vw, 5rem) 0;
 }
 .sectionAlt {
-  background: linear-gradient(180deg, #fff8f5, #fdeef0 60%, #fff8f5);
+  background: linear-gradient(180deg, #f7f5f1, #eeebe5 60%, #f7f5f1);
 }
 .head {
   display: flex;
@@ -353,8 +353,8 @@
   border-radius: 20px;
   text-decoration: none;
   display: block;
-  box-shadow: 0 18px 40px -26px rgba(139, 58, 98, 0.4);
-  background: #f2e4de;
+  box-shadow: 0 18px 40px -26px rgba(21, 21, 21, 0.26);
+  background: #d8d5ce;
 }
 .bentoTile:first-child {
   grid-column: span 2;
@@ -501,7 +501,7 @@
   background: #fff;
   border: 1px solid var(--sf-line);
   border-radius: 18px;
-  box-shadow: 0 14px 40px -30px rgba(139, 58, 98, 0.4);
+  box-shadow: 0 14px 40px -30px rgba(21, 21, 21, 0.24);
   overflow: hidden;
 }
 .trustItem {
@@ -522,7 +522,7 @@
   height: 2.6rem;
   flex: none;
   border-radius: 13px;
-  background: linear-gradient(135deg, rgba(192, 108, 132, 0.14), rgba(212, 165, 116, 0.14));
+  background: linear-gradient(135deg, rgba(21, 21, 21, 0.07), rgba(128, 106, 79, 0.13));
   color: var(--sf-rose-deep);
   font-size: 1.05rem;
 }

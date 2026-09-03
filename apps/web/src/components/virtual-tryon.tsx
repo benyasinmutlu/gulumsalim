@@ -163,7 +163,7 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, CW, CH);
-    ctx.fillStyle = "#f3f0f7";
+    ctx.fillStyle = "#f2efe9";
     ctx.fillRect(0, 0, CW, CH);
     if (!person) return;
 
@@ -254,7 +254,7 @@ export default function VirtualTryOn({ productImage, productName }: Props) {
     mctx.clip();
     mctx.drawImage(canvas, x - R / Z, y - R / Z, (R * 2) / Z, (R * 2) / Z, 0, 0, R * 2, R * 2);
     mctx.restore();
-    mctx.strokeStyle = "#7c3aed";
+    mctx.strokeStyle = "#806a4f";
     mctx.lineWidth = 3;
     mctx.beginPath();
     mctx.arc(R, R, R - 2, 0, Math.PI * 2);
