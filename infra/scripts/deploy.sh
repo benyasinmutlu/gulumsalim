@@ -13,11 +13,17 @@ cd "$PROJECT_ROOT"
 SERVER="${SERVER:-root@128.140.120.121}"
 REMOTE_ROOT="${REMOTE_ROOT:-/opt/gulumsalim}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
+MAX_UPLOAD_ATTEMPTS="${MAX_UPLOAD_ATTEMPTS:-5}"
 PREPARE_ONLY="${PREPARE_ONLY:-0}"
 ARTIFACT_OUT="${ARTIFACT_OUT:-}"
 
 if ! [[ "$KEEP_RELEASES" =~ ^[2-9][0-9]*$ ]]; then
   echo "KEEP_RELEASES en az 2 olan bir tam sayı olmalı" >&2
+  exit 2
+fi
+
+if ! [[ "$MAX_UPLOAD_ATTEMPTS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "MAX_UPLOAD_ATTEMPTS en az 1 olan bir tam sayı olmalı" >&2
   exit 2
 fi
 
@@ -113,7 +119,49 @@ if [[ "$PREPARE_ONLY" == "1" ]]; then
 fi
 
 echo "==> Artefakt sunucuya yükleniyor..."
-scp "$LOCAL_ARCHIVE" "$SERVER:$REMOTE_ARCHIVE"
+# Bazı sağlayıcılarda uzun SSH/SFTP oturumları bağlantı sınırına takılabiliyor.
+# `reput`, yarım kalan uzak dosyanın boyutundan devam eder; aynı release kimliği
+# içinde sınırlı sayıda yeniden bağlanarak birkaç MB'lık paketi her seferinde
+# baştan göndermeyi önler. Uzak taraftaki SHA-256 kontrolü eksik/bozuk birleşimi
+# release hazırlanmadan önce yine kesin olarak reddeder.
+ssh \
+  -o ConnectTimeout=20 \
+  -o ServerAliveInterval=15 \
+  -o ServerAliveCountMax=4 \
+  "$SERVER" "umask 077; touch -- '$REMOTE_ARCHIVE'"
+UPLOAD_ATTEMPT=1
+while true; do
+  UPLOAD_COMPLETE=0
+  if printf 'reput "%s" "%s"\nbye\n' "$LOCAL_ARCHIVE" "$REMOTE_ARCHIVE" \
+      | sftp \
+          -o BatchMode=no \
+          -o ConnectTimeout=20 \
+          -o ServerAliveInterval=15 \
+          -o ServerAliveCountMax=4 \
+          "$SERVER"; then
+    REMOTE_SIZE=$(ssh \
+      -o ConnectTimeout=20 \
+      -o ServerAliveInterval=15 \
+      -o ServerAliveCountMax=4 \
+      "$SERVER" "stat -c %s -- '$REMOTE_ARCHIVE'" 2>/dev/null || true)
+    if [[ "$REMOTE_SIZE" == "$ARCHIVE_SIZE" ]]; then
+      UPLOAD_COMPLETE=1
+    fi
+  fi
+
+  if [[ "$UPLOAD_COMPLETE" == "1" ]]; then
+    break
+  fi
+
+  if [ "$UPLOAD_ATTEMPT" -ge "$MAX_UPLOAD_ATTEMPTS" ]; then
+    echo "Artefakt yüklemesi ${MAX_UPLOAD_ATTEMPTS} denemede tamamlanamadı" >&2
+    exit 1
+  fi
+
+  UPLOAD_ATTEMPT=$((UPLOAD_ATTEMPT + 1))
+  echo "==> Bağlantı kesildi; yükleme kaldığı yerden sürdürülüyor (${UPLOAD_ATTEMPT}/${MAX_UPLOAD_ATTEMPTS})..."
+  sleep 2
+done
 
 echo "==> Yeni release hazırlanıyor ve atomik olarak açılıyor..."
 ssh "$SERVER" bash -s -- "$RELEASE_ID" "$CHECKSUM" "$KEEP_RELEASES" "$REMOTE_ROOT" <<'REMOTE'
