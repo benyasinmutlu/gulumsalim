@@ -5,7 +5,9 @@ Bu klasör yalnız tasarım yönü seçmek için hazırlanmış, statik ve izole
 ## Sabit kapsam: görsel tema, yeniden yerleşim değil
 
 - Mevcut sayfa yapısı, paneller, yan menüler, navigasyon, butonların konumu ve kullanıcı akışları korunacaktır.
-- Yalnızca renk paleti, tipografi, yüzeyler, kart görünümü, kenarlık, gölge, ikon tonu ve loading/empty/error gibi durumların görsel dili değişecektir.
+- Yalnızca renk paleti, yüzey, kenarlık, gölge, ikon tonu ve loading/empty/error gibi durumların görsel dili değişecektir.
+- Üç seçenekte de tipografi, radius, spacing, panel/navigasyon yapısı ve tüm bileşen geometrisi birebir aynıdır.
+- Ürün görsellerine renk filtresi uygulanmaz; ürünün gerçek rengi korunur.
 - Bu prototipteki ekran örnekleri yeni bir bilgi mimarisi veya panel düzeni önermez; aynı tema dilinin mevcut bileşenlerde nasıl görüneceğini karşılaştırır.
 - Akış güvenliği ve backend hardening çalışmaları tema değişikliğinden ayrı ele alınacak; görünür yerleşim keyfi biçimde değiştirilmeyecektir.
 
@@ -17,21 +19,21 @@ Bu klasör yalnız tasarım yönü seçmek için hazırlanmış, statik ve izole
 
 ## Tema seçenekleri
 
-### 1. Fildişi Atelier
+### 1. Sıcak Fildişi
 
-Sıcak kırık beyaz, siyah ve çok sınırlı bronz tonlarla editoryal butik hissi. Farklı kalitedeki ürün fotoğraflarını iyi taşır, alışveriş dönüşümü ve uzun form akışları için en güvenli seçenektir.
+Sıcak kırık beyaz, yumuşak kömür siyahı ve ölçülü taş vurgularıyla samimi bir butik hissi. Uzun süre gezinirken gözü yormaz; müşteri deneyimi için en dengeli seçenektir.
 
-### 2. Noir Gallery
+### 2. Kaşmir
 
-Sinematik siyah kabuk, açık metin ve platin vurgu. Premium koleksiyon ve kampanya sahnelerinde güçlüdür; tüm checkout ve yönetim ekranlarına yayılırsa günlük kullanımda yorucu olabilir.
+Daha krem bir zemin, sıcak grej yüzeyler ve kahve alt tonlu koyu nötrler. Üçlü içinde en yumuşak ve ev sıcaklığına en yakın seçenektir.
 
-### 3. Swiss Moda
+### 3. Galeri
 
-Yüksek kontrast, keskin grid, düşük radius ve sınırlı bordo vurgu. Katalog, filtre, tablo ve yönetim ekranlarında çok güçlü; Fildişi kadar sıcak değildir.
+Daha açık beyaz yüzeyler, net siyah ve hafif sıcak gri çizgiler. Ürün görsellerini öne çıkaran, en sade ve moda galerisi hissi veren seçenektir.
 
 ## Önerilen sentez
 
-Ana marka ve müşteri deneyimi için **Fildişi Atelier**, katalog/form/admin yoğunluğu için **Swiss Moda disiplini**, yalnız seçili premium kampanya alanları için sınırlı **Noir Gallery** kullanımı.
+İlk değerlendirme için **Sıcak Fildişi** önde: şıklık ve samimiyet dengesini en iyi kuruyor. **Kaşmir** daha sıcak, **Galeri** ise daha net ve minimal bir alternatif sunuyor. Son karar bütün kritik ekranlar aynı paletle görüldükten sonra verilecek.
 
 ## Çalıştırma
 

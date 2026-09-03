@@ -1,15 +1,15 @@
 const THEME_COPY = {
-  atelier: {
-    name: "Fildişi Atelier",
-    themeColor: "#f7f5f1",
+  ivory: {
+    name: "Sıcak Fildişi",
+    themeColor: "#f7f3ed",
   },
-  noir: {
-    name: "Noir Gallery",
-    themeColor: "#0b0b0c",
+  cashmere: {
+    name: "Kaşmir",
+    themeColor: "#f4f0e9",
   },
-  swiss: {
-    name: "Swiss Moda",
-    themeColor: "#fafaf8",
+  gallery: {
+    name: "Galeri",
+    themeColor: "#fbfaf7",
   },
 };
 
@@ -35,7 +35,11 @@ function setTheme(theme) {
 
   document.documentElement.dataset.theme = theme;
   themeName.textContent = THEME_COPY[theme].name;
-  colorSchemeMeta.content = theme === "noir" ? "dark" : "light";
+  colorSchemeMeta.content = "light";
+
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("theme", theme);
+  window.history.replaceState({}, "", nextUrl);
 
   themeButtons.forEach((button) => {
     const selected = button.dataset.themeValue === theme;
@@ -54,11 +58,17 @@ themeButtons.forEach((button) => {
   button.addEventListener("click", () => setTheme(button.dataset.themeValue));
 });
 
-try {
-  const savedTheme = window.localStorage.getItem("gulumsalim-theme-lab");
-  if (savedTheme) setTheme(savedTheme);
-} catch {
-  // Tarayıcı depolaması kullanılamadığında varsayılan tema korunur.
+const urlTheme = new URLSearchParams(window.location.search).get("theme");
+
+if (urlTheme && THEME_COPY[urlTheme]) {
+  setTheme(urlTheme);
+} else {
+  try {
+    const savedTheme = window.localStorage.getItem("gulumsalim-theme-lab");
+    if (savedTheme && THEME_COPY[savedTheme]) setTheme(savedTheme);
+  } catch {
+    // Tarayıcı depolaması kullanılamadığında varsayılan tema korunur.
+  }
 }
 
 const accountButtons = Array.from(document.querySelectorAll("[data-account-type]"));
