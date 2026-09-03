@@ -18,7 +18,7 @@ function formatTl(value: number) {
 // burada gerçek bir kütüphane (recharts) kullanılıyor - hem satıcı hem admin
 // panelinde aynı bileşen, sadece renk parametreyle özelleştiriliyor (iki
 // panel de farklı CSS değişken isim uzayı kullanıyor: --pr vs --admin-primary).
-export function SalesLineChart({ data, color = "#24201c" }: { data: DailySalesPoint[]; color?: string }) {
+export function SalesLineChart({ data, color = "#111111" }: { data: DailySalesPoint[]; color?: string }) {
   const chartData = data.map((d) => ({ date: formatDayLabel(d.date), total: Number(d.total) }));
   const hasSales = chartData.some((d) => d.total > 0);
 
@@ -34,7 +34,7 @@ export function SalesLineChart({ data, color = "#24201c" }: { data: DailySalesPo
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#d4cbc0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#d8d7d4" />
         <XAxis dataKey="date" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
         <YAxis tick={{ fontSize: 12 }} width={70} tickFormatter={(v) => formatTl(Number(v))} />
         <Tooltip
@@ -64,7 +64,7 @@ export function VisitorsLineChart({ data, color = "#0ea5e9" }: { data: { date: s
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#d4cbc0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#d8d7d4" />
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} width={40} allowDecimals={false} />
         <Tooltip formatter={(value) => [value, "Ziyaretçi"]} />

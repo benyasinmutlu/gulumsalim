@@ -212,7 +212,7 @@ export default function ChannelsPanel() {
                   </div>
                   {chError[ch] && <p style={{ color: "#b3261e", fontSize: 12.5, margin: "8px 0 0" }}>{chError[ch]}</p>}
                   <button type="button" onClick={() => connectChannel(ch)} disabled={busyCh === ch || !filled}
-                    style={{ marginTop: 10, padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--pr, #24201c)", color: "#fff", fontWeight: 600, cursor: filled ? "pointer" : "default", opacity: busyCh === ch || !filled ? 0.6 : 1 }}>
+                    style={{ marginTop: 10, padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--pr, #111111)", color: "#fff", fontWeight: 600, cursor: filled ? "pointer" : "default", opacity: busyCh === ch || !filled ? 0.6 : 1 }}>
                     {busyCh === ch ? "Bağlanıyor…" : "Bağlan"}
                   </button>
                 </div>
@@ -307,7 +307,7 @@ export default function ChannelsPanel() {
             </label>
           )}
           <button type="submit" disabled={saving || !productId || !barcode.trim() || (channel === "ticimax" && !externalProductId.trim())}
-            style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--pr, #24201c)", color: "#fff", fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+            style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "var(--pr, #111111)", color: "#fff", fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
             {saving ? "Ekleniyor…" : "Ekle"}
           </button>
         </div>

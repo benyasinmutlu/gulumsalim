@@ -6,7 +6,13 @@ import {
   listVendorRefundsWithOrder,
 } from "./vendor-finance.repository";
 import { requestPayoutSchema } from "./vendor-finance.schemas";
-import { InsufficientBalanceError, requestPayout } from "./vendor-finance.service";
+import {
+  BankAccountCoolingOffError,
+  BankAccountMismatchError,
+  InsufficientBalanceError,
+  MissingBankAccountError,
+  requestPayout,
+} from "./vendor-finance.service";
 
 const vendorFinanceRoutes: FastifyPluginAsync = async (app) => {
   app.get("/vendor/wallet", { preHandler: app.requireVendor }, async (request, reply) => {
@@ -33,6 +39,20 @@ const vendorFinanceRoutes: FastifyPluginAsync = async (app) => {
     } catch (err) {
       if (err instanceof InsufficientBalanceError) {
         return reply.status(400).send({ error: { message: "Bakiye yetersiz" } });
+      }
+      if (err instanceof MissingBankAccountError) {
+        return reply.status(400).send({ error: { code: "bank_account_missing", message: "Ödeme talebinden önce Ayarlar bölümünden banka hesabınızı doğrulayın" } });
+      }
+      if (err instanceof BankAccountMismatchError) {
+        return reply.status(409).send({ error: { code: "bank_account_mismatch", message: "Ödeme yalnız Ayarlar bölümünde doğrulanan banka hesabına yapılabilir" } });
+      }
+      if (err instanceof BankAccountCoolingOffError) {
+        return reply.status(409).send({
+          error: {
+            code: "bank_account_cooling_off",
+            message: `Yeni banka hesabınız ${err.availableAt.toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })} tarihinden sonra ödeme alabilir`,
+          },
+        });
       }
       throw err;
     }

@@ -8,10 +8,10 @@ import Link from "next/link";
 // yüzdesinin en yaygın pazaryeri şikayeti olduğunu gösterdi, bu yüzden
 // burada gösterilen oranlar tamamen gerçek).
 const TIERS: { percent: number; color: string }[] = [
-  { percent: 10, color: "#FFEEF3" },
-  { percent: 20, color: "#FFF4DE" },
-  { percent: 30, color: "#E3F2FD" },
-  { percent: 50, color: "#E8F5E9" },
+  { percent: 10, color: "#F8F8F7" },
+  { percent: 20, color: "#F2F2F0" },
+  { percent: 30, color: "#EBEBE8" },
+  { percent: 50, color: "#E3E2DE" },
 ];
 
 export default function DiscountTiers() {

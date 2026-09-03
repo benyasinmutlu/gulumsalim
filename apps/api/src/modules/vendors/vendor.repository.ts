@@ -110,6 +110,7 @@ export async function updateVendorProfile(
     bankName: string;
     bankIban: string;
     bankAccountHolder: string;
+    bankAccountChangedAt: Date;
     taxId: string;
     legalAddress: string;
     passwordHash: string;

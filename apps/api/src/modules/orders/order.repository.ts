@@ -191,6 +191,8 @@ interface CreateOrderInput {
   items: CreateOrderItemInput[];
   contractSnapshot?: string;
   contractAcceptedAt?: Date;
+  checkoutIdempotencyKey?: string;
+  checkoutRequestHash?: string;
 }
 
 // Mesafeli Satış Sözleşmesi'nin satıcı bloklarını doldurmak için - hem
@@ -230,6 +232,8 @@ async function createOrderOnce(data: CreateOrderInput) {
         orderNote: data.orderNote,
         contractSnapshot: data.contractSnapshot,
         contractAcceptedAt: data.contractAcceptedAt,
+        checkoutIdempotencyKey: data.checkoutIdempotencyKey,
+        checkoutRequestHash: data.checkoutRequestHash,
       })
       .returning();
     if (!order) throw new Error("Sipariş oluşturulamadı");
@@ -253,8 +257,27 @@ export async function createOrder(data: CreateOrderInput) {
   return withTransactionRetry(() => createOrderOnce(data));
 }
 
-export async function setOrderPaymentRef(orderId: number, paymentRef: string) {
-  await db.update(orders).set({ paymentRef }).where(eq(orders.id, orderId));
+export async function setOrderCheckoutPaymentData(orderId: number, paymentRef: string, checkoutFormContent: string) {
+  await db
+    .update(orders)
+    .set({ paymentRef, checkoutFormContent })
+    .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")));
+}
+
+export async function findOrderByCheckoutIdempotencyKey(key: string) {
+  const [row] = await db
+    .select({
+      id: orders.id,
+      customerId: orders.customerId,
+      orderNumber: orders.orderNumber,
+      paymentStatus: orders.paymentStatus,
+      checkoutRequestHash: orders.checkoutRequestHash,
+      checkoutFormContent: orders.checkoutFormContent,
+    })
+    .from(orders)
+    .where(eq(orders.checkoutIdempotencyKey, key))
+    .limit(1);
+  return row ?? null;
 }
 
 // bkz. kullanıcı isteği: "ürünü hazırlama kargolama iptal ve iade işlemleri

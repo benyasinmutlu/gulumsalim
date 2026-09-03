@@ -10,6 +10,11 @@ interface CheckoutResult {
   checkoutFormContent: string;
 }
 
+interface ContractPreviewResult {
+  html: string;
+  contractAcceptanceToken: string;
+}
+
 interface SelectedLine {
   productId: number;
   variantId?: number;
@@ -43,6 +48,7 @@ export default function CheckoutForm({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CheckoutResult | null>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   // Ödeme öncesi Mesafeli Satış Sözleşmesi + Ön Bilgilendirme Formu'nun
   // GERÇEK sipariş bilgileriyle doldurulmuş önizlemesi (bkz. contract-
@@ -50,6 +56,7 @@ export default function CheckoutForm({
   // az bir kez açılıp gösterilmeden aktif olmaz - müşteri gerçekten görmeden
   // tikleyemez.
   const [contractHtml, setContractHtml] = useState<string | null>(null);
+  const [contractAcceptanceToken, setContractAcceptanceToken] = useState<string | null>(null);
   const [contractModalOpen, setContractModalOpen] = useState(false);
   const [contractLoading, setContractLoading] = useState(false);
   const [contractError, setContractError] = useState<string | null>(null);
@@ -59,13 +66,14 @@ export default function CheckoutForm({
     setContractLoading(true);
     setContractError(null);
     try {
-      const data = await mutateJson<{ html: string }>("/checkout/contract-preview", "POST", {
+      const data = await mutateJson<ContractPreviewResult>("/checkout/contract-preview", "POST", {
         shippingAddress: { fullName, phone, city, district, addressLine, zipCode: zipCode || undefined },
         identityNumber,
         email: isGuest ? email : undefined,
         selectedLines,
       });
       setContractHtml(data.html);
+      setContractAcceptanceToken(data.contractAcceptanceToken);
       setContractModalOpen(true);
     } catch (err) {
       setContractError(err instanceof ClientApiError ? err.message : "Sözleşme önizlemesi alınamadı");
@@ -92,21 +100,38 @@ export default function CheckoutForm({
     });
   }, [result]);
 
+  // Önizlemeden sonra sözleşmeye giren herhangi bir bilgi değişirse eski
+  // onay artık geçerli değildir. Sunucu token'ı da aynı alanlara bağlıdır;
+  // bu sıfırlama kullanıcıya durumu ödeme anından önce açıkça gösterir.
+  useEffect(() => {
+    setContractAccepted(false);
+    setContractHtml(null);
+    setContractAcceptanceToken(null);
+    idempotencyKeyRef.current = null;
+  }, [email, fullName, phone, identityNumber, city, district, addressLine, zipCode, selectedLines]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
+      const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
+      idempotencyKeyRef.current = idempotencyKey;
       const data = await mutateJson<CheckoutResult>("/checkout", "POST", {
         shippingAddress: { fullName, phone, city, district, addressLine, zipCode: zipCode || undefined },
+        identityNumber,
         email: isGuest ? email : undefined,
         orderNote: orderNote || undefined,
         contractAccepted,
+        contractAcceptanceToken,
         selectedLines,
-      });
+      }, { "Idempotency-Key": idempotencyKey });
       setResult(data);
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Ödeme başlatılamadı");
+      if (!(err instanceof ClientApiError) || err.code !== "checkout_in_progress") {
+        idempotencyKeyRef.current = null;
+      }
     } finally {
       setLoading(false);
     }
@@ -216,7 +241,7 @@ export default function CheckoutForm({
         <input
           type="checkbox"
           required
-          disabled={!contractHtml}
+          disabled={!contractHtml || !contractAcceptanceToken}
           checked={contractAccepted}
           onChange={(e) => setContractAccepted(e.target.checked)}
         />

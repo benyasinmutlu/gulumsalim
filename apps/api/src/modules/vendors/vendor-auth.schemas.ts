@@ -92,6 +92,7 @@ export const updateVendorProfileSchema = z.object({
   taxId: corporateTaxIdSchema.optional(),
   legalAddress: z.string().trim().min(10, "Açık adres giriniz").max(500).optional(),
   currentPassword: z.string().max(72).optional(),
+  bankOwnershipConfirmed: z.boolean().optional(),
   newPassword: passwordSchema.optional(),
 }).superRefine((data, ctx) => {
   if (data.bankIban && (!data.bankAccountHolder || data.bankAccountHolder.length < 2)) {

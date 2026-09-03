@@ -17,6 +17,7 @@ import {
   createOrder,
   fetchProductsForCheckout,
   fetchVendorsForCheckout,
+  findOrderByCheckoutIdempotencyKey,
   findOrderByPaymentRef,
   findOrderItemsForDetail,
   findOrderItemsForPayment,
@@ -24,12 +25,13 @@ import {
   InsufficientStockError,
   markOrderPaid,
   markOrderPaymentFailed,
-  setOrderPaymentRef,
+  setOrderCheckoutPaymentData,
 } from "./order.repository";
 import { isVerifiedSuccessfulPayment, verifyPaymentItemTransactions } from "./order-security";
 import { recordCouponRedemption } from "./coupon.repository";
 import { createOrderAccessToken } from "./order-access-token";
 import { resolveCheckoutTotals } from "./checkout-totals";
+import { checkoutPayloadDigest, createContractAcceptanceToken, verifyContractAcceptanceToken } from "./checkout-security";
 
 export { InsufficientStockError };
 
@@ -38,6 +40,78 @@ export class UnavailableItemsError extends Error {}
 export class PaymentInitError extends Error {}
 export class GuestEmailRequiredError extends Error {}
 export class EmailBelongsToAccountError extends Error {}
+export class InvalidContractAcceptanceError extends Error {}
+export class IdempotencyConflictError extends Error {}
+export class CheckoutInProgressError extends Error {}
+
+function contractAcceptanceState(input: {
+  sessionBinding: string;
+  identityNumber: string;
+  cartLines: Array<{ productId: number; variantId: number | null; quantity: number }>;
+  buyer: { fullName: string; phone: string; email: string; city: string; district: string; addressLine: string; zipCode?: string };
+  vendorBlocks: ContractVendorBlock[];
+  subtotal: string;
+  shippingFee: string;
+  couponCode?: string | null;
+  discountAmount: string;
+  total: string;
+}) {
+  return {
+    version: 1,
+    sessionBinding: input.sessionBinding,
+    identityNumber: input.identityNumber,
+    cartLines: input.cartLines,
+    buyer: input.buyer,
+    vendorBlocks: input.vendorBlocks,
+    subtotal: input.subtotal,
+    shippingFee: input.shippingFee,
+    couponCode: input.couponCode ?? null,
+    discountAmount: input.discountAmount,
+    total: input.total,
+  };
+}
+
+function cartAcceptanceLines(cart: CartLine[]) {
+  return cart
+    .map((line) => ({
+      productId: line.productId,
+      variantId: line.variantId ?? null,
+      quantity: line.quantity,
+    }))
+    .sort((left, right) =>
+      left.productId - right.productId
+      || (left.variantId ?? 0) - (right.variantId ?? 0),
+    );
+}
+
+async function resolveCheckoutCustomerContext(sessionCustomerId: number | undefined, email: string | undefined) {
+  if (sessionCustomerId) {
+    const customer = await findCustomerById(sessionCustomerId);
+    if (!customer) throw new Error("Müşteri bulunamadı");
+    return { email: customer.email, customerIdForTotals: customer.id };
+  }
+  if (!email) throw new GuestEmailRequiredError();
+
+  const existing = await findCustomerByEmail(email);
+  if (existing && !existing.isGuest) throw new EmailBelongsToAccountError();
+  return { email: existing?.email ?? email, customerIdForTotals: existing?.id };
+}
+
+function replayExistingCheckout(
+  existing: Awaited<ReturnType<typeof findOrderByCheckoutIdempotencyKey>>,
+  customerId: number,
+  requestHash: string,
+) {
+  if (!existing) return null;
+  if (existing.customerId !== customerId || existing.checkoutRequestHash !== requestHash) {
+    throw new IdempotencyConflictError();
+  }
+  if (existing.checkoutFormContent) {
+    return { orderNumber: existing.orderNumber, checkoutFormContent: existing.checkoutFormContent };
+  }
+  if (existing.paymentStatus === "pending") throw new CheckoutInProgressError();
+  throw new IdempotencyConflictError();
+}
 
 // checkout.php'deki misafir sipariş akışının karşılığı - oturum açmış
 // müşteride sessionCustomerId zaten var, aksi halde e-posta zorunlu ve bu
@@ -102,17 +176,13 @@ export async function previewContract(
   sessionCustomerId: number | undefined,
   cart: CartLine[],
   shippingAddress: ShippingAddress,
+  identityNumber: string,
+  sessionBinding: string,
   email?: string,
   couponCode?: string,
 ) {
   if (cart.length === 0) throw new EmptyCartError();
-
-  let buyerEmail = email;
-  if (sessionCustomerId) {
-    const customer = await findCustomerById(sessionCustomerId);
-    buyerEmail = customer?.email ?? email;
-  }
-  if (!buyerEmail) throw new GuestEmailRequiredError();
+  const customerContext = await resolveCheckoutCustomerContext(sessionCustomerId, email);
 
   const hydrated = await hydrateCart(cart);
   if (hydrated.items.length === 0 || hydrated.items.length !== cart.length) {
@@ -123,7 +193,7 @@ export async function previewContract(
   const productRows = await fetchProductsForCheckout(productIds);
   const productMap = new Map(productRows.map((p) => [p.id, p]));
 
-  const totals = await resolveCheckoutTotals(hydrated.items, productMap, couponCode, sessionCustomerId);
+  const totals = await resolveCheckoutTotals(hydrated.items, productMap, couponCode, customerContext.customerIdForTotals);
 
   const items = hydrated.items.map((item) => {
     const product = productMap.get(item.productId);
@@ -139,23 +209,46 @@ export async function previewContract(
 
   const vendorBlocks = await buildContractVendorBlocks(items);
 
-  return renderDistanceSalesContract({
-    buyer: {
-      fullName: shippingAddress.fullName,
-      phone: shippingAddress.phone,
-      email: buyerEmail,
-      city: shippingAddress.city,
-      district: shippingAddress.district,
-      addressLine: shippingAddress.addressLine,
-    },
+  const buyer = {
+    fullName: shippingAddress.fullName,
+    phone: shippingAddress.phone,
+    email: customerContext.email,
+    city: shippingAddress.city,
+    district: shippingAddress.district,
+    addressLine: shippingAddress.addressLine,
+    zipCode: shippingAddress.zipCode,
+  };
+  const contractData = {
+    buyer,
     vendorBlocks,
     subtotal: totals.subtotal.toFixed(2),
     shippingFee: totals.shippingFee.toFixed(2),
     couponCode: totals.couponCode,
     discountAmount: totals.discountAmount.toFixed(2),
     total: totals.total.toFixed(2),
-    date: new Date(),
+  };
+  const acceptanceState = contractAcceptanceState({
+    ...contractData,
+    identityNumber,
+    sessionBinding,
+    cartLines: cartAcceptanceLines(cart),
   });
+
+  return {
+    html: renderDistanceSalesContract({
+      ...contractData,
+      buyer: {
+        fullName: buyer.fullName,
+        phone: buyer.phone,
+        email: buyer.email,
+        city: buyer.city,
+        district: buyer.district,
+        addressLine: buyer.addressLine,
+      },
+      date: new Date(),
+    }),
+    contractAcceptanceToken: createContractAcceptanceToken(acceptanceState),
+  };
 }
 
 export async function startCheckout(
@@ -168,9 +261,12 @@ export async function startCheckout(
   couponCode?: string,
   identityNumber?: string,
   buyerIp?: string,
+  contractAcceptanceToken?: string,
+  sessionBinding?: string,
+  checkoutIdempotencyKey?: string,
 ) {
   if (cart.length === 0) throw new EmptyCartError();
-  const customerId = await resolveCustomerId(sessionCustomerId, email, shippingAddress);
+  const customerContext = await resolveCheckoutCustomerContext(sessionCustomerId, email);
 
   // hydrateCart zaten pasif/silinmiş ürünleri sessizce eler - eğer eledikten
   // sonra satır sayısı azaldıysa, kullanıcı hâlâ artık geçersiz bir ürünü
@@ -185,7 +281,7 @@ export async function startCheckout(
   const productMap = new Map(productRows.map((p) => [p.id, p]));
 
   const { subtotal, shippingFee, discountAmount, total, couponId, couponCode: appliedCouponCode, campaignId } =
-    await resolveCheckoutTotals(hydrated.items, productMap, couponCode, customerId);
+    await resolveCheckoutTotals(hydrated.items, productMap, couponCode, customerContext.customerIdForTotals);
   const orderNumber = `GS${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
   const items = hydrated.items.map((item) => {
@@ -203,10 +299,47 @@ export async function startCheckout(
     };
   });
 
+  const vendorBlocks = await buildContractVendorBlocks(items);
+  const buyer = {
+    fullName: shippingAddress.fullName,
+    phone: shippingAddress.phone,
+    email: customerContext.email,
+    city: shippingAddress.city,
+    district: shippingAddress.district,
+    addressLine: shippingAddress.addressLine,
+    zipCode: shippingAddress.zipCode,
+  };
+  const acceptanceState = contractAcceptanceState({
+    sessionBinding: sessionBinding ?? "",
+    identityNumber: identityNumber ?? "",
+    cartLines: cartAcceptanceLines(cart),
+    buyer,
+    vendorBlocks,
+    subtotal: subtotal.toFixed(2),
+    shippingFee: shippingFee.toFixed(2),
+    couponCode: appliedCouponCode,
+    discountAmount: discountAmount.toFixed(2),
+    total: total.toFixed(2),
+  });
+  if (!contractAccepted || !verifyContractAcceptanceToken(contractAcceptanceToken, acceptanceState)) {
+    throw new InvalidContractAcceptanceError();
+  }
+
+  // Geçersiz/eskimiş bir sözleşme token'ı misafir müşteri kaydı oluşturmasın.
+  // Yazma yapan müşteri çözümleme adımı yalnız imzalı kabul doğrulandıktan sonra çalışır.
+  const customerId = await resolveCustomerId(sessionCustomerId, email, shippingAddress);
   const customer = await findCustomerById(customerId);
   if (!customer) throw new Error("Müşteri bulunamadı");
 
-  const vendorBlocks = await buildContractVendorBlocks(items);
+  const requestHash = checkoutPayloadDigest({ acceptanceState, orderNote: orderNote?.trim() || null });
+  if (!checkoutIdempotencyKey) throw new IdempotencyConflictError();
+  const existingCheckout = replayExistingCheckout(
+    await findOrderByCheckoutIdempotencyKey(checkoutIdempotencyKey),
+    customerId,
+    requestHash,
+  );
+  if (existingCheckout) return existingCheckout;
+
   const contractSnapshot = renderDistanceSalesContract({
     buyer: {
       fullName: shippingAddress.fullName,
@@ -226,21 +359,38 @@ export async function startCheckout(
     date: new Date(),
   });
 
-  const { order } = await createOrder({
-    customerId,
-    orderNumber,
-    subtotal: subtotal.toFixed(2),
-    shippingFee: shippingFee.toFixed(2),
-    couponId: couponId ?? undefined,
-    campaignId: campaignId ?? undefined,
-    discountAmount: discountAmount.toFixed(2),
-    total: total.toFixed(2),
-    shippingAddress,
-    orderNote,
-    items,
-    contractSnapshot,
-    contractAcceptedAt: contractAccepted ? new Date() : undefined,
-  });
+  let createdOrder: Awaited<ReturnType<typeof createOrder>>;
+  try {
+    createdOrder = await createOrder({
+      customerId,
+      orderNumber,
+      subtotal: subtotal.toFixed(2),
+      shippingFee: shippingFee.toFixed(2),
+      couponId: couponId ?? undefined,
+      campaignId: campaignId ?? undefined,
+      discountAmount: discountAmount.toFixed(2),
+      total: total.toFixed(2),
+      shippingAddress,
+      orderNote,
+      items,
+      contractSnapshot,
+      contractAcceptedAt: new Date(),
+      checkoutIdempotencyKey,
+      checkoutRequestHash: requestHash,
+    });
+  } catch (err) {
+    // İki aynı istek aynı milisaniyede gelirse unique anahtarı yalnız biri
+    // kazanır. Kaybeden ikinci bir sipariş üretmez; kazananın sonucunu
+    // döndürür veya ilk istek hâlâ iyzico cevabını yazıyorsa 409 verir.
+    const winner = replayExistingCheckout(
+      await findOrderByCheckoutIdempotencyKey(checkoutIdempotencyKey),
+      customerId,
+      requestHash,
+    );
+    if (winner) return winner;
+    throw err;
+  }
+  const { order } = createdOrder;
 
   // bkz. kullanıcı isteği: "adres bilgisi yoksa oraya yazdığı adresi
   // kaydettirelim" - sadece GERÇEKTEN giriş yapmış hesaplar için (misafir
@@ -319,7 +469,7 @@ export async function startCheckout(
     throw new PaymentInitError(iyzicoResult.errorMessage ?? "Ödeme başlatılamadı");
   }
 
-  await setOrderPaymentRef(order.id, iyzicoResult.token);
+  await setOrderCheckoutPaymentData(order.id, iyzicoResult.token, iyzicoResult.checkoutFormContent);
 
   return {
     orderNumber: order.orderNumber,

@@ -6,6 +6,7 @@ import { removeProductFromIndex, syncProductToIndex } from "../catalog/search-in
 import { recordAdminAction } from "./admin-audit.repository";
 import { countProductsByStatus, deleteProduct, listAllProducts, ProductHasOrdersError, updateProductStatus } from "./admin-products.repository";
 import { productIdParamsSchema, productListQuerySchema, updateProductStatusSchema } from "./admin-products.schemas";
+import { assertProductReadyForPublication, ProductNotReadyError } from "../catalog/product-readiness.repository";
 
 const byIdsQuerySchema = z.object({ ids: z.string().min(1) });
 
@@ -27,6 +28,16 @@ const adminProductsRoutes: FastifyPluginAsync = async (app) => {
   app.patch("/admin/products/:id", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { id } = productIdParamsSchema.parse(request.params);
     const { status } = updateProductStatusSchema.parse(request.body);
+    if (status === "active") {
+      try {
+        await assertProductReadyForPublication(id);
+      } catch (err) {
+        if (err instanceof ProductNotReadyError) {
+          return reply.status(400).send({ error: { code: "product_incomplete", message: err.message, details: { issues: err.issues } } });
+        }
+        throw err;
+      }
+    }
     const row = await updateProductStatus(id, status);
     if (!row) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
     recordAdminAction(request.session.adminId!, status, "product", id, `"${row.name}" ürününün durumu "${status}" olarak değiştirildi`).catch(() => {});

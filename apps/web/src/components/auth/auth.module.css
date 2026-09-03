@@ -3,17 +3,17 @@
    (:root) devralınır; burada yalnız motion/elevation/atmosfer eklenir. */
 
 .shell {
-  --auth-accent: var(--color-primary, #24201c);
-  --auth-accent-dark: var(--color-primary-dark, #171512);
-  --auth-gold: var(--color-gold, #6b5d4f);
-  --auth-mauve: var(--color-secondary, #625b53);
+  --auth-accent: var(--color-primary, #111111);
+  --auth-accent-dark: var(--color-primary-dark, #000000);
+  --auth-gold: var(--color-gold, #8a7658);
+  --auth-mauve: var(--color-secondary, #4c4a47);
   --auth-radius: 20px;
   --auth-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   min-height: 100svh;
   display: grid;
   grid-template-columns: 1.05fr 1fr;
-  background: var(--color-bg, #f4f0e9);
+  background: var(--color-bg, #ffffff);
   color: var(--color-text, #211e1a);
   font-family: var(--font-outfit), "Outfit", system-ui, sans-serif;
   position: relative;
@@ -32,7 +32,7 @@
   background:
     radial-gradient(120% 90% at 15% 15%, rgba(21, 21, 21, 0.08), transparent 55%),
     radial-gradient(130% 100% at 85% 85%, rgba(128, 106, 79, 0.18), transparent 55%),
-    linear-gradient(150deg, #f4f0e9 0%, #e9e2d8 45%, #e2d9cd 100%);
+    linear-gradient(150deg, #ffffff 0%, #f4f3f1 48%, #e7e6e3 100%);
 }
 /* ince grain - self-contained SVG noise, dış istek yok */
 .brand::after {
@@ -107,7 +107,7 @@
 .lede {
   font-size: clamp(1rem, 0.95rem + 0.3vw, 1.15rem);
   line-height: 1.6;
-  color: var(--color-text-light, #625b53);
+  color: var(--color-text-light, #5f5d59);
   margin: 0 0 clamp(1.75rem, 4vh, 2.75rem);
   max-width: 26rem;
 }
@@ -150,7 +150,7 @@
   width: 100%;
   max-width: 27rem;
   background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border, #d4cbc0);
+  border: 1px solid var(--color-border, #d8d7d4);
   border-radius: var(--auth-radius);
   padding: clamp(1.75rem, 1rem + 2vw, 2.75rem);
   box-shadow:
@@ -172,7 +172,7 @@
   border-radius: 11px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-text-light, #625b53);
+  color: var(--color-text-light, #5f5d59);
   text-decoration: none;
   transition: color 0.2s, background 0.25s, box-shadow 0.25s;
 }
@@ -191,7 +191,7 @@
   margin: 0 0 0.4rem;
 }
 .subtitle {
-  color: var(--color-text-light, #625b53);
+  color: var(--color-text-light, #5f5d59);
   font-size: 0.95rem;
   margin: 0 0 1.6rem;
 }
@@ -233,8 +233,8 @@
   font: inherit;
   font-size: 0.95rem;
   color: var(--color-text, #211e1a);
-  background: var(--color-bg, #f4f0e9);
-  border: 1.5px solid var(--color-border, #d4cbc0);
+  background: var(--color-bg, #ffffff);
+  border: 1.5px solid var(--color-border, #d8d7d4);
   border-radius: 12px;
   padding: 0.8rem 0.95rem 0.8rem 2.6rem;
   transition: border-color 0.2s var(--auth-ease), box-shadow 0.2s var(--auth-ease), background 0.2s;

@@ -33,6 +33,9 @@ export const vendors = pgTable("vendors", {
   bankName: text("bank_name"),
   bankIban: text("bank_iban"),
   bankAccountHolder: text("bank_account_holder"),
+  // IBAN değişikliği sonrası ele geçirilmiş hesapların anında para çekmesini
+  // engelleyen güvenlik bekleme süresinin başlangıcı.
+  bankAccountChangedAt: timestamp("bank_account_changed_at", { withTimezone: true, precision: 3 }),
   logo: text("logo"),
   isVerified: boolean("is_verified").notNull().default(false),
   // vendor/store.php'nin karşılığı: mağaza profili alanları - önceki

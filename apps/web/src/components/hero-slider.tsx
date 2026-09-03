@@ -71,7 +71,13 @@ export default function HeroSlider({ slides, intervalMs = 6000 }: { slides: Admi
                 </p>
               )}
               {slide.linkUrl && (
-                <div className="hero-actions">
+                <div
+                  className="hero-actions"
+                  style={{
+                    justifyContent:
+                      textAlign === "center" ? "center" : textAlign === "right" ? "flex-end" : "flex-start",
+                  }}
+                >
                   <Link href={slide.linkUrl} className="btn btn-primary btn-lg">
                     {slide.buttonText || "İncele"}
                   </Link>

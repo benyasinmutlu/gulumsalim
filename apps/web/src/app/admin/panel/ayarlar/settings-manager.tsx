@@ -19,10 +19,10 @@ const TABS = [
 ] as const;
 
 const DEFAULT_COLORS = {
-  color_primary: "#24201C",
-  color_primary_dark: "#171512",
-  color_secondary: "#625B53",
-  color_accent: "#6B5D4F",
+  color_primary: "#111111",
+  color_primary_dark: "#000000",
+  color_secondary: "#4C4A47",
+  color_accent: "#6F6B65",
 };
 
 const SYSTEM_DEFAULT_COLORS: Record<keyof typeof DEFAULT_COLORS, string[]> = {

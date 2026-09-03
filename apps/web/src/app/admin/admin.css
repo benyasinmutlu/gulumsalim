@@ -10,29 +10,29 @@
    ============================================ */
 
 :root {
-    --admin-bg: #f4f0e9;
-    --admin-surface: #fcfaf7;
-    --admin-surface-2: #e9e2d8;
-    --admin-surface-3: #e2d9cd;
-    --admin-border: #d4cbc0;
-    --admin-text: #211e1a;
-    --admin-text-secondary: #625b53;
-    --admin-text-muted: #746c62;
-    --admin-primary: #24201c;
-    --admin-primary-light: rgba(36,32,28,.07);
-    --admin-primary-glow: rgba(36,32,28,.16);
-    --admin-accent: #6b5d4f;
-    --admin-accent-light: rgba(107,93,79,.12);
+    --admin-bg: #f6f6f5;
+    --admin-surface: #ffffff;
+    --admin-surface-2: #f1f1ef;
+    --admin-surface-3: #e7e6e3;
+    --admin-border: #d9d8d5;
+    --admin-text: #151515;
+    --admin-text-secondary: #5d5b57;
+    --admin-text-muted: #77746f;
+    --admin-primary: #111111;
+    --admin-primary-light: rgba(17,17,17,.06);
+    --admin-primary-glow: rgba(17,17,17,.14);
+    --admin-accent: #6f6b65;
+    --admin-accent-light: rgba(111,107,101,.11);
     --admin-success: #0ba36b;
     --admin-warning: #c98a00;
     --admin-error: #e23b52;
     --admin-info: #0d92b8;
-    --admin-purple: #594c41;
+    --admin-purple: #56535e;
     --admin-sidebar-width: 260px;
     --admin-header-height: 60px;
     --admin-radius: 12px;
     --admin-radius-lg: 16px;
-    --admin-shadow: 0 8px 28px rgba(36,32,28,.09);
+    --admin-shadow: 0 8px 28px rgba(17,17,17,.08);
     --admin-transition: .2s cubic-bezier(.4,0,.2,1);
 }
 

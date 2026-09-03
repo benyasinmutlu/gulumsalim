@@ -211,7 +211,7 @@ export default function FinancePanel() {
                 <form className="fc" onSubmit={handleSubmit}>
                   <div className="payout-account-summary">
                     <strong>Ödeme yapılacak hesap</strong>
-                    <span>Bu bilgiler kaydedilir ve sonraki talebinizde otomatik doldurulur.</span>
+                    <span>Ödeme yalnız Ayarlar bölümünde şifreyle doğruladığınız hesaba yapılır. Hesap değişikliklerinde 24 saat güvenlik beklemesi vardır.</span>
                     <Link href="/satici/panel/ayarlar">Banka ayarlarına git</Link>
                   </div>
                   <div className="fg">
@@ -222,7 +222,7 @@ export default function FinancePanel() {
                       maxLength={120}
                       autoComplete="name"
                       value={accountHolder}
-                      onChange={(e) => setAccountHolder(e.target.value)}
+                      readOnly
                       placeholder="Ad Soyad / Firma Unvanı"
                     />
                   </div>
@@ -243,7 +243,7 @@ export default function FinancePanel() {
                   </div>
                   <div className="fg">
                     <label>IBAN <span className="req">*</span></label>
-                    <input className="fi" required inputMode="text" autoComplete="off" value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} placeholder="TR00 0000 0000 0000 0000 0000 00" />
+                    <input className="fi" required inputMode="text" autoComplete="off" value={iban} readOnly placeholder="TR00 0000 0000 0000 0000 0000 00" />
                   </div>
                   <div className="fg">
                     <label>Not</label>

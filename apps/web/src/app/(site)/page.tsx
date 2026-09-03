@@ -16,7 +16,6 @@ import { getSiteStats } from "@/lib/site-stats";
 import PopularVendorsSection from "@/components/popular-vendors-section";
 import CampaignVendorsSection from "@/components/campaign-vendors-section";
 import HeroSlider from "@/components/hero-slider";
-import CategorySidebar from "@/components/category-sidebar";
 import HomeHeroCards from "@/components/home-hero-cards";
 import CountdownTimer from "@/components/countdown-timer";
 import ProductCard from "@/components/product-card";
@@ -320,9 +319,9 @@ export default async function Home() {
   ].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
-    <main className="main-content">
+    <main className="main-content premium-home">
+      <section className="home-stage" aria-label="Öne çıkan koleksiyonlar">
       <div className="container home-hero-row">
-        <CategorySidebar categories={categories} />
         <div className="home-hero-main">
           {sliders.length > 0 ? (
             <HeroSlider slides={sliders} intervalMs={heroIntervalMs} />
@@ -344,10 +343,55 @@ export default async function Home() {
         </div>
         <HomeHeroCards featuredCoupon={featuredCoupon} saleProducts={saleProducts} siteStats={siteStats} />
       </div>
+      </section>
 
-      <div className="container">
+      <section className="container home-discovery-strip" aria-labelledby="home-discovery-title">
+        <div className="home-discovery-heading">
+          <span className="section-tag">Hızlı keşif</span>
+          <h2 id="home-discovery-title">Aradığın stile doğrudan ulaş</h2>
+        </div>
         <QuickLinksRow />
-      </div>
+      </section>
+
+      {categories.length > 0 && (
+        <section className="categories-section home-categories">
+          <div className="container">
+            <div className="section-header section-header-flex home-section-heading">
+              <div>
+                <span className="section-tag">Stiline göre keşfet</span>
+                <h2 className="section-title">Kategoriler</h2>
+                <p className="section-subtitle">
+                  {categoryAffinity.size > 0
+                    ? "İlgilendiğin kategoriler senin için öne alındı."
+                    : "Gardırobunu tamamlayacak seçkiler arasında kolayca gezin."}
+                </p>
+              </div>
+              <Link href="/urunler" className="section-cta">
+                Tüm ürünler <i className="fas fa-arrow-right" />
+              </Link>
+            </div>
+            <HscrollArrows>
+              <div className="category-grid hcat-grid">
+                {personalizedCategories.map((c, i) => (
+                  <Link key={c.id} href={`/${c.slug}`} className={`hcat-card hcat-tint-${i % 4}`}>
+                    <div className="hcat-img-wrap">
+                      {c.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.image} alt={c.name} className="hcat-img" />
+                      )}
+                      <div className="hcat-overlay" />
+                      <span className="hcat-icon-badge">
+                        <i className={c.icon || "fas fa-tag"} />
+                      </span>
+                      <span className="hcat-name">{c.name}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </HscrollArrows>
+          </div>
+        </section>
+      )}
 
       {/* bkz. kullanıcı isteği (mockup): "Fırsatları Kaçırma! 🔥" hero'nun
           hemen altındaki İLK ürün satırı olmalı - önceki halde burada
@@ -356,7 +400,7 @@ export default async function Home() {
           bkz. kullanıcı isteği (2026-08-02): "timer'ı kaldır" - önceki
           gece-yarısına-kadar geri sayım kaldırıldı. */}
       <ScrollReveal anim="fade-up">
-        <ProductRow title="Fırsatları Kaçırma! 🔥" ctaHref="/urunler?saleOnly=true" products={saleProducts} />
+        <ProductRow title="Seçili Fırsatlar" subtitle="Fiyatı düşen ürünlerden editoryal bir seçki" ctaHref="/urunler?saleOnly=true" products={saleProducts} />
       </ScrollReveal>
 
       {saleProducts.length > 0 && (
@@ -373,20 +417,6 @@ export default async function Home() {
           banner'ları VE kategori vitrinleri (yeni algoType="category",
           bkz. admin panel "Anasayfa Bölümleri") SADECE aşağıdaki tek,
           admin-sıralı layoutItems akışından geliyor, tekrar yok. */}
-
-      {/* Yuvarlak "Popüler Kategoriler" satırı kaldırıldı - aşağıdaki fotoğraflı
-          "Kategorilere Göre Alışveriş" ile duplicate + görsel olarak daha zayıftı. */}
-      <ScrollReveal anim="fade-up">
-        <CampaignVendorsSection vendors={campaignVendors} />
-      </ScrollReveal>
-
-      <ScrollReveal anim="fade-up">
-        <PopularVendorsSection vendors={vendors} />
-      </ScrollReveal>
-
-      <ScrollReveal anim="fade-up">
-        <NewsletterBanner />
-      </ScrollReveal>
 
       {/* bkz. kullanıcı isteği: "müşteri giriş yapmışsa yasin, sana özel
           ürünler olsun" - kişiselleştirilmiş akış varsa başlıkta müşterinin
@@ -416,41 +446,6 @@ export default async function Home() {
           products={discover.items}
         />
       </ScrollReveal>
-
-      {categories.length > 0 && (
-        <section className="categories-section">
-          <div className="container">
-            <div className="section-header">
-              <span className="section-tag">Koleksiyonlarımız</span>
-              <h2 className="section-title">Kategorilere Göre Alışveriş</h2>
-              <p className="section-subtitle">
-                {categoryAffinity.size > 0
-                  ? "Sana göre sıralandı - en çok ilgilendiğin kategoriler önde"
-                  : "Stilinize en uygun parçaları keşfetmek için kategorileri inceleyin"}
-              </p>
-            </div>
-            <HscrollArrows>
-              <div className="category-grid hcat-grid">
-                {personalizedCategories.map((c, i) => (
-                  <Link key={c.id} href={`/${c.slug}`} className={`hcat-card hcat-tint-${i % 4}`}>
-                    <div className="hcat-img-wrap">
-                      {c.image && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.image} alt={c.name} className="hcat-img" />
-                      )}
-                      <div className="hcat-overlay" />
-                      <span className="hcat-icon-badge">
-                        <i className={c.icon || "fas fa-tag"} />
-                      </span>
-                      <span className="hcat-name">{c.name}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </HscrollArrows>
-          </div>
-        </section>
-      )}
 
       {/* bkz. kullanıcı isteği: "buradaki düzen tam olarak anasayfanın
           sıralama olarak birebir aynısı olmalı" - anasayfa bölümleri
@@ -499,7 +494,21 @@ export default async function Home() {
         ),
       )}
 
-      <div className="container" style={{ textAlign: "center", margin: "-20px 0 40px" }}>
+      <section className="home-store-discovery" aria-label="Mağaza keşfi">
+        <ScrollReveal anim="fade-up">
+          <CampaignVendorsSection vendors={campaignVendors} />
+        </ScrollReveal>
+
+        <ScrollReveal anim="fade-up">
+          <PopularVendorsSection vendors={vendors} />
+        </ScrollReveal>
+      </section>
+
+      <ScrollReveal anim="fade-up">
+        <NewsletterBanner />
+      </ScrollReveal>
+
+      <div className="container home-all-products-cta">
         <Link href="/urunler" className="btn btn-secondary btn-lg">
           Tüm Koleksiyonu Gör
         </Link>

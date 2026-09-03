@@ -25,9 +25,9 @@ const LEN_TEXT: Record<string, string> = { short: "Boyun uzun — boy kısa gele
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ border: "1px solid var(--color-border, #d4cbc0)", borderRadius: 14, padding: "14px 16px", background: "var(--color-surface, #fcfaf7)", marginTop: 16 }}>
+    <div style={{ border: "1px solid var(--color-border, #d8d7d4)", borderRadius: 14, padding: "14px 16px", background: "var(--color-surface, #ffffff)", marginTop: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <i className="fas fa-ruler-combined" style={{ color: "var(--color-primary, #24201c)" }} />
+        <i className="fas fa-ruler-combined" style={{ color: "var(--color-primary, #111111)" }} />
         <strong style={{ fontSize: 15 }}>Beden Uyum Önerisi</strong>
       </div>
       {children}
@@ -50,7 +50,7 @@ export default function FitPanel({ slug }: { slug: string }) {
     return (
       <Shell>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--color-text-light, #5f5f5b)" }}>
-          Bedenine uygun beden önerisini görmek için <Link href="/giris" style={{ color: "var(--color-primary, #24201c)", fontWeight: 600 }}>giriş yap</Link>.
+          Bedenine uygun beden önerisini görmek için <Link href="/giris" style={{ color: "var(--color-primary, #111111)", fontWeight: 600 }}>giriş yap</Link>.
         </p>
       </Shell>
     );
@@ -60,7 +60,7 @@ export default function FitPanel({ slug }: { slug: string }) {
     return (
       <Shell>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--color-text-light, #5f5f5b)" }}>
-          Sana özel beden önerisi için profilinden <Link href="/hesabim" style={{ color: "var(--color-primary, #24201c)", fontWeight: 600 }}>beden ve boy bilgini</Link> ekle.
+          Sana özel beden önerisi için profilinden <Link href="/hesabim" style={{ color: "var(--color-primary, #111111)", fontWeight: 600 }}>beden ve boy bilgini</Link> ekle.
         </p>
       </Shell>
     );
@@ -70,7 +70,7 @@ export default function FitPanel({ slug }: { slug: string }) {
   return (
     <Shell>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-        <span style={{ background: "var(--color-primary, #24201c)", color: "#fff", fontWeight: 700, fontSize: 14, padding: "4px 12px", borderRadius: 999 }}>
+        <span style={{ background: "var(--color-primary, #111111)", color: "#fff", fontWeight: 700, fontSize: 14, padding: "4px 12px", borderRadius: 999 }}>
           Önerilen beden: {result.recommendedSize}
         </span>
         {result.alternativeSize && (

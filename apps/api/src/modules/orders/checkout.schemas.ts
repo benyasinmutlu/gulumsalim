@@ -35,6 +35,7 @@ export const checkoutSchema = z.object({
   contractAccepted: z.literal(true, {
     errorMap: () => ({ message: "Mesafeli Satış Sözleşmesi'ni onaylamalısınız" }),
   }),
+  contractAcceptanceToken: z.string().min(1, "Sözleşmeyi yeniden görüntüleyin").max(1024),
   selectedLines: z.array(selectedLineSchema).min(1).optional(),
 });
 
@@ -42,9 +43,16 @@ export const checkoutSchema = z.object({
 // contractAccepted burada yok (henüz onay istenmiyor, sadece gösteriliyor).
 export const contractPreviewSchema = z.object({
   shippingAddress: shippingAddressSchema,
+  identityNumber: z.string().trim().min(5).max(30).regex(/^[A-Za-z0-9]+$/, "Geçerli bir kimlik veya pasaport numarası girin"),
   email: z.string().email().optional(),
   selectedLines: z.array(selectedLineSchema).min(1).optional(),
 });
+
+export const checkoutIdempotencyKeySchema = z
+  .string()
+  .min(16, "Ödeme güvenlik anahtarı geçersiz")
+  .max(128, "Ödeme güvenlik anahtarı geçersiz")
+  .regex(/^[A-Za-z0-9._:-]+$/, "Ödeme güvenlik anahtarı geçersiz");
 
 export type ShippingAddress = z.infer<typeof shippingAddressSchema>;
 export type SelectedLine = z.infer<typeof selectedLineSchema>;

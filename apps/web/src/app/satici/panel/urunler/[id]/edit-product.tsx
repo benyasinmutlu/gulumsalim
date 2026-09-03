@@ -22,7 +22,15 @@ const STATUS_CLASS: Record<VendorProduct["status"], string> = {
   rejected: "danger",
 };
 
-export default function EditProduct({ productId }: { productId: number }) {
+export default function EditProduct({
+  productId,
+  setupIncomplete = false,
+  setupMissing,
+}: {
+  productId: number;
+  setupIncomplete?: boolean;
+  setupMissing?: string;
+}) {
   // bkz. kullanıcı isteği: "bireysel satıcıları ... yerleri daha basit ve
   // kullanımı kolay olsun" - beden/renk/stok varyant yönetimi tek parça
   // satan bir bireysel satıcı için gereksiz karmaşıklık (bkz. sidebar-nav.tsx
@@ -277,6 +285,15 @@ export default function EditProduct({ productId }: { productId: number }) {
 
   return (
     <div>
+      {setupIncomplete && (
+        <div className="alert alert-wa" role="alert">
+          <i className="fas fa-triangle-exclamation" />
+          <span>
+            Ürün güvenli biçimde taslakta tutuldu. Yüklenemeyen bölüm: {setupMissing || "ürün kurulumu"}.
+            Eksikleri tamamladıktan sonra yeniden onaya gönderin.
+          </span>
+        </div>
+      )}
       <div className="card">
         <div className="ch">
           <h3>Ürün Bilgileri</h3>

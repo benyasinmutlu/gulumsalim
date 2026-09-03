@@ -1,5 +1,5 @@
 import { FastifyPluginAsync, FastifyReply } from "fastify";
-import { checkoutSchema, contractPreviewSchema, type SelectedLine } from "./checkout.schemas";
+import { checkoutIdempotencyKeySchema, checkoutSchema, contractPreviewSchema, type SelectedLine } from "./checkout.schemas";
 import { hydrateCart, lineKey } from "../cart/cart.service";
 import type { CartLine } from "../cart/cart.types";
 import { syncCartProductIndex } from "../../lib/cart-product-index";
@@ -17,7 +17,10 @@ import {
   EmptyCartError,
   GuestEmailRequiredError,
   handlePaymentCallback,
+  IdempotencyConflictError,
+  CheckoutInProgressError,
   InsufficientStockError,
+  InvalidContractAcceptanceError,
   PaymentInitError,
   previewContract,
   startCheckout,
@@ -59,11 +62,19 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
   // previewContract yorumu), aksi halde her önizleme açılışı boş misafir
   // hesabı biriktirirdi.
   app.post("/checkout/contract-preview", async (request, reply) => {
-    const { shippingAddress, email, selectedLines } = contractPreviewSchema.parse(request.body);
+    const { shippingAddress, identityNumber, email, selectedLines } = contractPreviewSchema.parse(request.body);
     try {
       const cart = filterCartBySelection(request.session.cart ?? [], selectedLines);
-      const html = await previewContract(request.session.customerId, cart, shippingAddress, email, request.session.couponCode);
-      return reply.send({ html });
+      const preview = await previewContract(
+        request.session.customerId,
+        cart,
+        shippingAddress,
+        identityNumber,
+        request.session.sessionId,
+        email,
+        request.session.couponCode,
+      );
+      return reply.send(preview);
     } catch (err) {
       if (err instanceof EmptyCartError) {
         return reply.status(400).send({ error: { message: "Sepetiniz boş" } });
@@ -74,13 +85,18 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
       if (err instanceof GuestEmailRequiredError) {
         return reply.status(400).send({ error: { message: "Üye değilseniz e-posta adresinizi girmelisiniz" } });
       }
+      if (err instanceof EmailBelongsToAccountError) {
+        return reply.status(409).send({ error: { message: "Bu e-posta adresine kayıtlı bir hesap var, lütfen giriş yapın" } });
+      }
       if (couponErrorReply(reply, err)) return;
       throw err;
     }
   });
 
   app.post("/checkout", { preHandler: app.csrfProtection }, async (request, reply) => {
-    const { shippingAddress, identityNumber, email, orderNote, contractAccepted, selectedLines } = checkoutSchema.parse(request.body);
+    const { shippingAddress, identityNumber, email, orderNote, contractAccepted, contractAcceptanceToken, selectedLines } = checkoutSchema.parse(request.body);
+    const rawIdempotencyKey = request.headers["idempotency-key"];
+    const idempotencyKey = checkoutIdempotencyKeySchema.parse(Array.isArray(rawIdempotencyKey) ? rawIdempotencyKey[0] : rawIdempotencyKey);
     try {
       const cart = filterCartBySelection(request.session.cart ?? [], selectedLines);
       const result = await startCheckout(
@@ -93,6 +109,9 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
         request.session.couponCode,
         identityNumber,
         request.ip,
+        contractAcceptanceToken,
+        request.session.sessionId,
+        idempotencyKey,
       );
       // bkz. kullanıcı isteği: "ödeme bekleniyor veya ödeme başarısız olunca
       // siparişlerde listeleme sepette kalmaya devam etsin ürünler" - sepet
@@ -123,6 +142,15 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
       }
       if (err instanceof EmailBelongsToAccountError) {
         return reply.status(409).send({ error: { message: "Bu e-posta adresine kayıtlı bir hesap var, lütfen giriş yapın" } });
+      }
+      if (err instanceof InvalidContractAcceptanceError) {
+        return reply.status(409).send({ error: { code: "contract_changed", message: "Sepet veya teslimat bilgileriniz değişti. Sözleşmeyi yeniden görüntüleyip onaylayın." } });
+      }
+      if (err instanceof IdempotencyConflictError) {
+        return reply.status(409).send({ error: { code: "idempotency_conflict", message: "Bu ödeme denemesi farklı bilgilerle daha önce kullanılmış. Sayfayı yenileyip tekrar deneyin." } });
+      }
+      if (err instanceof CheckoutInProgressError) {
+        return reply.status(409).send({ error: { code: "checkout_in_progress", message: "Ödeme isteğiniz işleniyor. Birkaç saniye sonra tekrar deneyin; yeniden sipariş oluşturulmayacak." } });
       }
       if (err instanceof PaymentInitError) {
         return reply.status(502).send({ error: { message: err.message } });

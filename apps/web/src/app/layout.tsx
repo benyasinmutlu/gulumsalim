@@ -31,10 +31,10 @@ const cormorant = Cormorant_Garamond({
 const SITE_URL = "https://gulumsalim.com";
 
 const SYSTEM_THEME_COLORS = {
-  primary: ["#C06C84", "#151515", "#24201C"],
-  primaryDark: ["#8B3A62", "#2F2F2D", "#171512"],
-  secondary: ["#6C5B7B", "#5F5F5B", "#625B53"],
-  accent: ["#F67280", "#806A4F", "#6B5D4F"],
+  primary: ["#C06C84", "#151515", "#24201C", "#111111"],
+  primaryDark: ["#8B3A62", "#2F2F2D", "#171512", "#000000"],
+  secondary: ["#6C5B7B", "#5F5F5B", "#625B53", "#4C4A47"],
+  accent: ["#F67280", "#806A4F", "#6B5D4F", "#6F6B65"],
 } as const;
 
 function customThemeColor(value: string | undefined, systemDefaults: readonly string[]) {
@@ -136,7 +136,7 @@ export default async function RootLayout({
   const pixelId = settings.meta_pixel_id;
 
   return (
-    <html lang="tr" className={`${outfit.variable} ${cormorant.variable}`}>
+    <html lang="tr" className={`${outfit.variable} ${cormorant.variable}`} data-scroll-behavior="smooth">
       <head>
         {/* gulumsalim.com'daki ikon setiyle birebir aynı - Font Awesome 6.5.1 */}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />

@@ -62,6 +62,13 @@ export const orders = pgTable("orders", {
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
   paymentProvider: text("payment_provider").notNull().default("iyzico"),
   paymentRef: text("payment_ref"),
+  // Tarayıcının tek bir ödeme denemesi boyunca sabit tuttuğu anahtar. Ağ
+  // yanıtı kaybolsa veya butona iki kez basılsa da ikinci sipariş/stok
+  // rezervasyonu oluşmaz. Form içeriği de başarılı ilk cevabı tekrar
+  // döndürebilmek için saklanır.
+  checkoutIdempotencyKey: text("checkout_idempotency_key"),
+  checkoutRequestHash: text("checkout_request_hash"),
+  checkoutFormContent: text("checkout_form_content"),
   // iyzico'nun checkoutForm.retrieve yanitindaki paymentId - refund/iade
   // API'si (refundV2.create) bir odemeyi geri almak icin token'i degil bu
   // ID'yi ister (bkz. iyzico.client.ts refundPayment). Odeme basarili
@@ -91,6 +98,7 @@ export const orders = pgTable("orders", {
 }, (table) => ({
   customerIdx: index("idx_orders_customer").on(table.customerId, table.createdAt),
   paymentRefUnique: uniqueIndex("uniq_orders_payment_ref").on(table.paymentRef),
+  checkoutIdempotencyKeyUnique: uniqueIndex("uniq_orders_checkout_idempotency_key").on(table.checkoutIdempotencyKey),
   moneyCheck: check("order_money_check", sql`${table.subtotal} >= 0 AND ${table.shippingFee} >= 0 AND ${table.discountAmount} >= 0 AND ${table.discountAmount} <= ${table.subtotal} AND ${table.total} = ${table.subtotal} - ${table.discountAmount} + ${table.shippingFee}`),
 }));
 

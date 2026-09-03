@@ -7,6 +7,7 @@ import { slugify } from "../../lib/slugify";
 import { findCustomerById } from "../auth/auth.repository";
 import { deleteVendorIfNoBusinessHistory } from "../admin/admin-vendors.repository";
 import { notifyVendorActivated } from "../notifications/vendor-activation-notification.service";
+import { createNotification } from "../notifications/notifications.repository";
 import {
   consumeVendorResetToken,
   closeVendorAccount,
@@ -39,6 +40,8 @@ export class VendorBannedError extends Error {}
 // satıcıya "hesabınız yasaklandı" demek yanıltıcı/rahatsız edici olurdu.
 export class VendorClosedError extends Error {}
 export class WrongCurrentPasswordError extends Error {}
+export class BankAccountOwnerMismatchError extends Error {}
+export class BankAccountConfirmationError extends Error {}
 export class InvalidResetTokenError extends Error {}
 export class EmailNotVerifiedError extends Error {}
 export class VendorNotFoundError extends Error {}
@@ -222,18 +225,72 @@ export async function resendVendorVerificationEmail(email: string) {
 }
 
 export async function updateVendorAccount(vendorId: number, input: UpdateVendorProfileInput) {
-  const { currentPassword, newPassword, ...rest } = input;
+  const { currentPassword, newPassword, bankOwnershipConfirmed, ...rest } = input;
   const data: Record<string, unknown> = { ...rest };
 
+  const vendor = await findVendorById(vendorId);
+  if (!vendor) throw new Error("Satıcı bulunamadı");
+
+  const bankFieldsSupplied = rest.bankIban !== undefined || rest.bankAccountHolder !== undefined || rest.bankName !== undefined;
+  const bankChanged = bankFieldsSupplied && (
+    (rest.bankIban ?? vendor.bankIban ?? "") !== (vendor.bankIban ?? "")
+    || (rest.bankAccountHolder ?? vendor.bankAccountHolder ?? "") !== (vendor.bankAccountHolder ?? "")
+    || (rest.bankName ?? vendor.bankName ?? "") !== (vendor.bankName ?? "")
+  );
+
+  if (bankChanged) {
+    const valid = await bcrypt.compare(currentPassword ?? "", vendor.passwordHash);
+    if (!valid) throw new WrongCurrentPasswordError();
+    if (bankOwnershipConfirmed !== true) throw new BankAccountConfirmationError();
+
+    if (vendor.vendorType === "individual" && rest.bankAccountHolder) {
+      const normalizeName = (value: string) => value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[ıİ]/g, "i")
+        .toLocaleLowerCase("tr-TR")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim()
+        .split(/\s+/)
+        .filter((part) => part.length > 1);
+      const holderParts = new Set(normalizeName(rest.bankAccountHolder));
+      const legalNameParts = normalizeName(vendor.fullName);
+      if (legalNameParts.length === 0 || !legalNameParts.every((part) => holderParts.has(part))) {
+        throw new BankAccountOwnerMismatchError();
+      }
+    }
+    data.bankAccountChangedAt = new Date();
+  }
+
   if (newPassword) {
-    const vendor = await findVendorById(vendorId);
-    if (!vendor) throw new Error("Satıcı bulunamadı");
     const valid = await bcrypt.compare(currentPassword ?? "", vendor.passwordHash);
     if (!valid) throw new WrongCurrentPasswordError();
     data.passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
   }
 
-  return updateVendorProfile(vendorId, data);
+  const updated = await updateVendorProfile(vendorId, data);
+  if (bankChanged) {
+    const ibanLastFour = updated.bankIban?.slice(-4) ?? "silindi";
+    createNotification(
+      vendorId,
+      "security",
+      "Banka hesabınız güncellendi",
+      `Ödeme hesabınız değiştirildi (IBAN sonu: ${ibanLastFour}). Bu işlem size ait değilse hemen destek ekibine ulaşın.`,
+      "/satici/panel/ayarlar",
+    ).catch(() => {});
+    sendMail(
+      updated.email,
+      "Banka Hesabı Değişikliği - Gülüm Şalım",
+      renderEmailLayout(
+        "Banka hesabınız güncellendi",
+        emailHeading("Banka Hesabınız Güncellendi")
+          + `<p>Merhaba ${updated.fullName}, ödeme hesabınız değiştirildi (IBAN sonu: <strong>${ibanLastFour}</strong>).</p>`
+          + `<p>Güvenliğiniz için yeni hesaba ödeme talepleri 24 saat sonra açılır.</p>`
+          + emailMuted("Bu işlem size ait değilse hesabınızın şifresini değiştirip destek ekibimizle iletişime geçin."),
+      ),
+    ).catch(() => {});
+  }
+  return updated;
 }
 
 // bkz. kullanıcı isteği (2026-08-02): "satıcı üyelik iptali olacak" - hiç

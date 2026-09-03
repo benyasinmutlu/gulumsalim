@@ -12,6 +12,8 @@ export default function SettingsForm() {
   const [bankName, setBankName] = useState("");
   const [bankIban, setBankIban] = useState("");
   const [bankAccountHolder, setBankAccountHolder] = useState("");
+  const [bankCurrentPassword, setBankCurrentPassword] = useState("");
+  const [bankOwnershipConfirmed, setBankOwnershipConfirmed] = useState(false);
   const [taxId, setTaxId] = useState("");
   const [legalAddress, setLegalAddress] = useState("");
   const [savingBank, setSavingBank] = useState(false);
@@ -40,8 +42,21 @@ export default function SettingsForm() {
     setSavingBank(true);
     setBankMessage(null);
     try {
-      await mutateJson<VendorProfile>("/vendor/auth/me", "PATCH", { phone, bankName, bankIban, bankAccountHolder, taxId, legalAddress });
-      setBankMessage({ type: "ok", text: "Hesap bilgileri kaydedildi" });
+      const updated = await mutateJson<VendorProfile>("/vendor/auth/me", "PATCH", {
+        phone,
+        bankName,
+        bankIban,
+        bankAccountHolder,
+        taxId,
+        legalAddress,
+        ...(bankDetailsChanged
+          ? { currentPassword: bankCurrentPassword, bankOwnershipConfirmed }
+          : {}),
+      });
+      setVendor(updated);
+      setBankMessage({ type: "ok", text: "Hesap bilgileri kaydedildi. Banka hesabı değiştiyse güvenlik için ödemeler 24 saat sonra açılır." });
+      setBankCurrentPassword("");
+      setBankOwnershipConfirmed(false);
     } catch (err) {
       setBankMessage({ type: "err", text: err instanceof ClientApiError ? err.message : "Kaydedilemedi" });
     } finally {
@@ -77,6 +92,11 @@ export default function SettingsForm() {
   if (!vendor) {
     return <div className="card"><div className="card-body">Yükleniyor...</div></div>;
   }
+
+  const bankDetailsChanged =
+    bankName.trim() !== (vendor.bankName ?? "").trim()
+    || bankIban.replace(/\s/g, "").toUpperCase() !== (vendor.bankIban ?? "").replace(/\s/g, "").toUpperCase()
+    || bankAccountHolder.trim() !== (vendor.bankAccountHolder ?? "").trim();
 
   return (
     <div className="row2" style={{ alignItems: "start" }}>
@@ -114,6 +134,15 @@ export default function SettingsForm() {
               <label>Hesap Sahibi</label>
               <input className="fi" value={bankAccountHolder} onChange={(e) => setBankAccountHolder(e.target.value)} />
             </div>
+            <div className="fg">
+              <label>Mevcut Şifre <span className="req">*</span></label>
+              <input className="fi" type="password" required={bankDetailsChanged} value={bankCurrentPassword} onChange={(e) => setBankCurrentPassword(e.target.value)} autoComplete="current-password" />
+              <small>{bankDetailsChanged ? "Banka hesabı değişikliği için yeniden doğrulama zorunludur." : "Yalnız banka hesabını değiştirirken gereklidir."}</small>
+            </div>
+            <label className="ga-consent">
+              <input type="checkbox" required={bankDetailsChanged} checked={bankOwnershipConfirmed} onChange={(e) => setBankOwnershipConfirmed(e.target.checked)} />
+              Bu banka hesabının bana veya işletmeme ait olduğunu onaylıyorum.
+            </label>
             {bankMessage && <p style={{ color: bankMessage.type === "ok" ? "var(--ok)" : "var(--er)", fontSize: "0.85rem" }}>{bankMessage.text}</p>}
             <div>
               <button className="btn btn-pr" type="submit" disabled={savingBank}>

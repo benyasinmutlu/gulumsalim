@@ -12,7 +12,9 @@ vi.mock("./order.repository", () => ({
   findOrderItemsForPayment: vi.fn(),
   createOrder: vi.fn(),
   fetchProductsForCheckout: vi.fn(),
-  setOrderPaymentRef: vi.fn(),
+  fetchVendorsForCheckout: vi.fn(),
+  findOrderByCheckoutIdempotencyKey: vi.fn(),
+  setOrderCheckoutPaymentData: vi.fn(),
   InsufficientStockError: class extends Error {},
 }));
 vi.mock("./iyzico.client", () => ({
@@ -23,6 +25,8 @@ vi.mock("./iyzico.client", () => ({
 }));
 vi.mock("../analytics/events.client", () => ({ emitBehavioralEvent: vi.fn() }));
 vi.mock("../notifications/notifications.repository", () => ({ createNotification: vi.fn() }));
+vi.mock("../cart/cart.service", () => ({ hydrateCart: vi.fn() }));
+vi.mock("./checkout-totals", () => ({ resolveCheckoutTotals: vi.fn() }));
 vi.mock("../auth/auth.repository", () => ({
   findCustomerById: vi.fn(),
   createGuestCustomer: vi.fn(),
@@ -31,8 +35,11 @@ vi.mock("../auth/auth.repository", () => ({
 }));
 vi.mock("../../lib/mailer", () => ({ sendMail: vi.fn() }));
 
-import { handlePaymentCallback } from "./checkout.service";
+import { handlePaymentCallback, InvalidContractAcceptanceError, startCheckout } from "./checkout.service";
 import {
+  createOrder,
+  fetchProductsForCheckout,
+  fetchVendorsForCheckout,
   findOrderByPaymentRef,
   findOrderItemsForDetail,
   findOrderItemsForPayment,
@@ -41,7 +48,10 @@ import {
 } from "./order.repository";
 import { retrieveCheckoutForm } from "./iyzico.client";
 import { emitBehavioralEvent } from "../analytics/events.client";
-import { findCustomerById } from "../auth/auth.repository";
+import { createGuestCustomer, findCustomerByEmail, findCustomerById } from "../auth/auth.repository";
+import { hydrateCart } from "../cart/cart.service";
+import { resolveCheckoutTotals } from "./checkout-totals";
+import { createContractAcceptanceToken } from "./checkout-security";
 
 const fakeApp = { log: { warn: vi.fn() } } as unknown as Parameters<typeof handlePaymentCallback>[0];
 
@@ -153,5 +163,116 @@ describe("handlePaymentCallback (app/ canonical)", () => {
 
     expect(out).toEqual({ orderNumber: baseOrder.orderNumber, success: false });
     expect(emitBehavioralEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe("startCheckout contract gate", () => {
+  const address = {
+    fullName: "Test Müşteri",
+    phone: "05550000000",
+    city: "İstanbul",
+    district: "Beyoğlu",
+    addressLine: "Test Mahallesi No: 1",
+  };
+
+  function prepareCheckoutMocks() {
+    vi.mocked(findCustomerByEmail).mockResolvedValue(null as never);
+    vi.mocked(hydrateCart).mockResolvedValue({
+      items: [{
+        productId: 11,
+        productName: "Test Ürün",
+        productSlug: "test-urun",
+        image: null,
+        unitPrice: "100.00",
+        quantity: 1,
+        lineTotal: "100.00",
+      }],
+    } as never);
+    vi.mocked(fetchProductsForCheckout).mockResolvedValue([
+      { id: 11, vendorId: 3, categoryId: 9, status: "active", vendorStatus: "approved", freeShipping: false, storeName: "Test Mağaza" },
+    ] as never);
+    vi.mocked(fetchVendorsForCheckout).mockResolvedValue([
+      { id: 3, storeName: "Test Mağaza", fullName: "Test Satıcı", vendorType: "individual", taxId: null, legalAddress: null },
+    ] as never);
+    vi.mocked(resolveCheckoutTotals).mockResolvedValue({
+      subtotal: 100,
+      shippingFee: 0,
+      shippingBreakdown: [],
+      freeShippingThreshold: 500,
+      discountAmount: 0,
+      total: 100,
+      couponId: null,
+      couponCode: null,
+      campaignId: null,
+    });
+  }
+
+  it("does not create a guest account when contract acceptance is invalid", async () => {
+    prepareCheckoutMocks();
+
+    await expect(
+      startCheckout(
+        undefined,
+        [{ productId: 11, quantity: 1 }],
+        address,
+        "guest@example.com",
+        undefined,
+        true,
+        undefined,
+        "12345678901",
+        "127.0.0.1",
+        "invalid-token",
+        "session-binding",
+        "checkout-key-123456789",
+      ),
+    ).rejects.toBeInstanceOf(InvalidContractAcceptanceError);
+
+    expect(createGuestCustomer).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects an acceptance token issued for a different product variant", async () => {
+    prepareCheckoutMocks();
+    const token = createContractAcceptanceToken({
+      version: 1,
+      sessionBinding: "session-binding",
+      identityNumber: "12345678901",
+      cartLines: [{ productId: 11, variantId: 101, quantity: 1 }],
+      buyer: { ...address, email: "guest@example.com" },
+      vendorBlocks: [{
+        vendorId: 3,
+        storeName: "Test Mağaza",
+        legalName: "Test Satıcı",
+        taxId: null,
+        legalAddress: null,
+        items: [{ productNameSnapshot: "Test Ürün", unitPrice: "100.00", quantity: 1, total: "100.00" }],
+        lineTotal: "100.00",
+      }],
+      subtotal: "100.00",
+      shippingFee: "0.00",
+      couponCode: null,
+      discountAmount: "0.00",
+      total: "100.00",
+    });
+
+    await expect(
+      startCheckout(
+        undefined,
+        [{ productId: 11, variantId: 202, quantity: 1 }],
+        address,
+        "guest@example.com",
+        undefined,
+        true,
+        undefined,
+        "12345678901",
+        "127.0.0.1",
+        token,
+        "session-binding",
+        "checkout-key-123456789",
+      ),
+    ).rejects.toBeInstanceOf(InvalidContractAcceptanceError);
+
+    expect(createGuestCustomer).not.toHaveBeenCalled();
+    expect(createOrder).not.toHaveBeenCalled();
   });
 });

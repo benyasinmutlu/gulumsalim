@@ -11,6 +11,7 @@ import { z } from "zod";
 import { normalizeProductInput } from "../product-intelligence/normalize/index";
 import { enrichProduct } from "../product-intelligence/enrichment/pipeline";
 import { resolveCategoryValue } from "../product-intelligence/category-resolver";
+import { assertProductReadyForPublication, ProductNotReadyError } from "../catalog/product-readiness.repository";
 import { productFingerprint } from "../product-intelligence/dedupe/fingerprint";
 import {
   deleteProductImageById,
@@ -94,7 +95,10 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
     // satıcıda bu an "pending" (onay bekliyor) demek. Kurumsal satıcıda
     // davranış değişmedi (draft, kendisi aktif eder).
     const vendor = await findVendorById(request.session.vendorId!);
-    const initialStatus = vendor?.vendorType === "individual" ? "pending" : undefined;
+    // Medya ve varyantlar ayrı isteklerle yüklendiği için temel kayıt her
+    // zaman güvenli taslak başlar. Sihirbaz bütün zorunlu parçalar başarılı
+    // olduktan sonra bireysel ürünü ayrıca onaya gönderir.
+    const initialStatus = undefined;
 
     // Metin alanlarını ortak normalizasyon motorundan geçir (kopyala-yapıştırdan
     // gelen zero-width/kontrol karakterlerini temizler, boşlukları sadeleştirir).
@@ -282,6 +286,14 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
           });
         }
       }
+      try {
+        await assertProductReadyForPublication(id, { stock: input.stock, hasDefect: input.hasDefect });
+      } catch (err) {
+        if (err instanceof ProductNotReadyError) {
+          return reply.status(400).send({ error: { code: "product_incomplete", message: err.message, details: { issues: err.issues } } });
+        }
+        throw err;
+      }
     }
 
 
@@ -423,10 +435,20 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
     "/vendor/products/:id/images/:imageId",
     { preHandler: [app.requireVendor, app.csrfProtection] },
     async (request, reply) => {
-      const { imageId } = productImageParamsSchema.parse(request.params);
+      const { id, imageId } = productImageParamsSchema.parse(request.params);
       const image = await findProductImageOwnedByVendor(request.session.vendorId!, imageId);
-      if (!image) {
+      if (!image || image.productId !== id) {
         return reply.status(404).send({ error: { message: "Görsel bulunamadı" } });
+      }
+      const product = await findVendorProduct(request.session.vendorId!, id);
+      if (product && (product.status === "active" || product.status === "pending")) {
+        const images = await listProductImages(id);
+        const sameKindCount = images.filter((item) => item.isDefectPhoto === image.isDefectPhoto).length;
+        if ((!image.isDefectPhoto && sameKindCount <= 1) || (image.isDefectPhoto && product.hasDefect && sameKindCount <= 1)) {
+          return reply.status(409).send({
+            error: { code: "published_media_required", message: "Yayındaki/onaydaki ürünün zorunlu son görseli silinemez. Önce ürünü taslağa veya pasife alın." },
+          });
+        }
       }
       await deleteProductImageById(image.id);
       deleteObject(image.url).catch(() => {}); // S3/local orphan temizliği (best-effort)
@@ -440,7 +462,7 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { id, imageId } = productImageParamsSchema.parse(request.params);
       const image = await findProductImageOwnedByVendor(request.session.vendorId!, imageId);
-      if (!image) {
+      if (!image || image.productId !== id) {
         return reply.status(404).send({ error: { message: "Görsel bulunamadı" } });
       }
       await setPrimaryProductImage(id, imageId);

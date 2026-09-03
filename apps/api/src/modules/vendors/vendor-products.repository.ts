@@ -213,7 +213,7 @@ export async function hasDefectPhoto(productId: number): Promise<boolean> {
 
 export async function findProductImageOwnedByVendor(vendorId: number, imageId: number) {
   const [row] = await db
-    .select({ id: productImages.id, productId: productImages.productId, url: productImages.url })
+    .select({ id: productImages.id, productId: productImages.productId, url: productImages.url, isDefectPhoto: productImages.isDefectPhoto })
     .from(productImages)
     .innerJoin(products, eq(productImages.productId, products.id))
     .where(and(eq(productImages.id, imageId), eq(products.vendorId, vendorId)))

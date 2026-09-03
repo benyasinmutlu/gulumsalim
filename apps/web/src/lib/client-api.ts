@@ -34,7 +34,12 @@ function messageFromErrorBody(errBody: ApiErrorBody | null, fallback: string): s
 
 // POST/PATCH/DELETE gibi durum değiştiren her istek önce bir CSRF token
 // alır, sonra header'da geri gönderir (bkz. apps/api/src/plugins/csrf.ts).
-export async function mutateJson<T>(path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
+export async function mutateJson<T>(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: unknown,
+  extraHeaders?: Record<string, string>,
+): Promise<T> {
   const csrfToken = await getCsrfToken();
   const res = await fetch(`/api${path}`, {
     method,
@@ -49,6 +54,7 @@ export async function mutateJson<T>(path: string, method: "POST" | "PATCH" | "DE
       // reddediliyordu.
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       "x-csrf-token": csrfToken,
+      ...extraHeaders,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });

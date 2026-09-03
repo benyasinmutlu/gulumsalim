@@ -385,6 +385,7 @@ export default function NewProductForm() {
         stock: !isIndividual && colorRows.length === 0 ? Number(plainStock) : undefined,
         sizeChart: buildSizeChart(),
       });
+      const setupFailures: string[] = [];
 
       // Renk/stok satırları girildiyse, ürün oluştuktan sonra her biri ayrı
       // bir varyant olarak kaydedilir (mevcut /vendor/products/{id}/variants
@@ -399,7 +400,7 @@ export default function NewProductForm() {
             stock: Number(row.stock) || 0,
           });
         } catch {
-          /* tek varyant hatası ürünü engellemez, düzenleme sayfasından tekrar denenebilir */
+          setupFailures.push(`${row.color.trim()} varyantı`);
         }
       }
 
@@ -411,7 +412,7 @@ export default function NewProductForm() {
         try {
           await uploadFile(`/vendor/products/${product.id}/images`, images[i].file);
         } catch {
-          /* tek görsel hatası ürünü engellemez */
+          setupFailures.push(`${i + 1}. ürün görseli`);
         }
       }
 
@@ -420,7 +421,7 @@ export default function NewProductForm() {
         try {
           await uploadFile(`/vendor/products/${product.id}/video`, video);
         } catch {
-          /* video hatası ürünü engellemez, düzenleme sayfasından tekrar denenebilir */
+          setupFailures.push("ürün videosu");
         }
       }
 
@@ -432,12 +433,26 @@ export default function NewProductForm() {
         try {
           await uploadFile(`/vendor/products/${product.id}/images?isDefectPhoto=true`, defectPhoto.file);
         } catch {
-          /* kusur fotoğrafı yüklenemezse ürün oluşturma engellenmez, düzenleme sayfasından tekrar denenebilir */
+          setupFailures.push("kusur fotoğrafı");
         }
       }
 
       images.forEach((img) => URL.revokeObjectURL(img.url));
       if (defectPhoto) URL.revokeObjectURL(defectPhoto.url);
+
+      // Ürün çok adımlı kurulum sırasında her zaman taslak başlar. Herhangi
+      // bir medya/varyant yüklemesi yarıda kaldıysa eksik ürün otomatik
+      // olarak onaya gitmez; kullanıcı düzenleme ekranında tam olarak hangi
+      // adımların tekrar gerektiğini görür.
+      if (setupFailures.length > 0) {
+        const missing = encodeURIComponent(setupFailures.join(", "));
+        router.push(`/satici/panel/urunler/${product.id}?setup=incomplete&missing=${missing}`);
+        return;
+      }
+
+      if (isIndividual) {
+        await mutateJson(`/vendor/products/${product.id}`, "PATCH", { status: "pending" });
+      }
       router.push(`/satici/panel/urunler/${product.id}`);
     } catch (err) {
       setError(err instanceof ClientApiError ? err.message : "Ürün oluşturulamadı");
@@ -622,9 +637,9 @@ export default function NewProductForm() {
                   fontWeight: 600,
                   padding: "5px 12px",
                   borderRadius: 8,
-                  border: "1px solid var(--pr, #24201c)",
-                  background: enriching ? "var(--pr, #24201c)" : "transparent",
-                  color: enriching ? "#fff" : "var(--pr, #24201c)",
+                  border: "1px solid var(--pr, #111111)",
+                  background: enriching ? "var(--pr, #111111)" : "transparent",
+                  color: enriching ? "#fff" : "var(--pr, #111111)",
                   cursor: enriching || name.trim().length < 1 ? "default" : "pointer",
                   opacity: name.trim().length < 1 ? 0.5 : 1,
                 }}

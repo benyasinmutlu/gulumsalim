@@ -428,6 +428,7 @@ export interface VendorWallet {
   bankName: string | null;
   bankIban: string | null;
   bankAccountHolder: string | null;
+  bankAccountChangedAt: string | null;
 }
 
 export interface AdminCampaign {

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 import { resolve } from "node:path";
 
+const localApiProxyUrl = process.env.LOCAL_API_PROXY_URL ?? "http://127.0.0.1:3000";
+const localMediaProxyOrigin = process.env.LOCAL_MEDIA_PROXY_ORIGIN ?? "http://127.0.0.1:3000";
+
 const nextConfig: NextConfig = {
   // Yerel tarayıcı testleri hem localhost hem de 127.0.0.1 üzerinden
   // çalıştırılabiliyor. Next dev istemcisinin ikinci origin'de hydration/HMR
@@ -20,7 +23,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:3000/:path*",
+        destination: `${localApiProxyUrl}/:path*`,
+      },
+      {
+        source: "/uploads/:path*",
+        destination: `${localMediaProxyOrigin}/uploads/:path*`,
       },
     ];
   },

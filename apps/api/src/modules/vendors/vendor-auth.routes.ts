@@ -31,6 +31,8 @@ import {
   verifyVendorCredentials,
   verifyVendorEmailWithToken,
   WrongCurrentPasswordError,
+  BankAccountOwnerMismatchError,
+  BankAccountConfirmationError,
 } from "./vendor-auth.service";
 
 function publicVendor(v: {
@@ -223,7 +225,13 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
       return reply.send(publicVendor(vendor));
     } catch (err) {
       if (err instanceof WrongCurrentPasswordError) {
-        return reply.status(400).send({ error: { message: "Mevcut şifrenizi hatalı girdiniz" } });
+        return reply.status(400).send({ error: { code: "reauth_required", message: "Banka veya şifre değişikliği için mevcut şifrenizi doğru girmelisiniz" } });
+      }
+      if (err instanceof BankAccountOwnerMismatchError) {
+        return reply.status(400).send({ error: { code: "bank_owner_mismatch", message: "Bireysel satıcı IBAN hesap sahibi, üyelikteki ad soyadla eşleşmelidir" } });
+      }
+      if (err instanceof BankAccountConfirmationError) {
+        return reply.status(400).send({ error: { code: "bank_ownership_confirmation_required", message: "Banka hesabının size ait olduğunu onaylamalısınız" } });
       }
       throw err;
     }

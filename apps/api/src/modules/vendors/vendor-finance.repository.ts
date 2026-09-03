@@ -11,6 +11,7 @@ export async function getVendorWalletSummary(vendorId: number) {
       bankName: vendors.bankName,
       bankIban: vendors.bankIban,
       bankAccountHolder: vendors.bankAccountHolder,
+      bankAccountChangedAt: vendors.bankAccountChangedAt,
     })
     .from(vendors)
     .where(eq(vendors.id, vendorId))
@@ -58,6 +59,7 @@ export async function getVendorWalletSummary(vendorId: number) {
     bankName: vendor?.bankName ?? null,
     bankIban: vendor?.bankIban ?? null,
     bankAccountHolder: vendor?.bankAccountHolder ?? null,
+    bankAccountChangedAt: vendor?.bankAccountChangedAt?.toISOString() ?? null,
     // bkz. kullanıcı isteği: "satıcıda ne kadar komisyon alınacak ... önemli" -
     // satıcı panelinde kendi oranını görebilmeli. vendor.commissionRate NULL
     // ise platform varsayılanı (aynı `rate` değişkeni, yukarıda hesaplandı).
