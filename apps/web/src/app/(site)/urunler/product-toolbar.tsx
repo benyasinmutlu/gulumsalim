@@ -134,6 +134,7 @@ export default function ProductToolbar({
   const hasActiveFilters = Boolean(
     size || color || brand || vendor || minPrice || maxPrice || sort || saleOnly || secondHand || freeShipping || condition || vendorType,
   );
+  const selectedSortLabel = SORT_OPTIONS.find((option) => option.value === sort)?.label ?? SORT_OPTIONS[0].label;
 
   return (
     <div className="product-toolbar" id="productToolbar">
@@ -161,26 +162,23 @@ export default function ProductToolbar({
         </div>
 
         <div className="pt-actions">
-          <button type="button" className="pt-filter-btn" onClick={() => setPanelOpen((v) => !v)}>
-            <i className="fas fa-sliders-h" /> Filtrele
+          <button
+            type="button"
+            className="pt-filter-btn pt-filter-sort-btn"
+            aria-expanded={panelOpen}
+            aria-controls="productFilterPanel"
+            onClick={() => setPanelOpen((v) => !v)}
+          >
+            <i className="fas fa-sliders-h" />
+            <span className="pt-filter-sort-copy">
+              <strong>Filtrele ve Sırala</strong>
+              <small>{selectedSortLabel}</small>
+            </span>
+            <i className={`fas fa-chevron-${panelOpen ? "up" : "down"} pt-filter-chevron`} aria-hidden />
             {hasActiveFilters && <span className="pt-filter-dot" />}
           </button>
-          <select
-            className="sort-select"
-            value={sort}
-            onChange={(e) => {
-              setSort(e.target.value);
-              applyFilters({ sort: e.target.value });
-            }}
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
 
-          <div className={`pt-panel${panelOpen ? " open" : ""}`}>
+          <div className={`pt-panel${panelOpen ? " open" : ""}`} id="productFilterPanel">
             <div className="pt-panel-head">
               <h3>
                 <i className="fas fa-sliders-h" /> Filtrele
@@ -190,6 +188,19 @@ export default function ProductToolbar({
               </button>
             </div>
             <div className="pt-panel-body">
+              <div className="pt-panel-section">
+                <label className="pt-panel-label" htmlFor="productSort">
+                  <i className="fas fa-arrow-down-wide-short" /> Sıralama
+                </label>
+                <select id="productSort" className="form-control" value={sort} onChange={(e) => setSort(e.target.value)}>
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="pt-panel-section">
                 <label className="pt-panel-label">
                   <i className="fas fa-tag" /> Fiyat Aralığı
@@ -327,7 +338,7 @@ export default function ProductToolbar({
             </div>
             <div className="pt-panel-actions">
               <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyFilters()}>
-                Filtreleri Uygula
+                Sonuçları Göster
               </button>
             </div>
           </div>

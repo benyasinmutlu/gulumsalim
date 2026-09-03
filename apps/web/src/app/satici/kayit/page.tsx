@@ -15,7 +15,7 @@ export default async function VendorRegisterPage() {
       <Link href="/" className="ga-back">
         <i className="fas fa-arrow-left" /> Ana Sayfa
       </Link>
-      <div className="ga-wrap">
+      <div className="ga-wrap ga-vendor-register">
         <div className="ga-visual">
           <div className="ga-orb ga-orb1" />
           <div className="ga-orb ga-orb2" />
@@ -23,6 +23,9 @@ export default async function VendorRegisterPage() {
             <Link href="/" className="ga-brand">
               <div className="ga-brand-name">Gülüm Şalım</div>
             </Link>
+            <span className="ga-visual-kicker">
+              <i className="fas fa-gem" aria-hidden /> Seçkin satıcı topluluğuna katılın
+            </span>
             <h1>{customerPhrase}</h1>
             <p>
               Kayıt sonrası mağazanız &quot;onay bekliyor&quot; durumunda oluşturulur — ürünleriniz admin onayından
@@ -38,6 +41,13 @@ export default async function VendorRegisterPage() {
               <div className="ga-perk">
                 <i className="fas fa-wallet" /> Hızlı ve güvenli ödeme akışı
               </div>
+            </div>
+            <div className="ga-visual-note">
+              <i className="fas fa-shield-halved" aria-hidden />
+              <span>
+                <strong>Kontrollü başlangıç</strong>
+                Başvurunuz ve ilk mağaza vitrininiz yayın öncesinde incelenir.
+              </span>
             </div>
           </div>
         </div>

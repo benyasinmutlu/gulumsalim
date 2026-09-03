@@ -987,10 +987,7 @@ button {
 }
 
 .home-hero-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-    align-items: stretch;
+    display: block;
 }
 
 .home-hero-main {
@@ -5359,6 +5356,44 @@ body.no-main-nav .product-toolbar {
     position: relative;
 }
 
+.pt-filter-sort-btn {
+    min-width: 196px;
+    justify-content: flex-start;
+    border-width: 1px;
+    border-radius: 10px;
+    padding: 9px 12px;
+}
+
+.pt-filter-sort-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    line-height: 1.15;
+}
+
+.pt-filter-sort-copy strong {
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.pt-filter-sort-copy small {
+    max-width: 126px;
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--color-text-light);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pt-filter-chevron {
+    margin-left: auto;
+    color: var(--color-text-muted);
+    font-size: 10px;
+}
+
 .pt-filter-dot {
     position: absolute;
     top: -3px;
@@ -5606,7 +5641,10 @@ body.no-main-nav .product-toolbar {
         width: 100%;
     }
     .pt-actions {
-        justify-content: space-between;
+        justify-content: stretch;
+    }
+    .pt-filter-sort-btn {
+        width: 100%;
     }
     .pt-panel {
         position: fixed;
@@ -6776,6 +6814,115 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 .ga-perk { display: flex; align-items: center; gap: 14px; font-size: 14px; font-weight: 500; }
 .ga-perk i { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,.14); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
 
+/* Kurumsal kayıt formu uzun olduğu için grid satırı ekranı aşıyor. Sol
+   vitrini satır yüksekliğine göre ortalamak içeriği ilk ekranın altına
+   itiyordu; yalnız bu sayfada viewport'a sabitlenen dengeli bir vitrin
+   kullanılır. */
+.ga-vendor-register .ga-visual {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    min-height: 680px;
+    padding: clamp(88px, 12vh, 132px) clamp(44px, 5vw, 76px) 56px;
+    justify-content: flex-start;
+    background:
+        radial-gradient(circle at 82% 12%, rgba(255,255,255,.1), transparent 28%),
+        linear-gradient(150deg, #0b0b0b 0%, #232220 58%, #111 100%);
+}
+
+.ga-vendor-register .ga-visual::after {
+    content: '';
+    position: absolute;
+    inset: 18px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 22px;
+    pointer-events: none;
+}
+
+.ga-vendor-register .ga-visual-inner {
+    width: 100%;
+    max-width: 460px;
+}
+
+.ga-vendor-register .ga-brand {
+    display: flex;
+    width: fit-content;
+    margin-bottom: clamp(24px, 4vh, 34px);
+}
+
+.ga-visual-kicker {
+    display: flex;
+    width: fit-content;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+    color: rgba(255,255,255,.72);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+.ga-vendor-register .ga-visual h1 {
+    max-width: 420px;
+    font-size: clamp(36px, 3.2vw, 50px);
+    line-height: 1.06;
+    letter-spacing: -.025em;
+}
+
+.ga-vendor-register .ga-visual p {
+    max-width: 430px;
+    margin-bottom: 28px;
+}
+
+.ga-vendor-register .ga-perks {
+    gap: 10px;
+}
+
+.ga-vendor-register .ga-perk {
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 14px;
+    background: rgba(255,255,255,.055);
+    backdrop-filter: blur(8px);
+}
+
+.ga-vendor-register .ga-perk i {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.1);
+}
+
+.ga-visual-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,.12);
+    color: rgba(255,255,255,.68);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.ga-visual-note > i {
+    margin-top: 2px;
+    color: #fff;
+}
+
+.ga-visual-note span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ga-visual-note strong {
+    color: #fff;
+    font-size: 12px;
+}
+
 .ga-panel { display: flex; align-items: center; justify-content: center; padding: 40px 24px; background: var(--color-bg-alt); }
 .ga-card { width: 100%; max-width: 460px; }
 
@@ -6838,6 +6985,7 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 @media (max-width: 960px) {
     .ga-wrap { grid-template-columns: 1fr; }
     .ga-visual { display: none; }
+    .ga-vendor-register .ga-visual { display: none; }
     .ga-panel { padding: 90px 20px 40px; min-height: 100vh; }
 }
 @media (max-width: 480px) {

@@ -3,20 +3,16 @@ import { apiFetchJson, publicFetchJson } from "@/lib/api";
 import type {
   AdminSlider,
   CampaignVendor,
-  Category,
   CustomerProfile,
-  FeaturedCoupon,
   ProductListItem,
   PublicVendorListItem,
   ResolvedHomepageCollection,
   ResolvedHomepageSection,
   SiteSettings,
 } from "@/lib/types";
-import { getSiteStats } from "@/lib/site-stats";
 import PopularVendorsSection from "@/components/popular-vendors-section";
 import CampaignVendorsSection from "@/components/campaign-vendors-section";
 import HeroSlider from "@/components/hero-slider";
-import HomeHeroCards from "@/components/home-hero-cards";
 import CountdownTimer from "@/components/countdown-timer";
 import ProductCard from "@/components/product-card";
 import HscrollArrows from "@/components/hscroll-arrows";
@@ -29,14 +25,6 @@ import DiscountTiers from "@/components/discount-tiers";
 import NewsletterBanner from "@/components/newsletter-banner";
 import SectionAnalyticsTracker from "@/components/section-analytics-tracker";
 
-async function getCategories(): Promise<Category[]> {
-  try {
-    return await apiFetchJson<Category[]>("/categories");
-  } catch {
-    return [];
-  }
-}
-
 async function getCurrentCustomer(): Promise<CustomerProfile | null> {
   try {
     return await apiFetchJson<CustomerProfile>("/auth/me");
@@ -48,6 +36,15 @@ async function getCurrentCustomer(): Promise<CustomerProfile | null> {
 async function getSaleProducts(): Promise<ProductListItem[]> {
   try {
     const res = await apiFetchJson<{ items: ProductListItem[] }>("/products?saleOnly=true&limit=8");
+    return res.items;
+  } catch {
+    return [];
+  }
+}
+
+async function getSeasonTrendProducts(): Promise<ProductListItem[]> {
+  try {
+    const res = await apiFetchJson<{ items: ProductListItem[] }>("/products?sort=popular&limit=16");
     return res.items;
   } catch {
     return [];
@@ -247,14 +244,6 @@ async function getSiteSettings(): Promise<SiteSettings> {
   }
 }
 
-async function getFeaturedCoupon(): Promise<FeaturedCoupon | null> {
-  try {
-    return await publicFetchJson<FeaturedCoupon | null>("/coupons/featured");
-  } catch {
-    return null;
-  }
-}
-
 async function getVendors(): Promise<PublicVendorListItem[]> {
   try {
     return await apiFetchJson<PublicVendorListItem[]>("/vendors");
@@ -272,42 +261,23 @@ async function getCampaignVendors(): Promise<CampaignVendor[]> {
 }
 
 export default async function Home() {
-  const [categories, sliders, discover, sections, saleProducts, homepageCollections, settings, customer, featuredCoupon, vendors, campaignVendors, siteStats] =
+  const [sliders, discover, sections, saleProducts, seasonTrendCandidates, homepageCollections, settings, customer, vendors, campaignVendors] =
     await Promise.all([
-      getCategories(),
       getSliders(),
       getDiscoverFeed(),
       getHomepageSections(),
       getSaleProducts(),
+      getSeasonTrendProducts(),
       getHomepageCollections(),
       getSiteSettings(),
       getCurrentCustomer(),
-      getFeaturedCoupon(),
       getVendors(),
       getCampaignVendors(),
-      getSiteStats(),
     ]);
   const heroIntervalMs = settings.hero_interval_ms ? Number(settings.hero_interval_ms) : undefined;
-
-  // bkz. kullanıcı isteği (2026-08-02): "siteye giren müşteriyi tanıyıp ona
-  // göre düzenlenmeli sayfanın şekli" - kişiselleştirme artık sadece "Sana
-  // Özel" ürün satırıyla sınırlı değil, "Kategorilere Göre Alışveriş"
-  // satırının SIRASI da kullanıcının kişiselleştirilmiş akışında (discover)
-  // en çok karşılaştığı kategorilere göre yeniden düzenleniyor (yeni bir
-  // backend uç noktası gerekmedi - zaten sayfa yüklenirken çekilen discover
-  // verisinden türetildi). cold-start/giriş yapmamış kullanıcıda değişiklik
-  // yok, orijinal admin sıralaması korunur - yanlış/rastgele bir "kişisel"
-  // sıralama göstermek yanıltıcı olurdu.
-  const categoryAffinity = new Map<string, number>();
-  if (discover.strategy === "personalized") {
-    for (const p of discover.items) {
-      categoryAffinity.set(p.categorySlug, (categoryAffinity.get(p.categorySlug) ?? 0) + 1);
-    }
-  }
-  const personalizedCategories =
-    categoryAffinity.size > 0
-      ? [...categories].sort((a, b) => (categoryAffinity.get(b.slug) ?? 0) - (categoryAffinity.get(a.slug) ?? 0))
-      : categories;
+  const saleProductIds = new Set(saleProducts.map((product) => product.id));
+  const nonSaleTrendProducts = seasonTrendCandidates.filter((product) => !saleProductIds.has(product.id));
+  const seasonTrendProducts = (nonSaleTrendProducts.length >= 4 ? nonSaleTrendProducts : seasonTrendCandidates).slice(0, 8);
 
   type LayoutItem =
     | { kind: "section"; sortOrder: number; section: ResolvedHomepageSection }
@@ -341,7 +311,6 @@ export default async function Home() {
             </section>
           )}
         </div>
-        <HomeHeroCards featuredCoupon={featuredCoupon} saleProducts={saleProducts} siteStats={siteStats} />
       </div>
       </section>
 
@@ -353,54 +322,11 @@ export default async function Home() {
         <QuickLinksRow />
       </section>
 
-      {categories.length > 0 && (
-        <section className="categories-section home-categories">
-          <div className="container">
-            <div className="section-header section-header-flex home-section-heading">
-              <div>
-                <span className="section-tag">Stiline göre keşfet</span>
-                <h2 className="section-title">Kategoriler</h2>
-                <p className="section-subtitle">
-                  {categoryAffinity.size > 0
-                    ? "İlgilendiğin kategoriler senin için öne alındı."
-                    : "Gardırobunu tamamlayacak seçkiler arasında kolayca gezin."}
-                </p>
-              </div>
-              <Link href="/urunler" className="section-cta">
-                Tüm ürünler <i className="fas fa-arrow-right" />
-              </Link>
-            </div>
-            <HscrollArrows>
-              <div className="category-grid hcat-grid">
-                {personalizedCategories.map((c, i) => (
-                  <Link key={c.id} href={`/${c.slug}`} className={`hcat-card hcat-tint-${i % 4}`}>
-                    <div className="hcat-img-wrap">
-                      {c.image && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.image} alt={c.name} className="hcat-img" />
-                      )}
-                      <div className="hcat-overlay" />
-                      <span className="hcat-icon-badge">
-                        <i className={c.icon || "fas fa-tag"} />
-                      </span>
-                      <span className="hcat-name">{c.name}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </HscrollArrows>
-          </div>
-        </section>
-      )}
-
-      {/* bkz. kullanıcı isteği (mockup): "Fırsatları Kaçırma! 🔥" hero'nun
-          hemen altındaki İLK ürün satırı olmalı - önceki halde burada
-          kişiselleştirilmiş "keşfet" satırı vardı (mockup'ta hiç yok),
-          bu satır (ve kategoriler bölümü) daha aşağıya taşındı.
-          bkz. kullanıcı isteği (2026-08-02): "timer'ı kaldır" - önceki
-          gece-yarısına-kadar geri sayım kaldırıldı. */}
+      {/* Üst navigasyonda kategori erişimi bulunduğu için tekrar eden büyük
+          kategori vitrini kaldırıldı. Ana keşif akışı doğrudan gerçek ürün
+          raflarıyla devam eder. */}
       <ScrollReveal anim="fade-up">
-        <ProductRow title="Seçili Fırsatlar" subtitle="Fiyatı düşen ürünlerden editoryal bir seçki" ctaHref="/urunler?saleOnly=true" products={saleProducts} />
+        <ProductRow title="İndirimli Ürünler" subtitle="Fiyatı düşen ürünlerden güncel seçkiler" ctaHref="/urunler?saleOnly=true" products={saleProducts} />
       </ScrollReveal>
 
       {saleProducts.length > 0 && (
@@ -408,6 +334,15 @@ export default async function Home() {
           <DiscountTiers />
         </ScrollReveal>
       )}
+
+      <ScrollReveal anim="fade-up">
+        <ProductRow
+          title="Sezon Trendleri"
+          subtitle="Bu sezon en çok ilgi gören parçalar"
+          ctaHref="/urunler?sort=popular"
+          products={seasonTrendProducts}
+        />
+      </ScrollReveal>
 
       {/* bkz. kullanıcı isteği (2026-08-02): kampanyalar/kategoriler için
           burada ayrı, sabit kodlanmış bir önizleme bloğu vardı - hem admin
