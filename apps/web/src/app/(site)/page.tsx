@@ -10,6 +10,7 @@ import type {
   ResolvedHomepageSection,
   SiteSettings,
 } from "@/lib/types";
+import { productUrl } from "@/lib/types";
 import PopularVendorsSection from "@/components/popular-vendors-section";
 import CampaignVendorsSection from "@/components/campaign-vendors-section";
 import HeroSlider from "@/components/hero-slider";
@@ -279,6 +280,29 @@ export default async function Home() {
   const nonSaleTrendProducts = seasonTrendCandidates.filter((product) => !saleProductIds.has(product.id));
   const seasonTrendProducts = (nonSaleTrendProducts.length >= 4 ? nonSaleTrendProducts : seasonTrendCandidates).slice(0, 8);
 
+  // bkz. kullanıcı isteği: "'Kadının Gücü' yerinde ürünler dönsün orayı
+  // canlandıralım" - hero'da tek statik banner (admin'in girdiği tek
+  // slider) vardı, hiç dönmüyordu. Admin'in banner'ı ilk slayt olarak
+  // kalır, arkasından gerçek çok-ilgi-gören ürünlerden (aynı "Sezon
+  // Trendleri" rafını besleyen liste) otomatik slaytlar eklenir - id'ler
+  // gerçek slider id'leriyle çakışmasın diye negatif.
+  const heroProductSlides: AdminSlider[] = seasonTrendProducts
+    .filter((p) => p.primaryImageUrl)
+    .slice(0, 4)
+    .map((p, i) => ({
+      id: -1000 - p.id,
+      image: p.primaryImageUrl as string,
+      linkUrl: productUrl(p),
+      title: p.name,
+      subtitle: `${Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`,
+      buttonText: "Ürünü İncele",
+      textColor: null,
+      textPosition: null,
+      sortOrder: sliders.length + i,
+      isActive: true,
+    }));
+  const heroSlides = [...sliders, ...heroProductSlides];
+
   type LayoutItem =
     | { kind: "section"; sortOrder: number; section: ResolvedHomepageSection }
     | { kind: "collection"; sortOrder: number; collection: ResolvedHomepageCollection };
@@ -293,8 +317,8 @@ export default async function Home() {
       <section className="home-stage" aria-label="Öne çıkan koleksiyonlar">
       <div className="container home-hero-row">
         <div className="home-hero-main">
-          {sliders.length > 0 ? (
-            <HeroSlider slides={sliders} intervalMs={heroIntervalMs} />
+          {heroSlides.length > 0 ? (
+            <HeroSlider slides={heroSlides} intervalMs={heroIntervalMs} />
           ) : (
             <section className="hero-section">
               <div className="hero-content">
