@@ -1239,7 +1239,11 @@ button {
     z-index: 1;
     max-width: var(--container-max);
     margin: 0 auto;
-    padding: 0 40px;
+    /* bkz. kullanıcı isteği: "fiyat ile yazı sol < bunun altında kalabiliyor
+       ... sağa doğru alalım" - sol/sağ ok butonları (.hero-arrow, 16px+44px
+       genişlik = sağ kenarı ~60px'te) generic .hero-content'in 40px
+       padding'inde metnin/görselin altına giriyordu, 84px'e çıkarıldı. */
+    padding: 0 84px;
     width: 100%;
     height: 100%;
     display: flex;
@@ -1257,7 +1261,9 @@ button {
     font-family: var(--font-display);
     font-size: 30px;
     font-weight: 700;
-    color: var(--color-primary);
+    /* bkz. kullanıcı isteği: koyu varyant kullanılır - pastel arkaplanların
+       üzerinde açık accent rengi (--color-primary) yeterli kontrast vermiyordu. */
+    color: var(--color-primary-dark);
     margin-bottom: 26px;
 }
 
@@ -1298,10 +1304,14 @@ button {
         padding: 20px 20px 16px;
         text-align: center;
     }
-    .hero-product-media { max-height: 42%; }
+    .hero-product-media { max-height: 38%; }
     .hero-product-text { max-width: 100%; }
+    .hero-product-text .hero-tag { margin-bottom: 10px; }
+    /* Genel .hero-title mobil boyutu (32px) iki satıra sarınca kompakt
+       karta göre fazla yer kaplıyordu - ürün slaytında sıkıştırıldı. */
+    .hero-product-text .hero-title { font-size: 24px; margin-bottom: 10px; }
     .hero-product-text .hero-actions { justify-content: center; }
-    .hero-product-price { margin-bottom: 18px; }
+    .hero-product-price { margin-bottom: 16px; }
 }
 
 .hero-content {
@@ -1768,13 +1778,13 @@ button {
 .hero-arrow-next { right: 16px; }
 
 @media (max-width: 768px) {
+    /* bkz. kullanıcı isteği: "mobilde burası çok kötü gözüküyor" - ok
+       butonları dar ekranda ürün metninin/görselinin üzerine denk gelip
+       amaçsız duruyordu; dokunmatik kaydırma (swipe) ve alttaki noktalar
+       zaten navigasyonu sağlıyor, oklar mobilde tamamen kaldırıldı. */
     .hero-arrow {
-        width: 34px;
-        height: 34px;
-        font-size: 13px;
+        display: none;
     }
-    .hero-arrow-prev { left: 8px; }
-    .hero-arrow-next { right: 8px; }
 }
 
 /* ---- Butonlar ---- */
