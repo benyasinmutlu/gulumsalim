@@ -1153,11 +1153,6 @@ button {
 
 @media (max-width: 600px) {
     .home-stage { padding-top: 12px; }
-    .home-hero-main .hero-section {
-        height: 400px;
-        min-height: 380px;
-        border-radius: 14px;
-    }
     .home-hero-cards {
         grid-template-columns: 1fr;
         gap: 8px;
@@ -1297,21 +1292,36 @@ button {
 }
 
 @media (max-width: 768px) {
+    /* bkz. kullanıcı isteği: "mobil tasarımını hiç beğenmedim ... kart/boşluk
+       çok uzun, ürün fotoğrafı küçük kalıyor" - eskiden görsel yüksekliği
+       kart yüksekliğinin sadece %38'iydi (480px'in ~180px'i), geri kalanı
+       boş pastel alan olarak duruyordu. Kart yüksekliği tek yerden (burada)
+       yönetiliyor - .home-hero-main .hero-section'ın eski ≤600px override'ı
+       kaldırıldı, tek kaynak burası. */
+    .home-hero-main .hero-section {
+        height: 480px;
+        min-height: 480px;
+        border-radius: 14px;
+    }
     .hero-product-slide {
         flex-direction: column-reverse;
         justify-content: center;
-        gap: 12px;
-        padding: 20px 20px 16px;
+        gap: 10px;
+        padding: 14px 20px 16px;
         text-align: center;
     }
-    .hero-product-media { max-height: 38%; }
+    .hero-product-media {
+        max-height: 52%;
+        max-width: 75%;
+        width: auto;
+    }
     .hero-product-text { max-width: 100%; }
-    .hero-product-text .hero-tag { margin-bottom: 10px; }
+    .hero-product-text .hero-tag { margin-bottom: 6px; }
     /* Genel .hero-title mobil boyutu (32px) iki satıra sarınca kompakt
        karta göre fazla yer kaplıyordu - ürün slaytında sıkıştırıldı. */
-    .hero-product-text .hero-title { font-size: 24px; margin-bottom: 10px; }
+    .hero-product-text .hero-title { font-size: 22px; margin-bottom: 6px; line-height: 1.2; }
     .hero-product-text .hero-actions { justify-content: center; }
-    .hero-product-price { margin-bottom: 16px; }
+    .hero-product-price { font-size: 24px; margin-bottom: 10px; }
 }
 
 .hero-content {
