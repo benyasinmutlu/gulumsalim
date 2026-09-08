@@ -25,6 +25,20 @@ export function categoryIcon(category: Pick<Category, "icon" | "name" | "slug">)
   return "fa-tshirt";
 }
 
+// bkz. kullanıcı isteği: "erkek çocuk ve kız çocuk sayfalarının teması da
+// bunlara uygun olsun ikonlar efektler" - bu iki kategori sayfasının
+// arkaplanında tek bir ikonun 4 kez tekrarı yerine temaya uygun birkaç
+// motifin karışımı döner, diğer tüm kategoriler categoryIcon (tek ikon)
+// davranışını korur.
+const THEME_BACKGROUND_ICONS: Record<string, string[]> = {
+  "erkek-cocuk": ["👦", "⚽", "🚗", "🧢"],
+  "kiz-cocuk": ["👧", "🎀", "🌸", "⭐"],
+};
+
+export function categoryBackgroundIcons(category: Pick<Category, "icon" | "name" | "slug">): string | string[] {
+  return THEME_BACKGROUND_ICONS[category.slug] ?? categoryIcon(category);
+}
+
 const SECTION_ICONS: Record<string, string> = {
   manual: "fa-layer-group",
   featured: "fa-star",

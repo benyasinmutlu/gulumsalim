@@ -5,7 +5,7 @@ import ProductCard from "@/components/product-card";
 import ProductToolbar from "@/app/(site)/urunler/product-toolbar";
 import { CategoryNavSync } from "@/components/category-nav-context";
 import TitleBackgroundIcons from "@/components/title-background-icons";
-import { categoryIcon } from "@/lib/title-icon";
+import { categoryBackgroundIcons } from "@/lib/title-icon";
 
 export interface ProductListingParams {
   category?: string;
@@ -114,7 +114,7 @@ export default async function ProductListing({
   // özel hareketli ikonlar olsun" - kategori sayfasındaysa o kategorinin
   // ikonu, indirim filtresindeyse etiket ikonu, aksi halde genel bir ikon.
   const headingIcon = matchedCategory
-    ? categoryIcon(matchedCategory)
+    ? categoryBackgroundIcons(matchedCategory)
     : params.saleOnly
       ? "fa-tag"
       : params.secondHand

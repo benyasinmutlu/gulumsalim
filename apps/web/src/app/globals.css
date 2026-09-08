@@ -5268,7 +5268,11 @@ body.no-main-nav .filter-sidebar {
 .stb-icon {
     position: absolute;
     opacity: .09;
-    animation: stbFloat ease-in-out infinite;
+    color: var(--color-primary);
+    /* bkz. kullanıcı isteği: "ikonlar efektler animasyonlar" - süre hiç
+       tanımlı değildi (animation-duration varsayılanı 0s), yani ikonlar
+       hiçbir zaman gerçekte hareket etmiyordu. */
+    animation: stbFloat 10s ease-in-out infinite;
 }
 @keyframes stbFloat {
     0%, 100% { transform: translateY(0) rotate(0deg); }
