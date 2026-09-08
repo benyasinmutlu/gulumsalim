@@ -7,12 +7,18 @@ import type { AdminSlider } from "../lib/types";
 
 const ALIGN: Record<string, string> = { left: "flex-start", center: "center", right: "flex-end" };
 
-// gulumsalim.com'daki hero slider'ın birebir karşılığı: otomatik geçiş,
-// ok/nokta navigasyon + dokunmatik kaydırma, her slaytın kendi başlık/alt
-// başlık/buton/metin rengi/metin konumu. SEO/erişilebilirlik gereği sayfada
-// tek bir <h1> olsun diye sadece İLK slaytın başlığı gerçek <h1>, diğerleri
-// aynı görsel stille <div> olarak render edilir.
-export default function HeroSlider({ slides, intervalMs = 6000 }: { slides: AdminSlider[]; intervalMs?: number }) {
+// bkz. kullanıcı isteği: "'Kadının Gücü' yerinde ürünler dönsün" sonrası
+// "hiç olmadı bu şekilde" - ürün fotoğrafları dikey stüdyo çekimi, admin
+// banner'ları gibi tam ekran background-size:cover yapınca kafa/etek kesilip
+// feci kırpılıyordu. "product" slaytları artık banner'lardan tamamen farklı
+// bir düzen kullanır: fotoğraf tam ekran arka plan değil, sağda kırpılmadan
+// (object-fit: contain) gösterilen bir görsel, solda metin - bkz.
+// .hero-slide-product / .hero-product-slide (globals.css).
+export interface HeroSlide extends AdminSlider {
+  kind?: "banner" | "product";
+}
+
+export default function HeroSlider({ slides, intervalMs = 6000 }: { slides: HeroSlide[]; intervalMs?: number }) {
   const [current, setCurrent] = useState(0);
   const touchStartX = useRef(0);
 
@@ -40,6 +46,33 @@ export default function HeroSlider({ slides, intervalMs = 6000 }: { slides: Admi
       }}
     >
       {slides.map((slide, i) => {
+        const TitleTag = i === 0 ? "h1" : "div";
+        const isActive = i === current;
+
+        if (slide.kind === "product") {
+          return (
+            <div key={slide.id} className={`hero-slide hero-slide-product${isActive ? " active" : ""}`}>
+              <div className="hero-product-slide">
+                <div className="hero-product-text">
+                  {slide.title && <TitleTag className="hero-title">{slide.title}</TitleTag>}
+                  {slide.subtitle && <p className="hero-subtitle">{slide.subtitle}</p>}
+                  {slide.linkUrl && (
+                    <div className="hero-actions">
+                      <Link href={slide.linkUrl} className="btn btn-primary btn-lg">
+                        {slide.buttonText || "İncele"}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+                <div className="hero-product-media">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={slide.image} alt={slide.title ?? ""} loading={i === 0 ? undefined : "lazy"} />
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         const style = {
           "--hero-bg-desktop": `url(${slide.image})`,
           "--hero-bg-mobile": `url(${slide.image})`,
@@ -47,10 +80,9 @@ export default function HeroSlider({ slides, intervalMs = 6000 }: { slides: Admi
         } as CSSProperties;
         const textColor = slide.textColor ?? "#ffffff";
         const textAlign = (slide.textPosition ?? "center") as "left" | "center" | "right";
-        const TitleTag = i === 0 ? "h1" : "div";
 
         return (
-          <div key={slide.id} className={`hero-slide${i === current ? " active" : ""}`} style={style}>
+          <div key={slide.id} className={`hero-slide${isActive ? " active" : ""}`} style={style}>
             <div className="hero-overlay" />
             <div className="hero-content" style={{ position: "relative", zIndex: 2, color: textColor, textAlign }}>
               {slide.title && (

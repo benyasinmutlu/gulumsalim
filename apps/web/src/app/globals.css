@@ -1201,6 +1201,62 @@ button {
     opacity: 1;
 }
 
+/* bkz. kullanıcı isteği: ürün fotoğrafları admin banner'ları gibi tam ekran
+   background-size:cover ile gösterilince (dikey stüdyo çekimleri geniş hero
+   kutusuna sığınca) kafa/etek kesilip kötü kırpılıyordu. Ürün slaytları bu
+   yüzden background-image KULLANMAZ (hero-slide'ın --hero-bg-desktop'ı boş
+   kalır, background-image geçersiz kalıp none'a düşer) - split düzen: solda
+   metin, sağda hiç kırpılmadan (object-fit:contain) gösterilen fotoğraf. */
+.hero-slide-product {
+    background: var(--color-bg-alt);
+}
+
+.hero-product-slide {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    padding: 0 40px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+}
+
+.hero-product-text {
+    flex: 1 1 360px;
+    max-width: 420px;
+}
+
+.hero-product-media {
+    flex: 1 1 320px;
+    max-width: 420px;
+    height: 78%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-product-media img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,.12));
+}
+
+@media (max-width: 768px) {
+    .hero-product-slide {
+        flex-direction: column-reverse;
+        justify-content: center;
+        gap: 12px;
+        padding: 20px 20px 16px;
+        text-align: center;
+    }
+    .hero-product-media { max-height: 42%; }
+    .hero-product-text { max-width: 100%; }
+    .hero-product-text .hero-actions { justify-content: center; }
+}
+
 .hero-content {
     max-width: var(--container-max);
     margin: 0 auto;

@@ -13,7 +13,7 @@ import type {
 import { productUrl } from "@/lib/types";
 import PopularVendorsSection from "@/components/popular-vendors-section";
 import CampaignVendorsSection from "@/components/campaign-vendors-section";
-import HeroSlider from "@/components/hero-slider";
+import HeroSlider, { type HeroSlide } from "@/components/hero-slider";
 import CountdownTimer from "@/components/countdown-timer";
 import ProductCard from "@/components/product-card";
 import HscrollArrows from "@/components/hscroll-arrows";
@@ -285,8 +285,12 @@ export default async function Home() {
   // slider) vardı, hiç dönmüyordu. Admin'in banner'ı ilk slayt olarak
   // kalır, arkasından gerçek çok-ilgi-gören ürünlerden (aynı "Sezon
   // Trendleri" rafını besleyen liste) otomatik slaytlar eklenir - id'ler
-  // gerçek slider id'leriyle çakışmasın diye negatif.
-  const heroProductSlides: AdminSlider[] = seasonTrendProducts
+  // gerçek slider id'leriyle çakışmasın diye negatif. "kind: product" ile
+  // işaretlenir ki HeroSlider bunları admin banner'ından farklı, kırpma
+  // yapmayan split düzende çizsin (bkz. hero-slider.tsx - "hiç olmadı bu
+  // şekilde" geri bildiriminden sonra: tam ekran background-size:cover
+  // dikey ürün fotoğraflarını feci kırpıyordu).
+  const heroProductSlides: HeroSlide[] = seasonTrendProducts
     .filter((p) => p.primaryImageUrl)
     .slice(0, 4)
     .map((p, i) => ({
@@ -300,8 +304,9 @@ export default async function Home() {
       textPosition: null,
       sortOrder: sliders.length + i,
       isActive: true,
+      kind: "product",
     }));
-  const heroSlides = [...sliders, ...heroProductSlides];
+  const heroSlides: HeroSlide[] = [...sliders, ...heroProductSlides];
 
   type LayoutItem =
     | { kind: "section"; sortOrder: number; section: ResolvedHomepageSection }
