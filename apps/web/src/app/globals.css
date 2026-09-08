@@ -65,6 +65,31 @@ html { color-scheme: light; }
     --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* bkz. kullanıcı isteği: "çocukta erkek ve kız olarak ayrılacak açılan
+   sayfa teması erkekte toz mavi kızda toz pembe olacak" - sitenin geri
+   kalanı monokrom kalırken bu iki kategori sayfasında --color-primary/
+   --color-accent/--color-secondary'yi (buton, rozet, arkaplan ikonları vb.
+   her yerde bunları kullanıyor) yerel olarak değiştirip temayı verir. */
+.theme-boy {
+    --color-primary: #7FA0BF;
+    --color-primary-light: #E7EFF5;
+    --color-primary-dark: #5D7C9B;
+    --color-secondary: #8CA9C4;
+    --color-accent: #7FA0BF;
+    --color-primary-rgb: 127, 160, 191;
+    --color-accent-rgb: 127, 160, 191;
+}
+
+.theme-girl {
+    --color-primary: #C98CA0;
+    --color-primary-light: #FBEEF2;
+    --color-primary-dark: #A66A7E;
+    --color-secondary: #D9A8B3;
+    --color-accent: #C98CA0;
+    --color-primary-rgb: 201, 140, 160;
+    --color-accent-rgb: 201, 140, 160;
+}
+
 /* ---- Reset & Base ---- */
 *, *::before, *::after {
     margin: 0;

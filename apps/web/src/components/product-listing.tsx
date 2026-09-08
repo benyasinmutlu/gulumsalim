@@ -77,6 +77,7 @@ interface Props {
   basePath?: string;
   lockedCategorySlug?: string;
   beforeToolbar?: React.ReactNode;
+  themeClass?: string;
 }
 
 // gulumsalim.com'daki products.php'nin ürün listesi gövdesi - /urunler ve
@@ -89,6 +90,7 @@ export default async function ProductListing({
   basePath = "/urunler",
   lockedCategorySlug,
   beforeToolbar,
+  themeClass,
 }: Props) {
   const [{ items, nextCursor }, categories, vendors, facets] = await Promise.all([
     getProducts(params),
@@ -133,7 +135,7 @@ export default async function ProductListing({
   const resultCategories = categories.filter((c) => resultCategorySlugs.has(c.slug));
 
   return (
-    <main className="main-content">
+    <main className={themeClass ? `main-content ${themeClass}` : "main-content"}>
       <CategoryNavSync categories={resultCategories} />
       <TitleBackgroundIcons icon={headingIcon} />
       <div className="container products-page">

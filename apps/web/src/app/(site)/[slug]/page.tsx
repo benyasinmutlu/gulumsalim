@@ -74,6 +74,15 @@ async function findCategoryBySlug(slug: string): Promise<Category | null> {
   return categories.find((c) => c.slug === slug) ?? null;
 }
 
+// bkz. kullanıcı isteği: "çocukta erkek ve kız olarak ayrılacak açılan
+// sayfa teması erkekte toz mavi kızda toz pembe olacak" - sadece bu iki
+// alt kategori sayfası tema alır, sitenin geri kalanı monokrom kalır.
+function categoryThemeClass(slug: string): string | undefined {
+  if (slug === "erkek-cocuk") return "theme-boy";
+  if (slug === "kiz-cocuk") return "theme-girl";
+  return undefined;
+}
+
 async function getPage(slug: string): Promise<CmsPage | null> {
   const res = await apiFetch(`/pages/${slug}`);
   if (!res.ok) return null;
@@ -264,6 +273,7 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
           heading={category.name}
           basePath={`/${category.slug}`}
           lockedCategorySlug={category.slug}
+          themeClass={categoryThemeClass(category.slug)}
         />
       );
     }
