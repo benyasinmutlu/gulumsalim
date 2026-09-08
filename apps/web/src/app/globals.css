@@ -1208,10 +1208,35 @@ button {
    kalır, background-image geçersiz kalıp none'a düşer) - split düzen: solda
    metin, sağda hiç kırpılmadan (object-fit:contain) gösterilen fotoğraf. */
 .hero-slide-product {
-    background: var(--color-bg-alt);
+    background: var(--hero-product-bg, var(--color-bg-alt));
+    overflow: hidden;
+    transition: opacity 0.8s ease, transform 0.8s ease;
+    transform: scale(0.97);
 }
 
+.hero-slide-product.active {
+    transform: scale(1);
+}
+
+/* bkz. kullanıcı isteği: "animasyonla efektle background renkleri
+   yazılarıyla çok daha öne çıkartalım" - fotoğrafın arkasında yumuşak,
+   yüzen renkli blob'lar (stbFloat, kategori arkaplan ikonlarıyla aynı
+   keyframe - bkz. .stb-icon), her slaytın kendi accent rengiyle. */
+.hero-product-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: .35;
+    background: var(--color-primary);
+    animation: stbFloat 9s ease-in-out infinite;
+    pointer-events: none;
+}
+.hero-product-blob-1 { width: 260px; height: 260px; top: -70px; right: 8%; }
+.hero-product-blob-2 { width: 190px; height: 190px; bottom: -50px; right: 26%; animation-delay: 3s; }
+
 .hero-product-slide {
+    position: relative;
+    z-index: 1;
     max-width: var(--container-max);
     margin: 0 auto;
     padding: 0 40px;
@@ -1228,7 +1253,17 @@ button {
     max-width: 420px;
 }
 
+.hero-product-price {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-bottom: 26px;
+}
+
 .hero-product-media {
+    position: relative;
+    z-index: 1;
     flex: 1 1 320px;
     max-width: 420px;
     height: 78%;
@@ -1241,7 +1276,18 @@ button {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    filter: drop-shadow(0 20px 40px rgba(0,0,0,.12));
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,.14));
+    animation: heroImageFloat 5s ease-in-out infinite;
+}
+
+@keyframes heroImageFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-14px) rotate(1.2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-product-blob, .hero-product-media img { animation: none; }
+    .hero-slide-product { transition: opacity 0.8s ease; transform: none; }
 }
 
 @media (max-width: 768px) {
@@ -1255,6 +1301,7 @@ button {
     .hero-product-media { max-height: 42%; }
     .hero-product-text { max-width: 100%; }
     .hero-product-text .hero-actions { justify-content: center; }
+    .hero-product-price { margin-bottom: 18px; }
 }
 
 .hero-content {
