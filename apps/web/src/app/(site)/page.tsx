@@ -123,7 +123,11 @@ function HeroMobileGrid({ products }: { products: ProductListItem[] }) {
     <div className="hero-mobile-grid">
       <ScrollReveal anim="fade-up">
         <div className="hero-mobile-grid-heading-row">
-          <span className="deal-shelf-title">Sezonun Trendi</span>
+          {/* bkz. kullanıcı isteği: "sezonun trendi ile sezon trendleri
+              arasındaki farklar neler ... başlıkları aynı" - ikisi de aynı
+              seasonTrendProducts havuzunu kullanıyor, isimler de neredeyse
+              aynıydı, kafa karıştırıyordu. Bu üsttekine ayrı bir isim verildi. */}
+          <span className="deal-shelf-title">Öne Çıkanlar</span>
         </div>
         <HeroMobileCarousel products={items} />
       </ScrollReveal>
@@ -131,20 +135,19 @@ function HeroMobileGrid({ products }: { products: ProductListItem[] }) {
   );
 }
 
-// bkz. kullanıcı isteği: "sezonun trendleri diye bir bölümümüz var [görsel]
-// bu tarz olsun fakat bundan çok daha iyi olsun yeşil yapma" - gönderilen
-// referans (2x2 sabit ızgara, rozet, altta CTA) hero'da onaylanan ilk
-// tasarımla neredeyse aynıydı; burada "Sezon Trendleri" bölümünün mobil
-// halinde kullanılıyor (masaüstü .desktop-only ile ProductRow/deal-shelf
-// deseninde kalıyor). Yeşil yerine markanın kendi tonu (#C06C84 ailesi),
-// referanstaki düz mint zemin yerine sayfanın beyaz zemini.
+// bkz. kullanıcı isteği: "bunu demiyorum az önce attığım görseldeki
+// tasarımı yap diyorum sadece" - önceki halde renkli kart sarmalayıcısını
+// (mockup'taki gibi) kaldırıp sayfanın beyaz zeminine ve rozeti fotoğraf
+// üzerine taşımıştım, bu istenen değildi. Şimdi mockup'a birebir sadık:
+// pastel renkli kart (yeşil yerine markanın tonu #C06C84 ailesi), rozet
+// fotoğrafın üzerinde değil fiyatın yanında, altta tam genişlikte CTA.
 function SeasonTrendsMobileGrid({ products }: { products: ProductListItem[] }) {
   const items = products.filter((p) => p.primaryImageUrl).slice(0, 4);
   if (items.length === 0) return null;
   return (
     <div className="mobile-only">
       <ScrollReveal anim="fade-up">
-        <section className="season-trends-mobile">
+        <div className="season-trends-mobile-card">
           <span className="deal-shelf-title">Sezon Trendleri</span>
           <p className="section-subtitle season-trends-mobile-subtitle">Bu sezon en çok ilgi gören parçalar</p>
           <div className="season-trends-mobile-grid">
@@ -153,16 +156,14 @@ function SeasonTrendsMobileGrid({ products }: { products: ProductListItem[] }) {
                 <div className="season-trends-mobile-tile-img-wrap">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.primaryImageUrl as string} alt={p.name} className="season-trends-mobile-tile-img" loading="lazy" />
-                  {i === 0 && (
-                    <span className="season-trends-mobile-badge">
-                      <i className="fas fa-star" /> Beğenilenler
-                    </span>
-                  )}
                 </div>
                 <div className="season-trends-mobile-tile-body">
                   <div className="season-trends-mobile-tile-name">{p.name}</div>
-                  <div className="season-trends-mobile-tile-price">
-                    {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                  <div className="season-trends-mobile-tile-meta">
+                    <span className="season-trends-mobile-tile-price">
+                      {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                    </span>
+                    {i === 0 && <span className="season-trends-mobile-badge">Beğenilenler</span>}
                   </div>
                 </div>
               </Link>
@@ -171,7 +172,7 @@ function SeasonTrendsMobileGrid({ products }: { products: ProductListItem[] }) {
           <Link href="/urunler?sort=popular" className="season-trends-mobile-cta">
             Daha Fazla Keşfet <i className="fas fa-arrow-right" />
           </Link>
-        </section>
+        </div>
       </ScrollReveal>
     </div>
   );

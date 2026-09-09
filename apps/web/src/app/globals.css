@@ -1047,12 +1047,15 @@ button {
     .mobile-only { display: block; }
 }
 
-/* bkz. kullanıcı isteği: "sezonun trendleri ... bu tarz olsun fakat bundan
-   çok daha iyi olsun yeşil yapma" - referans 2x2 ızgara mockup'ı, markanın
-   kendi tonuyla (#C06C84 ailesi), düz mint zemin yerine sayfanın beyaz
-   zemininde. */
-.season-trends-mobile {
-    padding: 22px 16px 0;
+/* bkz. kullanıcı isteği: "bunu demiyorum az önce attığım görseldeki
+   tasarımı yap diyorum sadece" sonrası "pembe kullanma" - mockup'a birebir
+   sadık: pastel renkli kart sarmalıyor, ama yeşil DE pembe DE değil, nötr
+   sıcak krem/kum tonu. */
+.season-trends-mobile-card {
+    margin: 22px 16px 0;
+    padding: 20px 16px 22px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #F8F3E7 0%, #EFE4C9 100%);
 }
 
 .season-trends-mobile-subtitle {
@@ -1068,11 +1071,10 @@ button {
 
 .season-trends-mobile-tile {
     display: block;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-light);
+    background: #fff;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
     text-decoration: none;
     color: inherit;
     opacity: 0;
@@ -1096,7 +1098,7 @@ button {
 
 .season-trends-mobile-tile-img-wrap {
     position: relative;
-    aspect-ratio: 3/4;
+    aspect-ratio: 1/1;
     background: var(--color-bg-alt);
 }
 
@@ -1107,26 +1109,6 @@ button {
     display: block;
 }
 
-.season-trends-mobile-badge {
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    background: rgba(255,255,255,.92);
-    backdrop-filter: blur(4px);
-    color: #8B3A62;
-    font-size: 11px;
-    font-weight: 700;
-    text-align: center;
-    padding: 5px 8px;
-    border-radius: 20px;
-}
-.season-trends-mobile-badge i { font-size: 9px; }
-
 .season-trends-mobile-tile-body {
     padding: 10px 12px 14px;
 }
@@ -1136,17 +1118,33 @@ button {
     font-size: 14px;
     font-weight: 600;
     line-height: 1.25;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
+.season-trends-mobile-tile-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
 .season-trends-mobile-tile-price {
     font-size: 14px;
     font-weight: 700;
-    color: #8B3A62;
+    color: #8A6F35;
+}
+
+.season-trends-mobile-badge {
+    background: rgba(184,147,74,.16);
+    color: #8A6F35;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
 }
 
 .season-trends-mobile-cta {
@@ -1154,13 +1152,13 @@ button {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: linear-gradient(135deg, #C06C84, #8B3A62);
+    background: linear-gradient(135deg, #B8934A, #8A6F35);
     color: #fff;
     font-weight: 700;
     padding: 15px;
     border-radius: 50px;
     text-decoration: none;
-    box-shadow: 0 8px 20px rgba(192,108,132,.3);
+    box-shadow: 0 8px 20px rgba(184,147,74,.3);
     transition: transform .15s ease, box-shadow .15s ease;
 }
 .season-trends-mobile-cta:active { transform: scale(.97); }
