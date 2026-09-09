@@ -143,6 +143,11 @@ export async function searchProducts(params: SearchProductsParams) {
     // "Bireysel Satıcı" rozeti için (bkz. product-card.tsx).
     isSecondHand: doc.isSecondHand,
     vendorIsIndividual: doc.vendorIsIndividual,
+    // bkz. kullanıcı isteği: "ürünlerin isimlerine güvenme" - anasayfada
+    // ürün renklerine göre dinamik bir çerçeve/glow efekti için isimden
+    // tahmin yerine varyantların gerçek renk alanı (bkz. search-index.
+    // service.ts buildProductDocument) doğrudan taşınır.
+    colors: doc.colors,
   }));
 
   return {
@@ -166,4 +171,5 @@ interface MeiliProductDoc {
   reviewCount: number;
   isSecondHand: boolean;
   vendorIsIndividual: boolean;
+  colors: string[];
 }

@@ -156,6 +156,10 @@ export interface ProductListItem {
   // kişilerde satış yapabilsin 2. el ürün letgo dolap gibi"
   isSecondHand?: boolean;
   vendorIsIndividual?: boolean;
+  // bkz. kullanıcı isteği: "ürünlerin isimlerine güvenme" - anasayfadaki
+  // dinamik renk efekti için gerçek varyant rengi (sadece sort=X ile gelen
+  // arama sonuçlarında dolu - bkz. catalog.search.ts).
+  colors?: string[];
 }
 
 // gulumsalim.com'daki productUrl() helper'ının karşılığı: kategorili

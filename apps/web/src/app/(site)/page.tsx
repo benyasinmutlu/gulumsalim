@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { apiFetchJson, publicFetchJson } from "@/lib/api";
 import type {
   AdminSlider,
@@ -149,43 +150,79 @@ function HeroMobileGrid({ products }: { products: ProductListItem[] }) {
   );
 }
 
-// bkz. kullanıcı isteği: "bunu demiyorum az önce attığım görseldeki
-// tasarımı yap diyorum sadece" - önceki halde renkli kart sarmalayıcısını
-// (mockup'taki gibi) kaldırıp sayfanın beyaz zeminine ve rozeti fotoğraf
-// üzerine taşımıştım, bu istenen değildi. Şimdi mockup'a birebir sadık:
-// pastel renkli kart (yeşil yerine markanın tonu #C06C84 ailesi), rozet
-// fotoğrafın üzerinde değil fiyatın yanında, altta tam genişlikte CTA.
+// bkz. kullanıcı isteği: "sezon trendlerinin backgroundu orada sergilenen
+// ürünlerdeki renklere göre belirleyebilir miyiz ... çerçevesinin rengini
+// böyle yaparız kayar" sonrası "ürünlerin isimlerine güvenme" - isimden
+// tahmin yerine ürünün gerçek varyant rengi kullanılıyor (bkz.
+// catalog.search.ts colors alanı, sadece Meilisearch/sort yolunda dolu).
+// Renk yoksa/tanınmayan bir değerse nötr gri.
+const VARIANT_COLOR_HEX: { pattern: RegExp; hex: string }[] = [
+  { pattern: /kırmızı/i, hex: "#C0392B" },
+  { pattern: /bordo/i, hex: "#7B241C" },
+  { pattern: /lacivert/i, hex: "#1B3A6B" },
+  { pattern: /mavi/i, hex: "#2E86C1" },
+  { pattern: /ye[şs]il|haki/i, hex: "#27804B" },
+  { pattern: /sarı/i, hex: "#D4AC0D" },
+  { pattern: /turuncu/i, hex: "#D35400" },
+  { pattern: /pembe/i, hex: "#D46A9F" },
+  { pattern: /mor|lila/i, hex: "#7D3C98" },
+  { pattern: /siyah/i, hex: "#2B2B2B" },
+  { pattern: /beyaz|krem/i, hex: "#D8D3C4" },
+  { pattern: /bej/i, hex: "#C9B79C" },
+  { pattern: /gri/i, hex: "#8A8D8F" },
+  { pattern: /kahverengi|taba/i, hex: "#7B5B3A" },
+];
+const VARIANT_COLOR_FALLBACK = "#B7AFA3";
+
+function hexFromVariantColor(colorName: string | undefined): string {
+  if (!colorName) return VARIANT_COLOR_FALLBACK;
+  for (const { pattern, hex } of VARIANT_COLOR_HEX) {
+    if (pattern.test(colorName)) return hex;
+  }
+  return VARIANT_COLOR_FALLBACK;
+}
+
 function SeasonTrendsMobileGrid({ products }: { products: ProductListItem[] }) {
   const items = products.filter((p) => p.primaryImageUrl).slice(0, 4);
   if (items.length === 0) return null;
+  const frameColors = items.map((p) => hexFromVariantColor(p.colors?.[0]));
+  while (frameColors.length < 4) frameColors.push(VARIANT_COLOR_FALLBACK);
+  const frameStyle = {
+    "--stc-1": frameColors[0],
+    "--stc-2": frameColors[1],
+    "--stc-3": frameColors[2],
+    "--stc-4": frameColors[3],
+  } as CSSProperties;
   return (
     <div className="mobile-only">
       <ScrollReveal anim="fade-up">
-        <div className="season-trends-mobile-card">
-          <span className="deal-shelf-title">Sezon Trendleri</span>
-          <p className="section-subtitle season-trends-mobile-subtitle">Bu sezon en çok ilgi gören parçalar</p>
-          <div className="season-trends-mobile-grid">
-            {items.map((p, i) => (
-              <Link key={p.id} href={productUrl(p)} className="season-trends-mobile-tile">
-                <div className="season-trends-mobile-tile-img-wrap">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.primaryImageUrl as string} alt={p.name} className="season-trends-mobile-tile-img" loading="lazy" />
-                </div>
-                <div className="season-trends-mobile-tile-body">
-                  <div className="season-trends-mobile-tile-name">{p.name}</div>
-                  <div className="season-trends-mobile-tile-meta">
-                    <span className="season-trends-mobile-tile-price">
-                      {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
-                    </span>
-                    {i === 0 && <span className="season-trends-mobile-badge">Beğenilenler</span>}
+        <div className="season-trends-mobile-frame" style={frameStyle}>
+          <div className="season-trends-mobile-card">
+            <span className="deal-shelf-title">Sezon Trendleri</span>
+            <p className="section-subtitle season-trends-mobile-subtitle">Bu sezon en çok ilgi gören parçalar</p>
+            <div className="season-trends-mobile-grid">
+              {items.map((p, i) => (
+                <Link key={p.id} href={productUrl(p)} className="season-trends-mobile-tile">
+                  <div className="season-trends-mobile-tile-img-wrap">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.primaryImageUrl as string} alt={p.name} className="season-trends-mobile-tile-img" loading="lazy" />
                   </div>
-                </div>
-              </Link>
-            ))}
+                  <div className="season-trends-mobile-tile-body">
+                    <div className="season-trends-mobile-tile-name">{p.name}</div>
+                    <div className="season-trends-mobile-tile-meta">
+                      <span className="season-trends-mobile-tile-price">
+                        {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                      </span>
+                      {i === 0 && <span className="season-trends-mobile-badge">Beğenilenler</span>}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <Link href="/urunler?sort=popular" className="season-trends-mobile-cta">
+              Daha Fazla Keşfet <i className="fas fa-arrow-right" />
+            </Link>
           </div>
-          <Link href="/urunler?sort=popular" className="season-trends-mobile-cta">
-            Daha Fazla Keşfet <i className="fas fa-arrow-right" />
-          </Link>
         </div>
       </ScrollReveal>
     </div>
