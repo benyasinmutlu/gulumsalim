@@ -1039,6 +1039,132 @@ button {
     .hero-mobile-grid { display: block; padding: 22px 0; }
 }
 
+/* Genel amaçlı görünürlük yardımcıları - .hero-desktop-only'nin genelleştirilmiş
+   hali, hero dışındaki bölümler için de (bkz. .season-trends-mobile). */
+.mobile-only { display: none; }
+@media (max-width: 768px) {
+    .desktop-only { display: none; }
+    .mobile-only { display: block; }
+}
+
+/* bkz. kullanıcı isteği: "sezonun trendleri ... bu tarz olsun fakat bundan
+   çok daha iyi olsun yeşil yapma" - referans 2x2 ızgara mockup'ı, markanın
+   kendi tonuyla (#C06C84 ailesi), düz mint zemin yerine sayfanın beyaz
+   zemininde. */
+.season-trends-mobile {
+    padding: 22px 16px 0;
+}
+
+.season-trends-mobile-subtitle {
+    margin: 0 0 16px;
+}
+
+.season-trends-mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.season-trends-mobile-tile {
+    display: block;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+    text-decoration: none;
+    color: inherit;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: transform .15s ease;
+}
+
+.season-trends-mobile-tile:active { transform: scale(.96); }
+
+.section-reveal.is-visible .season-trends-mobile-tile {
+    animation: heroTileIn .6s ease both;
+}
+.section-reveal.is-visible .season-trends-mobile-tile:nth-child(1) { animation-delay: .05s; }
+.section-reveal.is-visible .season-trends-mobile-tile:nth-child(2) { animation-delay: .15s; }
+.section-reveal.is-visible .season-trends-mobile-tile:nth-child(3) { animation-delay: .25s; }
+.section-reveal.is-visible .season-trends-mobile-tile:nth-child(4) { animation-delay: .35s; }
+
+@media (prefers-reduced-motion: reduce) {
+    .season-trends-mobile-tile { animation: none !important; opacity: 1; transform: none; }
+}
+
+.season-trends-mobile-tile-img-wrap {
+    position: relative;
+    aspect-ratio: 3/4;
+    background: var(--color-bg-alt);
+}
+
+.season-trends-mobile-tile-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.season-trends-mobile-badge {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(4px);
+    color: #8B3A62;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    padding: 5px 8px;
+    border-radius: 20px;
+}
+.season-trends-mobile-badge i { font-size: 9px; }
+
+.season-trends-mobile-tile-body {
+    padding: 10px 12px 14px;
+}
+
+.season-trends-mobile-tile-name {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.season-trends-mobile-tile-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: #8B3A62;
+}
+
+.season-trends-mobile-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #C06C84, #8B3A62);
+    color: #fff;
+    font-weight: 700;
+    padding: 15px;
+    border-radius: 50px;
+    text-decoration: none;
+    box-shadow: 0 8px 20px rgba(192,108,132,.3);
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.season-trends-mobile-cta:active { transform: scale(.97); }
+
 .hero-mobile-grid-heading-row {
     padding: 0 16px;
     margin-bottom: 12px;

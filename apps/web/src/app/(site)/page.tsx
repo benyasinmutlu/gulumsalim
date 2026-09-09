@@ -131,6 +131,52 @@ function HeroMobileGrid({ products }: { products: ProductListItem[] }) {
   );
 }
 
+// bkz. kullanıcı isteği: "sezonun trendleri diye bir bölümümüz var [görsel]
+// bu tarz olsun fakat bundan çok daha iyi olsun yeşil yapma" - gönderilen
+// referans (2x2 sabit ızgara, rozet, altta CTA) hero'da onaylanan ilk
+// tasarımla neredeyse aynıydı; burada "Sezon Trendleri" bölümünün mobil
+// halinde kullanılıyor (masaüstü .desktop-only ile ProductRow/deal-shelf
+// deseninde kalıyor). Yeşil yerine markanın kendi tonu (#C06C84 ailesi),
+// referanstaki düz mint zemin yerine sayfanın beyaz zemini.
+function SeasonTrendsMobileGrid({ products }: { products: ProductListItem[] }) {
+  const items = products.filter((p) => p.primaryImageUrl).slice(0, 4);
+  if (items.length === 0) return null;
+  return (
+    <div className="mobile-only">
+      <ScrollReveal anim="fade-up">
+        <section className="season-trends-mobile">
+          <span className="deal-shelf-title">Sezon Trendleri</span>
+          <p className="section-subtitle season-trends-mobile-subtitle">Bu sezon en çok ilgi gören parçalar</p>
+          <div className="season-trends-mobile-grid">
+            {items.map((p, i) => (
+              <Link key={p.id} href={productUrl(p)} className="season-trends-mobile-tile">
+                <div className="season-trends-mobile-tile-img-wrap">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.primaryImageUrl as string} alt={p.name} className="season-trends-mobile-tile-img" loading="lazy" />
+                  {i === 0 && (
+                    <span className="season-trends-mobile-badge">
+                      <i className="fas fa-star" /> Beğenilenler
+                    </span>
+                  )}
+                </div>
+                <div className="season-trends-mobile-tile-body">
+                  <div className="season-trends-mobile-tile-name">{p.name}</div>
+                  <div className="season-trends-mobile-tile-price">
+                    {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <Link href="/urunler?sort=popular" className="season-trends-mobile-cta">
+            Daha Fazla Keşfet <i className="fas fa-arrow-right" />
+          </Link>
+        </section>
+      </ScrollReveal>
+    </div>
+  );
+}
+
 // gulumsalim.com anasayfasının ("index.php") bölüm sırasının birebir
 // karşılığı: hero → trust-strip → (keşfet/kişiselleştirilmiş ürün satırı) →
 // kategoriler → indirimli ürünler → admin'in kurduğu sıralı bölümler
@@ -388,14 +434,17 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
-      <ScrollReveal anim="fade-up">
-        <ProductRow
-          title="Sezon Trendleri"
-          subtitle="Bu sezon en çok ilgi gören parçalar"
-          ctaHref="/urunler?sort=popular"
-          products={seasonTrendProducts}
-        />
-      </ScrollReveal>
+      <div className="desktop-only">
+        <ScrollReveal anim="fade-up">
+          <ProductRow
+            title="Sezon Trendleri"
+            subtitle="Bu sezon en çok ilgi gören parçalar"
+            ctaHref="/urunler?sort=popular"
+            products={seasonTrendProducts}
+          />
+        </ScrollReveal>
+      </div>
+      <SeasonTrendsMobileGrid products={seasonTrendProducts} />
 
       {/* bkz. kullanıcı isteği (2026-08-02): kampanyalar/kategoriler için
           burada ayrı, sabit kodlanmış bir önizleme bloğu vardı - hem admin
