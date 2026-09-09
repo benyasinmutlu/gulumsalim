@@ -1047,15 +1047,12 @@ button {
     .mobile-only { display: block; }
 }
 
-/* bkz. kullanıcı isteği: "bunu demiyorum az önce attığım görseldeki
-   tasarımı yap diyorum sadece" sonrası "pembe kullanma" - mockup'a birebir
-   sadık: pastel renkli kart sarmalıyor, ama yeşil DE pembe DE değil, nötr
-   sıcak krem/kum tonu. */
+/* bkz. kullanıcı isteği: "krem rengide çok iyi değil" - yeşil, siyah/altın,
+   pembe, krem hepsi tek tek reddedildi. Renkli kart kavramı tamamen
+   bırakıldı; hero'da (Öne Çıkanlar) işe yarayan çözüm burada da kullanılıyor:
+   kart/renk yok, sayfanın düz beyaz zemininde beyaz ürün kareleri + gölge. */
 .season-trends-mobile-card {
-    margin: 22px 16px 0;
-    padding: 20px 16px 22px;
-    border-radius: 24px;
-    background: linear-gradient(135deg, #F8F3E7 0%, #EFE4C9 100%);
+    padding: 22px 16px 0;
 }
 
 .season-trends-mobile-subtitle {
@@ -1135,12 +1132,12 @@ button {
 .season-trends-mobile-tile-price {
     font-size: 14px;
     font-weight: 700;
-    color: #8A6F35;
+    color: var(--color-primary-dark);
 }
 
 .season-trends-mobile-badge {
-    background: rgba(184,147,74,.16);
-    color: #8A6F35;
+    background: var(--color-bg-alt);
+    color: var(--color-primary-dark);
     font-size: 10px;
     font-weight: 700;
     padding: 3px 8px;
@@ -1152,13 +1149,13 @@ button {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: linear-gradient(135deg, #B8934A, #8A6F35);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
     color: #fff;
     font-weight: 700;
     padding: 15px;
     border-radius: 50px;
     text-decoration: none;
-    box-shadow: 0 8px 20px rgba(184,147,74,.3);
+    box-shadow: 0 8px 20px rgba(var(--color-primary-rgb),.25);
     transition: transform .15s ease, box-shadow .15s ease;
 }
 .season-trends-mobile-cta:active { transform: scale(.97); }

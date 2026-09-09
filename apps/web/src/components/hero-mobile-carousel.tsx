@@ -46,7 +46,7 @@ export default function HeroMobileCarousel({ products }: { products: ProductList
           <div className="hero-mobile-carousel-tile-img-wrap">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.primaryImageUrl as string} alt={p.name} className="hero-mobile-carousel-tile-img" loading="lazy" />
-            {i === 0 && <span className="hero-mobile-carousel-badge">🏅 Beğenilenler</span>}
+            {i === 0 && <span className="hero-mobile-carousel-badge">🔥 Çok Satan</span>}
           </div>
           <div className="hero-mobile-carousel-tile-body">
             <div className="hero-mobile-carousel-tile-name">{p.name}</div>

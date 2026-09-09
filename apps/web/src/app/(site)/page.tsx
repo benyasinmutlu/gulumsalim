@@ -53,6 +53,20 @@ async function getSeasonTrendProducts(): Promise<ProductListItem[]> {
   }
 }
 
+// bkz. kullanıcı isteği: "bu 2 yerin mantık olarak aynı olması saçma değil
+// mi" - hero (Öne Çıkanlar) daha önce seasonTrendProducts ile aynı havuzu
+// (sort=popular, yani ortalama puan) kullanıyordu, "Sezon Trendleri" ile
+// birebir aynı ürünleri gösteriyordu. Hero artık gerçekten farklı bir
+// ölçüte (salesCount) dayanıyor.
+async function getBestSellingProducts(): Promise<ProductListItem[]> {
+  try {
+    const res = await apiFetchJson<{ items: ProductListItem[] }>("/products?sort=best_selling&limit=16");
+    return res.items;
+  } catch {
+    return [];
+  }
+}
+
 async function getSliders(): Promise<AdminSlider[]> {
   try {
     return await apiFetchJson<AdminSlider[]>("/sliders");
@@ -331,13 +345,14 @@ async function getCampaignVendors(): Promise<CampaignVendor[]> {
 }
 
 export default async function Home() {
-  const [sliders, discover, sections, saleProducts, seasonTrendCandidates, homepageCollections, settings, customer, vendors, campaignVendors] =
+  const [sliders, discover, sections, saleProducts, seasonTrendCandidates, bestSellingCandidates, homepageCollections, settings, customer, vendors, campaignVendors] =
     await Promise.all([
       getSliders(),
       getDiscoverFeed(),
       getHomepageSections(),
       getSaleProducts(),
       getSeasonTrendProducts(),
+      getBestSellingProducts(),
       getHomepageCollections(),
       getSiteSettings(),
       getCurrentCustomer(),
@@ -348,6 +363,8 @@ export default async function Home() {
   const saleProductIds = new Set(saleProducts.map((product) => product.id));
   const nonSaleTrendProducts = seasonTrendCandidates.filter((product) => !saleProductIds.has(product.id));
   const seasonTrendProducts = (nonSaleTrendProducts.length >= 4 ? nonSaleTrendProducts : seasonTrendCandidates).slice(0, 8);
+  const nonSaleBestSelling = bestSellingCandidates.filter((product) => !saleProductIds.has(product.id));
+  const bestSellingProducts = (nonSaleBestSelling.length >= 4 ? nonSaleBestSelling : bestSellingCandidates).slice(0, 8);
 
   // bkz. kullanıcı isteği: "'Kadının Gücü' yerinde ürünler dönsün orayı
   // canlandıralım" - hero'da tek statik banner (admin'in girdiği tek
@@ -359,7 +376,7 @@ export default async function Home() {
   // yapmayan split düzende çizsin (bkz. hero-slider.tsx - "hiç olmadı bu
   // şekilde" geri bildiriminden sonra: tam ekran background-size:cover
   // dikey ürün fotoğraflarını feci kırpıyordu).
-  const heroProductSlides: HeroSlide[] = seasonTrendProducts
+  const heroProductSlides: HeroSlide[] = bestSellingProducts
     .filter((p) => p.primaryImageUrl)
     .slice(0, 4)
     .map((p, i) => ({
@@ -412,7 +429,7 @@ export default async function Home() {
       </div>
       </section>
 
-      <HeroMobileGrid products={seasonTrendProducts} />
+      <HeroMobileGrid products={bestSellingProducts} />
 
       <section className="container home-discovery-strip" aria-labelledby="home-discovery-title">
         <div className="home-discovery-heading">
