@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import { apiFetchJson, publicFetchJson } from "@/lib/api";
 import type {
   AdminSlider,
@@ -15,6 +14,7 @@ import { productUrl } from "@/lib/types";
 import PopularVendorsSection from "@/components/popular-vendors-section";
 import CampaignVendorsSection from "@/components/campaign-vendors-section";
 import HeroSlider, { type HeroSlide } from "@/components/hero-slider";
+import HeroMobileCarousel from "@/components/hero-mobile-carousel";
 import CountdownTimer from "@/components/countdown-timer";
 import ProductCard from "@/components/product-card";
 import HscrollArrows from "@/components/hscroll-arrows";
@@ -110,46 +110,23 @@ const TITLE_FONT_CLASS: Record<string, string> = {
   italic: "sec-font-italic",
 };
 
-// bkz. kullanıcı isteği: "mobilde bir kaç ürünü bir gösterelim" + gönderilen
-// referans görsel (2x2 sabit ızgara, beyaz kartlar, tek rozet, altta büyük
-// CTA) - masaüstündeki tekli dönen HeroSlider (.hero-desktop-only) yerine
-// dar ekranda bu görünür (.hero-mobile-grid, bkz. globals.css). Aynı
-// --color-primary/-dark/-rgb temalama deseni hero-slider.tsx'teki
-// PRODUCT_PALETTES ile aynı (sage) tonu kullanır.
+// bkz. kullanıcı isteği: "background rengi beyaz olsun ... o kutunun
+// dışına çıksın ürünler kayarken ... sola kaydırma otomatik olsun" - önceki
+// renkli/padding'li kart sarmalayıcısı tamamen kaldırıldı; şerit artık
+// sayfanın beyaz zemininde, ekran kenarına kadar taşıyor (bkz.
+// .hero-mobile-grid CSS - sadece 16px sol boşluk, sağda serbest taşma) ve
+// otomatik ilerliyor (bkz. hero-mobile-carousel.tsx, ~2.4sn'de bir).
 function HeroMobileGrid({ products }: { products: ProductListItem[] }) {
-  const items = products.filter((p) => p.primaryImageUrl).slice(0, 4);
+  const items = products.filter((p) => p.primaryImageUrl).slice(0, 8);
   if (items.length === 0) return null;
-  const themeStyle = {
-    "--hero-mobile-bg": "linear-gradient(135deg, #F1F4EE 0%, #E1E8DA 100%)",
-    "--color-primary": "#8FA382",
-    "--color-primary-dark": "#657356",
-    "--color-primary-rgb": "143, 163, 130",
-  } as CSSProperties;
   return (
     <div className="hero-mobile-grid">
-      <div className="hero-mobile-grid-card" style={themeStyle}>
-        <span className="hero-tag hero-mobile-grid-heading">✨ Sezonun Trendi</span>
-        <div className="hero-mobile-grid-items">
-          {items.map((p, i) => (
-            <Link key={p.id} href={productUrl(p)} className="hero-mobile-grid-tile">
-              <div className="hero-mobile-grid-tile-img-wrap">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.primaryImageUrl as string} alt={p.name} className="hero-mobile-grid-tile-img" loading="lazy" />
-                {i === 0 && <span className="hero-mobile-grid-badge">🏅 Beğenilenler</span>}
-              </div>
-              <div className="hero-mobile-grid-tile-body">
-                <div className="hero-mobile-grid-tile-name">{p.name}</div>
-                <div className="hero-mobile-grid-tile-price">
-                  {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
-                </div>
-              </div>
-            </Link>
-          ))}
+      <ScrollReveal anim="fade-up">
+        <div className="hero-mobile-grid-heading-row">
+          <span className="deal-shelf-title">Sezonun Trendi</span>
         </div>
-        <Link href="/urunler?sort=popular" className="hero-mobile-grid-cta">
-          Daha Fazla Keşfet <i className="fas fa-arrow-right" />
-        </Link>
-      </div>
+        <HeroMobileCarousel products={items} />
+      </ScrollReveal>
     </div>
   );
 }

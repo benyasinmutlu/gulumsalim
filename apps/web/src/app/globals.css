@@ -1026,80 +1026,111 @@ button {
     box-shadow: 0 24px 70px rgba(0,0,0,.12);
 }
 
-/* bkz. kullanıcı isteği: "mobilde bir kaç ürünü bir gösterelim" + gönderilen
-   referans görsel (2x2 sabit ızgara, beyaz kartlar, tek rozet, altta büyük
-   CTA) - masaüstündeki tekli dönen HeroSlider dar ekranda yerini bu sabit
-   ızgaraya bırakır, kaydırma/taşma derdi yok. */
+/* bkz. kullanıcı isteği: "background rengi beyaz olsun ... o kutunun dışına
+   çıksın ürünler kayarken ... sola kaydırma otomatik olsun" - önceki renkli/
+   padding'li kart sarmalayıcısı tamamen kaldırıldı. Şerit artık sayfanın
+   beyaz zemininde, sadece sol kenarda sayfanın doğal 16px boşluğuyla
+   hizalı, sağda ekran kenarını aşarak serbestçe taşıyor (kutu yok).
+   Masaüstündeki tekli dönen HeroSlider dar ekranda yerini buna bırakır. */
 .hero-mobile-grid { display: none; }
 
 @media (max-width: 768px) {
     .hero-desktop-only { display: none; }
-    .hero-mobile-grid { display: block; }
+    .hero-mobile-grid { display: block; padding: 22px 0; }
 }
 
-.hero-mobile-grid-card {
-    margin: 0 16px;
-    padding: 20px 16px 22px;
-    border-radius: 24px;
-    background: var(--hero-mobile-bg, var(--color-bg-alt));
+.hero-mobile-grid-heading-row {
+    padding: 0 16px;
+    margin-bottom: 12px;
 }
 
-.hero-mobile-grid-heading {
-    display: inline-flex;
-    margin-bottom: 14px;
-}
-
-.hero-mobile-grid-items {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+.hero-mobile-carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
     gap: 12px;
-    margin-bottom: 18px;
+    padding: 0 16px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
 }
+.hero-mobile-carousel::-webkit-scrollbar { display: none; }
 
-.hero-mobile-grid-tile {
+.hero-mobile-carousel-tile {
+    flex: 0 0 42%;
+    scroll-snap-align: start;
     display: block;
     background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0,0,0,.07);
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
     text-decoration: none;
     color: inherit;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: transform .15s ease;
 }
 
-.hero-mobile-grid-tile-img-wrap {
+.hero-mobile-carousel-tile:active { transform: scale(.96); }
+
+/* bkz. kullanıcı isteği: "hareketli olsun" - kartlar sırayla, hafif
+   gecikmeli olarak içeri kayar (ScrollReveal'ın .is-visible tetiklediği an);
+   ayrıca hero-mobile-carousel.tsx ~2.4sn'de bir otomatik ilerletir. */
+.section-reveal.is-visible .hero-mobile-carousel-tile {
+    animation: heroTileIn .6s ease both;
+}
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(1) { animation-delay: .05s; }
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(2) { animation-delay: .12s; }
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(3) { animation-delay: .19s; }
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(4) { animation-delay: .26s; }
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(5) { animation-delay: .33s; }
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(6) { animation-delay: .4s; }
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(7) { animation-delay: .47s; }
+.section-reveal.is-visible .hero-mobile-carousel-tile:nth-child(8) { animation-delay: .54s; }
+
+@keyframes heroTileIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-mobile-carousel-tile { animation: none !important; opacity: 1; transform: none; }
+}
+
+.hero-mobile-carousel-tile-img-wrap {
     position: relative;
     aspect-ratio: 3/4;
     background: var(--color-bg-alt);
 }
 
-.hero-mobile-grid-tile-img {
+.hero-mobile-carousel-tile-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-.hero-mobile-grid-badge {
+.hero-mobile-carousel-badge {
     position: absolute;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
     background: rgba(255,255,255,.94);
     color: var(--color-primary-dark);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-align: center;
-    padding: 5px 8px;
+    padding: 4px 6px;
     border-radius: 20px;
 }
 
-.hero-mobile-grid-tile-body {
-    padding: 10px 12px 14px;
+.hero-mobile-carousel-tile-body {
+    padding: 9px 10px 12px;
 }
 
-.hero-mobile-grid-tile-name {
+.hero-mobile-carousel-tile-name {
     font-family: var(--font-display);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     line-height: 1.25;
     margin-bottom: 4px;
@@ -1109,25 +1140,12 @@ button {
     overflow: hidden;
 }
 
-.hero-mobile-grid-tile-price {
-    font-size: 14px;
+.hero-mobile-carousel-tile-price {
+    font-size: 13px;
     font-weight: 700;
     color: var(--color-primary-dark);
 }
 
-.hero-mobile-grid-cta {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    color: #fff;
-    font-weight: 700;
-    padding: 15px;
-    border-radius: 50px;
-    text-decoration: none;
-    box-shadow: 0 8px 20px rgba(var(--color-primary-rgb),.25);
-}
 
 .home-cat-sidebar {
     background: var(--color-surface);
