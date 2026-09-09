@@ -1026,6 +1026,109 @@ button {
     box-shadow: 0 24px 70px rgba(0,0,0,.12);
 }
 
+/* bkz. kullanıcı isteği: "mobilde bir kaç ürünü bir gösterelim" + gönderilen
+   referans görsel (2x2 sabit ızgara, beyaz kartlar, tek rozet, altta büyük
+   CTA) - masaüstündeki tekli dönen HeroSlider dar ekranda yerini bu sabit
+   ızgaraya bırakır, kaydırma/taşma derdi yok. */
+.hero-mobile-grid { display: none; }
+
+@media (max-width: 768px) {
+    .hero-desktop-only { display: none; }
+    .hero-mobile-grid { display: block; }
+}
+
+.hero-mobile-grid-card {
+    margin: 0 16px;
+    padding: 20px 16px 22px;
+    border-radius: 24px;
+    background: var(--hero-mobile-bg, var(--color-bg-alt));
+}
+
+.hero-mobile-grid-heading {
+    display: inline-flex;
+    margin-bottom: 14px;
+}
+
+.hero-mobile-grid-items {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.hero-mobile-grid-tile {
+    display: block;
+    background: var(--color-surface);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,.07);
+    text-decoration: none;
+    color: inherit;
+}
+
+.hero-mobile-grid-tile-img-wrap {
+    position: relative;
+    aspect-ratio: 3/4;
+    background: var(--color-bg-alt);
+}
+
+.hero-mobile-grid-tile-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.hero-mobile-grid-badge {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    background: rgba(255,255,255,.94);
+    color: var(--color-primary-dark);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    padding: 5px 8px;
+    border-radius: 20px;
+}
+
+.hero-mobile-grid-tile-body {
+    padding: 10px 12px 14px;
+}
+
+.hero-mobile-grid-tile-name {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.hero-mobile-grid-tile-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-primary-dark);
+}
+
+.hero-mobile-grid-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: #fff;
+    font-weight: 700;
+    padding: 15px;
+    border-radius: 50px;
+    text-decoration: none;
+    box-shadow: 0 8px 20px rgba(var(--color-primary-rgb),.25);
+}
+
 .home-cat-sidebar {
     background: var(--color-surface);
     border: 1px solid var(--color-border-light);

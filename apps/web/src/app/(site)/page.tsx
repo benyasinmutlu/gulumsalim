@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { apiFetchJson, publicFetchJson } from "@/lib/api";
 import type {
   AdminSlider,
@@ -108,6 +109,50 @@ const TITLE_FONT_CLASS: Record<string, string> = {
   sans: "sec-font-sans",
   italic: "sec-font-italic",
 };
+
+// bkz. kullanıcı isteği: "mobilde bir kaç ürünü bir gösterelim" + gönderilen
+// referans görsel (2x2 sabit ızgara, beyaz kartlar, tek rozet, altta büyük
+// CTA) - masaüstündeki tekli dönen HeroSlider (.hero-desktop-only) yerine
+// dar ekranda bu görünür (.hero-mobile-grid, bkz. globals.css). Aynı
+// --color-primary/-dark/-rgb temalama deseni hero-slider.tsx'teki
+// PRODUCT_PALETTES ile aynı (sage) tonu kullanır.
+function HeroMobileGrid({ products }: { products: ProductListItem[] }) {
+  const items = products.filter((p) => p.primaryImageUrl).slice(0, 4);
+  if (items.length === 0) return null;
+  const themeStyle = {
+    "--hero-mobile-bg": "linear-gradient(135deg, #F1F4EE 0%, #E1E8DA 100%)",
+    "--color-primary": "#8FA382",
+    "--color-primary-dark": "#657356",
+    "--color-primary-rgb": "143, 163, 130",
+  } as CSSProperties;
+  return (
+    <div className="hero-mobile-grid">
+      <div className="hero-mobile-grid-card" style={themeStyle}>
+        <span className="hero-tag hero-mobile-grid-heading">✨ Sezonun Trendi</span>
+        <div className="hero-mobile-grid-items">
+          {items.map((p, i) => (
+            <Link key={p.id} href={productUrl(p)} className="hero-mobile-grid-tile">
+              <div className="hero-mobile-grid-tile-img-wrap">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.primaryImageUrl as string} alt={p.name} className="hero-mobile-grid-tile-img" loading="lazy" />
+                {i === 0 && <span className="hero-mobile-grid-badge">🏅 Beğenilenler</span>}
+              </div>
+              <div className="hero-mobile-grid-tile-body">
+                <div className="hero-mobile-grid-tile-name">{p.name}</div>
+                <div className="hero-mobile-grid-tile-price">
+                  {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+        <Link href="/urunler?sort=popular" className="hero-mobile-grid-cta">
+          Daha Fazla Keşfet <i className="fas fa-arrow-right" />
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 // gulumsalim.com anasayfasının ("index.php") bölüm sırasının birebir
 // karşılığı: hero → trust-strip → (keşfet/kişiselleştirilmiş ürün satırı) →
@@ -319,7 +364,7 @@ export default async function Home() {
 
   return (
     <main className="main-content premium-home">
-      <section className="home-stage" aria-label="Öne çıkan koleksiyonlar">
+      <section className="home-stage hero-desktop-only" aria-label="Öne çıkan koleksiyonlar">
       <div className="container home-hero-row">
         <div className="home-hero-main">
           {heroSlides.length > 0 ? (
@@ -342,6 +387,8 @@ export default async function Home() {
         </div>
       </div>
       </section>
+
+      <HeroMobileGrid products={seasonTrendProducts} />
 
       <section className="container home-discovery-strip" aria-labelledby="home-discovery-title">
         <div className="home-discovery-heading">
