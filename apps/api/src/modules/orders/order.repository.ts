@@ -5,6 +5,7 @@ import { enqueueStockSyncTx, enqueueVariantStockSyncTx } from "../integrations/i
 import { reserveCouponUse, releaseCouponUse } from "./coupon.repository";
 import { sortStockReservations, withTransactionRetry } from "./order-concurrency";
 import { CouponUsageLimitError } from "./coupon.service";
+import { createShipmentsForOrder } from "./shipment.repository";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -335,7 +336,7 @@ export async function markOrderPaid(
       .update(orders)
       .set({ status: "processing", paymentStatus: "paid", paymentTransactionId: paymentId })
       .where(and(eq(orders.id, orderId), eq(orders.paymentStatus, "pending")))
-      .returning({ id: orders.id });
+      .returning({ id: orders.id, shippingAddress: orders.shippingAddress });
     if (transitioned.length !== 1) return false;
     for (const item of paymentItems) {
       const updated = await tx
@@ -345,6 +346,14 @@ export async function markOrderPaid(
         .returning({ id: orderItems.id });
       if (updated.length !== 1) throw new Error("Ödeme kalemi eşleştirilemedi");
     }
+    // bkz. kargo/PTT denetim raporu Faz 2 (2026-09-10): Shipment SADECE
+    // burada, ödeme GERÇEKTEN onaylandıktan sonra oluşturulur - checkout'u
+    // yarıda bırakan/ödemesi başarısız olan denemeler için asla oluşmaz
+    // (bkz. shipment.repository.ts createShipmentsForOrder yorumu).
+    const recipient = transitioned[0]!.shippingAddress as {
+      fullName: string; phone: string; city: string; district: string; addressLine: string; zipCode?: string;
+    };
+    await createShipmentsForOrder(tx, orderId, recipient);
     return true;
   });
 }

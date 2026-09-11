@@ -1,4 +1,4 @@
-import { getShippingConfig, computeVendorShipping } from "../../lib/shipping";
+import { getShippingConfig, shippingProvider } from "../../lib/shipping";
 import { listActiveCampaigns } from "./campaign.repository";
 import { computeCampaigns, pickBestDiscount } from "./campaign.service";
 import { validateAndComputeDiscount } from "./coupon.service";
@@ -46,7 +46,13 @@ export async function resolveCheckoutTotals(
     }),
   );
   const freeShippingVendors = new Set(campaigns.freeShippingVendorIds);
-  const shipping = computeVendorShipping(
+  // bkz. kargo/PTT denetim raporu Faz 3 (2026-09-10): "checkout provider
+  // üzerinden shipping hesaplayacak" - hesap motoru (ManualShippingProvider)
+  // BİREBİR AYNI computeVendorShipping()'i çalıştırıyor, sadece arkasında
+  // bir soyutlama var. Kampanya/serbest-kargo çözümlemesi (freeShippingVendors)
+  // KASITLI OLARAK burada kalıyor - bu checkout'un sorumluluğu, provider'ın
+  // değil (bkz. lib/shipping.ts ShippingProvider yorumu).
+  const shipping = await shippingProvider.calculateQuote(
     items.map((item) => {
       const product = productMap.get(item.productId);
       return {

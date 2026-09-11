@@ -52,6 +52,24 @@ export const vendors = pgTable("vendors", {
   website: text("website"),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): "Satıcı kargo/origin
+  // adresi ayrı mı: YOK - sadece tek legalAddress" tespitinin karşılığı.
+  // legalAddress HUKUKİ adrestir (Mesafeli Satış Sözleşmesi, fatura) - bu
+  // alanlar OPERASYONEL kargo çıkış adresidir, bilinçli olarak AYRI tutulur
+  // (bir satıcının fatura adresi ile kargonun fiilen çıktığı depo/adres
+  // farklı olabilir). customerAddresses (customers.ts) ile AYNI adres
+  // standardı kullanılır (city/district/addressLine) - yeni bir adres
+  // şablonu icat edilmedi. Nullable: mevcut satıcılarda boş kalır, hiçbir
+  // checkout/kargo hesabına henüz bağlı değildir (bkz. rapor Faz 1 kapsamı).
+  // Not (tasarım kararı): bir satıcının birden fazla depo/gönderim noktası
+  // olması ihtimali varsa bu, ileride ayrı bir vendor_shipping_locations
+  // tablosuna genişletilebilir - bu faz TEK bir gönderim adresi varsayar,
+  // multi-warehouse KURULMUYOR.
+  shippingContactName: text("shipping_contact_name"),
+  shippingContactPhone: text("shipping_contact_phone"),
+  shippingCity: text("shipping_city"),
+  shippingDistrict: text("shipping_district"),
+  shippingAddressLine: text("shipping_address_line"),
   // Mağaza profil sayfasında gösterilecek bölümlerin sırası/görünürlüğü
   // (ör. [{"type":"collections","visible":true},{"type":"products","visible":true}]).
   // Eski sitedeki vendor_store_sections tablosunun basitleştirilmiş karşılığı.

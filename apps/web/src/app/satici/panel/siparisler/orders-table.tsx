@@ -396,6 +396,9 @@ export default function OrdersTable() {
                                   <strong>Kargo</strong>
                                   <p style={{ marginTop: 4 }}>
                                     {item.trackingCarrier} — {item.trackingNumber}
+                                    {item.shipmentId && (
+                                      <span style={{ color: "var(--tx3)" }}> (Gönderi #{item.shipmentId})</span>
+                                    )}
                                   </p>
                                 </>
                               )}

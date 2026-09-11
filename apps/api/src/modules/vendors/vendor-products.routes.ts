@@ -145,6 +145,10 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       // route'u reddeder (bkz. aşağıdaki "active" kontrolü).
       stock: vendor?.vendorType === "individual" ? 1 : (input.stock ?? 0),
       sizeChart: input.sizeChart,
+      weightGrams: input.weightGrams,
+      widthCm: input.widthCm?.toFixed(1),
+      heightCm: input.heightCm?.toFixed(1),
+      lengthCm: input.lengthCm?.toFixed(1),
     });
     syncProductToIndex(product.id).catch(() => {});
     return reply.status(201).send(product);
@@ -345,6 +349,9 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       defectDescription: input.hasDefect === false ? undefined : restInput.defectDescription,
       ...(isSecondHandOverride !== undefined ? { isSecondHand: isSecondHandOverride } : {}),
       ...(stockPatch !== undefined ? { stock: stockPatch } : {}),
+      widthCm: input.widthCm?.toFixed(1),
+      heightCm: input.heightCm?.toFixed(1),
+      lengthCm: input.lengthCm?.toFixed(1),
     });
     if (!updated) {
       return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
@@ -492,6 +499,10 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       color: input.color,
       priceOverride: input.priceOverride?.toFixed(2),
       stock: input.stock,
+      weightGrams: input.weightGrams,
+      widthCm: input.widthCm?.toFixed(1),
+      heightCm: input.heightCm?.toFixed(1),
+      lengthCm: input.lengthCm?.toFixed(1),
     });
     syncProductToIndex(id).catch(() => {});
     return reply.status(201).send(variant);
@@ -510,6 +521,9 @@ const vendorProductsRoutes: FastifyPluginAsync = async (app) => {
       const updated = await updateProductVariant(variantId, {
         ...input,
         priceOverride: input.priceOverride?.toFixed(2),
+        widthCm: input.widthCm?.toFixed(1),
+        heightCm: input.heightCm?.toFixed(1),
+        lengthCm: input.lengthCm?.toFixed(1),
       });
       syncProductToIndex(id).catch(() => {});
       return reply.send(updated);

@@ -505,6 +505,20 @@
       "when": 1788456095805,
       "tag": "0071_loving_harry_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1789000445509,
+      "tag": "0072_fluffy_vampiro",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789002228055,
+      "tag": "0073_fancy_shen",
+      "breakpoints": true
     }
   ]
 }
