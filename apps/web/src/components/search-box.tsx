@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { fetchJson } from "../lib/client-api";
-import type { Category, SearchSuggestion } from "../lib/types";
+import { productUrl, type Category, type ProductListItem, type ProductListResponse, type SearchSuggestion } from "../lib/types";
 
 // bkz. kullanıcı isteği: "arama yerinde efekt ile yazı yazılıp silinsin
 // ürünler kategoriler vs olsun" → "websitesindeki ürünleri mağazaları
@@ -89,10 +90,10 @@ function useTypewriterPlaceholder(active: boolean, words: string[]) {
 
 // gulumsalim.com'daki search-suggest.php canlı öneri dropdown'unun
 // karşılığı - yazarken 250ms bekleyip (debounce) /search-suggest'e sorar.
-// bkz. kullanıcı isteği (mockup): kategori seçici artık arama kutusunun
-// SOLUNDA ayrı bir buton değil, kutunun kendi içine gömülü bir "Tümü ▾"
-// açılır listesi - native <select name="category"> olduğu için JS
-// gerektirmeden form submit'inde /arama?search=&category= şeklinde gider.
+// bkz. kullanıcı isteği (2026-09-12): "arama yerinde tümüne tıklayıp seçme
+// olayını kaldıralım" - kutunun içine gömülü "Tümü ▾" kategori <select>'i
+// kaldırıldı (arama artık her zaman kategori ayrımı olmadan çalışır,
+// kategori bazlı gezinme sitenin geri kalanında zaten var).
 export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: boolean; categories?: Category[] }) {
   const router = useRouter();
   const topLevelCategories = categories.filter((c) => !c.parentId);
@@ -108,6 +109,13 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
   const [trendingSearches, setTrendingSearches] = useState<string[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [emptyPanelOpen, setEmptyPanelOpen] = useState(false);
+  // bkz. kullanıcı isteği (2026-09-12): "arama yerinde tümüne tıklayıp seçme
+  // olayını kaldıralım, trendyol tarzında olsun fakat özgün olmalı" - kutu
+  // boşken odaklanınca artık gerçek çok-satan ürünleri (görsel+fiyat) ve
+  // kategori keşif etiketlerini de gösteriyoruz. `/products?sort=best_selling`
+  // zaten var olan, anasayfa hero'sunun da kullandığı uç (bkz. (site)/page.tsx
+  // getBestSellingProducts) - yeni bir backend endpoint'i GEREKMEDİ.
+  const [popularProducts, setPopularProducts] = useState<ProductListItem[]>([]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -132,6 +140,9 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
     setRecentSearches(loadRecentSearches());
     fetchJson<string[]>("/search-trending")
       .then(setTrendingSearches)
+      .catch(() => {});
+    fetchJson<ProductListResponse>("/products?sort=best_selling&limit=4")
+      .then((res) => setPopularProducts(res.items))
       .catch(() => {});
   }, []);
 
@@ -192,16 +203,6 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
         action="/arama"
         onSubmit={handleSubmit}
       >
-        {topLevelCategories.length > 0 && (
-          <select name="category" className="search-box-category" defaultValue="" aria-label="Kategori seç">
-            <option value="">Tümü</option>
-            {topLevelCategories.map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        )}
         <input
           type="text"
           name="search"
@@ -221,8 +222,66 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
         </button>
       </form>
 
-      {emptyPanelOpen && (recentSearches.length > 0 || trendingSearches.length > 0) && (
+      {emptyPanelOpen &&
+        (popularProducts.length > 0 || topLevelCategories.length > 0 || recentSearches.length > 0 || trendingSearches.length > 0) && (
         <div className="search-suggest show search-suggest-empty">
+          {popularProducts.length > 0 && (
+            <div className="ss-term-group">
+              <div className="ss-term-group-header">
+                <span className="ss-term-group-label">
+                  <i className="fas fa-fire" /> Popüler Ürünler
+                </span>
+                <Link href="/urunler?sort=best_selling" className="ss-see-all" onClick={() => setEmptyPanelOpen(false)}>
+                  Tümünü Gör <i className="fas fa-arrow-right" />
+                </Link>
+              </div>
+              <div className="ss-popular-products">
+                {popularProducts.map((p) => {
+                  const discountPercent = p.compareAtPrice
+                    ? Math.round((1 - Number(p.basePrice) / Number(p.compareAtPrice)) * 100)
+                    : null;
+                  return (
+                    <Link
+                      key={p.id}
+                      href={productUrl(p)}
+                      className="ss-popular-product"
+                      onClick={() => setEmptyPanelOpen(false)}
+                    >
+                      <span className="ss-popular-product-img">
+                        {p.primaryImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.primaryImageUrl} alt="" />
+                        ) : (
+                          <span className="ss-noimg">{p.name.charAt(0)}</span>
+                        )}
+                        {discountPercent !== null && discountPercent > 0 && (
+                          <span className="ss-popular-product-badge">%{discountPercent}</span>
+                        )}
+                      </span>
+                      <span className="ss-popular-product-name">{p.name}</span>
+                      <span className="ss-popular-product-price">
+                        {Number(p.basePrice).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {topLevelCategories.length > 0 && (
+            <div className="ss-term-group">
+              <span className="ss-term-group-label">
+                <i className="fas fa-compass" /> Keşfet
+              </span>
+              <div className="ss-term-chips">
+                {topLevelCategories.map((c) => (
+                  <Link key={c.id} href={`/${c.slug}`} className="ss-term-chip ss-discover-chip" onClick={() => setEmptyPanelOpen(false)}>
+                    {c.icon && <i className={c.icon} />} {c.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
           {recentSearches.length > 0 && (
             <div className="ss-term-group">
               <span className="ss-term-group-label">
@@ -240,7 +299,7 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
           {trendingSearches.length > 0 && (
             <div className="ss-term-group">
               <span className="ss-term-group-label">
-                <i className="fas fa-fire" /> Popüler Aramalar
+                <i className="fas fa-magnifying-glass" /> Popüler Aramalar
               </span>
               <div className="ss-term-chips">
                 {trendingSearches.map((term) => (
