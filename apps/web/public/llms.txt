@@ -1,0 +1,26 @@
+# Gülüm Şalım
+
+> Türkiye merkezli, çok satıcılı bir kadın modası pazaryeri. Bağımsız butikler ve mağazalar tek platformda kadın giyim, ayakkabı, çanta, aksesuar ve kozmetik ürünleri satar.
+
+Gülüm Şalım bir üretici veya tek bir marka değildir — birden fazla bağımsız satıcının (butik ve mağaza) ürünlerini bir araya getiren bir pazaryeri platformudur. Fiyat, stok, kargo ve iade koşulları satıcıya ve ürüne göre değişebilir; her ürün sayfasında schema.org Product yapılandırılmış verisi (güncel fiyat, stok durumu, marka, puan) yer alır.
+
+## Temel Bilgiler
+
+- Resmi site: https://gulumsalim.com
+- Sektör: Kadın modası / çok satıcılı e-ticaret pazaryeri
+- Ülke: Türkiye (para birimi: TRY)
+- İletişim: info@gulumsalim.com
+
+## Önemli Sayfalar
+
+- [Tüm Ürünler](https://gulumsalim.com/urunler): Katalogdaki tüm ürünler
+- [Mağazalar](https://gulumsalim.com/magazalar): Platformdaki bağımsız satıcı/butik listesi
+- [Kampanyalar](https://gulumsalim.com/kampanyalar): Aktif indirim ve kampanyalar
+- [İptal ve İade Politikası](https://gulumsalim.com/iade-sartlari): Güncel iade/cayma hakkı koşulları
+- [Teslimat Politikası](https://gulumsalim.com/teslimat-politikasi): Kargo ve teslimat bilgisi
+- [Site Haritası](https://gulumsalim.com/sitemap.xml): Ürün/kategori/mağaza sayfalarının tam listesi
+
+## Notlar
+
+- Ürün fiyatları ve stok durumu sık güncellenir; en güncel bilgi için ilgili ürün sayfasındaki yapılandırılmış veriye (JSON-LD) bakılmalıdır.
+- Bu dosya insan ve yapay zekâ tarafından okunabilir bir özet sağlar (bkz. https://llmstxt.org); sitenin kendisinin yerini tutmaz.
