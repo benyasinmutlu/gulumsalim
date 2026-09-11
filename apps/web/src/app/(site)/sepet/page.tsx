@@ -10,8 +10,6 @@ function lineId(productId: number, variantId?: number) {
   return `${productId}:${variantId ?? 0}`;
 }
 
-const DEFAULT_FREE_SHIPPING_THRESHOLD = 500;
-
 function formatMoney(n: number) {
   return n.toLocaleString("tr-TR", { minimumFractionDigits: 2 });
 }
@@ -107,7 +105,6 @@ export default function CartPage() {
   // gerçek değerler kullanılıyor (bkz. lib/shipping.ts), önceden burada
   // sadece eşik biliniyordu, ücretin kendisi hiç gösterilmiyordu.
   const pricedCart = quote ?? cart;
-  const freeShippingThreshold = pricedCart?.freeShippingThreshold ?? DEFAULT_FREE_SHIPPING_THRESHOLD;
   const shippingFee = pricedCart ? Number(pricedCart.shippingFee) : 0;
 
   async function updateQuantity(productId: number, variantId: number | undefined, quantity: number) {
@@ -160,9 +157,6 @@ export default function CartPage() {
 
   const subtotal = pricedCart ? Number(pricedCart.subtotal) : 0;
   const discountAmount = pricedCart ? Number(pricedCart.discountAmount) : 0;
-  const remaining = Math.max(0, freeShippingThreshold - subtotal);
-  const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-  const multipleVendors = (pricedCart?.shippingBreakdown.length ?? 0) > 1;
   const total = pricedCart ? Number(pricedCart.total) : 0;
 
   const selectedItems = cart?.items.filter((i) => selected.has(lineId(i.productId, i.variantId))) ?? [];
@@ -292,20 +286,14 @@ export default function CartPage() {
               <div className="cart-summary">
                 <h3>Sipariş Özeti</h3>
 
-                {!multipleVendors && (
-                  <div className="free-shipping-bar">
-                    <div className="free-shipping-progress" style={{ width: `${progress}%` }} />
-                  </div>
+                {/* bkz. kullanıcı kararı (2026-09-11): "500 tl ve üstü de
+                    ücretsiz olmayacak" - eşik bazlı ücretsiz kargo kaldırıldığı
+                    için "X TL daha ekleyin" ilerleme çubuğu da kaldırıldı.
+                    shippingFee === 0 hâlâ mümkün (kampanya bazlı ücretsiz
+                    kargo, bkz. campaign.service.ts) - o durum için mesaj kalır. */}
+                {shippingFee === 0 && (
+                  <div className="free-shipping-text">Ücretsiz kargo kazandınız!</div>
                 )}
-                <div className="free-shipping-text">
-                  {shippingFee === 0
-                    ? "Ücretsiz kargo kazandınız!"
-                    : multipleVendors
-                      ? "Ücretsiz kargo eşiği her satıcı için ayrı hesaplanır; mağaza detayları aşağıdadır."
-                      : remaining > 0
-                    ? `Ücretsiz kargo için ${remaining.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺ daha ekleyin`
-                    : "Ücretsiz kargo kazandınız!"}
-                </div>
 
                 {cart.couponCode ? (
                   <div className="coupon-applied">

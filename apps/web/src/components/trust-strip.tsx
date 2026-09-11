@@ -1,21 +1,13 @@
 // bkz. kullanıcı isteği (mockup): hero altındaki şerit tek satır metin
-// yerine iki satır (kalın başlık + küçük açıklama) olmalı - tutar
-// hardcoded değil, gerçek yapılandırılmış kargo eşiğinden geliyor (bkz.
-// top-bar.tsx'teki aynı not).
-const DEFAULT_FREE_SHIPPING_LIMIT = 500;
-
-export default function TrustStrip({ freeShippingLimit }: { freeShippingLimit?: string }) {
-  const limit = freeShippingLimit ? Number(freeShippingLimit) : DEFAULT_FREE_SHIPPING_LIMIT;
+// yerine iki satır (kalın başlık + küçük açıklama) olmalı.
+//
+// bkz. kullanıcı kararı (2026-09-11): "500 tl ve üstü de ücretsiz olmayacak"
+// - eşik bazlı ücretsiz kargo politikası kaldırıldığı için o madde de
+// buradan kaldırıldı (bkz. top-bar.tsx'teki aynı not).
+export default function TrustStrip() {
   return (
     <section className="trust-strip">
       <div className="container trust-strip-inner">
-        <div className="trust-strip-item">
-          <i className="fas fa-shipping-fast" />
-          <span>
-            <strong>Ücretsiz Kargo</strong>
-            <small>{limit.toLocaleString("tr-TR")} TL ve üzeri siparişlerde</small>
-          </span>
-        </div>
         <div className="trust-strip-item">
           <i className="fas fa-undo" />
           <span>

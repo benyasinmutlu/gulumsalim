@@ -6,22 +6,16 @@ import type { CustomerProfile } from "../lib/types";
 // gibi olmalı" - önceden "Satıcı Ol" sadece footer'da (sayfanın en altında,
 // kaçırılması kolay) vardı. Üst şerit her sayfada, kaydırmadan görünen tek
 // yer - Trendyol/Sahibinden'de de bu tür linkler tam burada.
-// bkz. kullanıcı isteği (mockup): metin mockup'taki gibi "Ücretsiz Kargo
-// {tutar} TL ve üzeri" kalıbında - tutar admin panelden değiştirilebilir
-// gerçek bir ayar (bkz. api/lib/shipping.ts getShippingConfig), bu yüzden
-// mockup'taki "750 TL" örneğini KOPYALAMIYORUZ, gerçek yapılandırılmış
-// değeri (ayarlanmamışsa varsayılan 500 TL) gösteriyoruz.
-const DEFAULT_FREE_SHIPPING_LIMIT = 500;
-
-export default function TopBar({ customer, freeShippingLimit }: { customer: CustomerProfile | null; freeShippingLimit?: string }) {
-  const limit = freeShippingLimit ? Number(freeShippingLimit) : DEFAULT_FREE_SHIPPING_LIMIT;
+//
+// bkz. kullanıcı kararı (2026-09-11): "500 tl ve üstü de ücretsiz olmayacak"
+// - site genelinde eşik bazlı ücretsiz kargo politikası kaldırıldı, bu
+// yüzden "Ücretsiz Kargo X TL ve üzeri" vaadi burada da kaldırıldı (artık
+// doğru olmayan bir vaat göstermiş olurduk).
+export default function TopBar({ customer }: { customer: CustomerProfile | null }) {
   return (
     <div className="top-bar">
       <div className="container">
         <div className="top-bar-left">
-          <span>
-            <i className="fas fa-shipping-fast" /> Ücretsiz Kargo {limit.toLocaleString("tr-TR")} TL ve üzeri
-          </span>
           <span>
             <i className="fas fa-undo" /> 14 Gün Koşulsuz İade
           </span>
