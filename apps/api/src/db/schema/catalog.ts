@@ -109,6 +109,16 @@ export const products = pgTable("products", {
   // Aynı satıcının aynı ürünü 2. kez girmesini yakalamak için. Nullable:
   // mevcut ürünlerde boş kalır, dup-kontrolü sadece dolu olanları karşılaştırır.
   fingerprint: text("fingerprint"),
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): "Ürün/varyant weight:
+  // YOK" tespitinin karşılığı - PTT (veya herhangi bir taşıyıcı) fiyat
+  // sorması için mutlaka bu veri gerekir. Nullable ve BİLİNÇLİ OLARAK boş
+  // bırakılır: mevcut ürünlere geriye dönük rastgele değer atanmıyor, sadece
+  // satıcı yeni girdiğinde dolar. Bu faz sadece veri toplar - kargo ücreti
+  // hesabına (bkz. lib/shipping.ts computeVendorShipping) HENÜZ bağlanmadı.
+  weightGrams: integer("weight_grams"),
+  widthCm: numeric("width_cm", { precision: 6, scale: 1 }),
+  heightCm: numeric("height_cm", { precision: 6, scale: 1 }),
+  lengthCm: numeric("length_cm", { precision: 6, scale: 1 }),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 }, (table) => ({
@@ -122,6 +132,12 @@ export const products = pgTable("products", {
   // Satıcı-içi kopya tespiti için (vendorId + fingerprint eşleşmesi).
   fingerprintIdx: index("idx_products_fingerprint").on(table.vendorId, table.fingerprint),
   stockNonnegative: check("chk_products_stock_nonnegative", sql`${table.stock} >= 0`),
+  // 50000g (50kg) ve 500cm sınırları bu pazaryerinin (giyim/aksesuar ağırlıklı)
+  // gerçekçi üst sınırı - negatif/anlamsız büyük değerleri veri girişinde yakalar.
+  weightGramsRange: check("chk_products_weight_grams_range", sql`${table.weightGrams} IS NULL OR (${table.weightGrams} >= 0 AND ${table.weightGrams} <= 50000)`),
+  widthCmRange: check("chk_products_width_cm_range", sql`${table.widthCm} IS NULL OR (${table.widthCm} >= 0 AND ${table.widthCm} <= 500)`),
+  heightCmRange: check("chk_products_height_cm_range", sql`${table.heightCm} IS NULL OR (${table.heightCm} >= 0 AND ${table.heightCm} <= 500)`),
+  lengthCmRange: check("chk_products_length_cm_range", sql`${table.lengthCm} IS NULL OR (${table.lengthCm} >= 0 AND ${table.lengthCm} <= 500)`),
 }));
 
 // bkz. denetim raporu: "301 yönlendirmeleri" - satıcı bir ürünün adresini
@@ -145,10 +161,23 @@ export const productVariants = pgTable("product_variants", {
   size: text("size"),
   color: text("color"),
   priceOverride: numeric("price_override", { precision: 10, scale: 2 }),
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): priceOverride ile
+  // AYNI desen - varyantlar fiziksel olarak farklı olabilir (ör. XXL bir
+  // beden S'ten daha ağır/büyük olabilir). Boş bırakılırsa ürün seviyesindeki
+  // weightGrams/widthCm/heightCm/lengthCm geçerli sayılır - ama bu "geçerli
+  // sayma" mantığı henüz HİÇBİR YERDE çalıştırılmıyor (bkz. rapor Faz 1 kapsamı).
+  weightGrams: integer("weight_grams"),
+  widthCm: numeric("width_cm", { precision: 6, scale: 1 }),
+  heightCm: numeric("height_cm", { precision: 6, scale: 1 }),
+  lengthCm: numeric("length_cm", { precision: 6, scale: 1 }),
   stock: integer("stock").notNull().default(0),
 }, (table) => ({
   productIdx: index("idx_variants_product").on(table.productId),
   stockNonnegative: check("chk_product_variants_stock_nonnegative", sql`${table.stock} >= 0`),
+  weightGramsRange: check("chk_product_variants_weight_grams_range", sql`${table.weightGrams} IS NULL OR (${table.weightGrams} >= 0 AND ${table.weightGrams} <= 50000)`),
+  widthCmRange: check("chk_product_variants_width_cm_range", sql`${table.widthCm} IS NULL OR (${table.widthCm} >= 0 AND ${table.widthCm} <= 500)`),
+  heightCmRange: check("chk_product_variants_height_cm_range", sql`${table.heightCm} IS NULL OR (${table.heightCm} >= 0 AND ${table.heightCm} <= 500)`),
+  lengthCmRange: check("chk_product_variants_length_cm_range", sql`${table.lengthCm} IS NULL OR (${table.lengthCm} >= 0 AND ${table.lengthCm} <= 500)`),
 }));
 
 export const productImages = pgTable("product_images", {

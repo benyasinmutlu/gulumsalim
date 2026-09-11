@@ -19,6 +19,17 @@ export default function SettingsForm() {
   const [savingBank, setSavingBank] = useState(false);
   const [bankMessage, setBankMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): legalAddress'ten AYRI
+  // operasyonel kargo çıkış adresi - hiçbir checkout/kargo hesabına henüz
+  // bağlı değil, sadece ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  const [shippingContactName, setShippingContactName] = useState("");
+  const [shippingContactPhone, setShippingContactPhone] = useState("");
+  const [shippingCity, setShippingCity] = useState("");
+  const [shippingDistrict, setShippingDistrict] = useState("");
+  const [shippingAddressLine, setShippingAddressLine] = useState("");
+  const [savingShipping, setSavingShipping] = useState(false);
+  const [shippingMessage, setShippingMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -34,6 +45,11 @@ export default function SettingsForm() {
       setBankAccountHolder(v.bankAccountHolder ?? "");
       setTaxId(v.taxId ?? "");
       setLegalAddress(v.legalAddress ?? "");
+      setShippingContactName(v.shippingContactName ?? "");
+      setShippingContactPhone(v.shippingContactPhone ?? "");
+      setShippingCity(v.shippingCity ?? "");
+      setShippingDistrict(v.shippingDistrict ?? "");
+      setShippingAddressLine(v.shippingAddressLine ?? "");
     });
   }, []);
 
@@ -61,6 +77,27 @@ export default function SettingsForm() {
       setBankMessage({ type: "err", text: err instanceof ClientApiError ? err.message : "Kaydedilemedi" });
     } finally {
       setSavingBank(false);
+    }
+  }
+
+  async function handleShippingSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSavingShipping(true);
+    setShippingMessage(null);
+    try {
+      const updated = await mutateJson<VendorProfile>("/vendor/auth/me", "PATCH", {
+        shippingContactName,
+        shippingContactPhone,
+        shippingCity,
+        shippingDistrict,
+        shippingAddressLine,
+      });
+      setVendor(updated);
+      setShippingMessage({ type: "ok", text: "Kargo gönderim adresi kaydedildi." });
+    } catch (err) {
+      setShippingMessage({ type: "err", text: err instanceof ClientApiError ? err.message : "Kaydedilemedi" });
+    } finally {
+      setSavingShipping(false);
     }
   }
 
@@ -147,6 +184,47 @@ export default function SettingsForm() {
             <div>
               <button className="btn btn-pr" type="submit" disabled={savingBank}>
                 <i className="fas fa-save" /> {savingBank ? "Kaydediliyor..." : "Kaydet"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="ch">
+          <h3><i className="fas fa-truck" style={{ color: "var(--pr)" }} /> Kargo Gönderim Adresi</h3>
+        </div>
+        <div className="card-body">
+          <p style={{ fontSize: "0.8rem", color: "var(--tx3)", marginTop: 0 }}>
+            Ürünlerinizin kargoya verildiği adres. Fatura/sözleşme adresinizden (yukarıdaki &quot;Adres&quot;) farklı olabilir.
+          </p>
+          <form className="fc" onSubmit={handleShippingSubmit}>
+            <div className="fg">
+              <label>Yetkili Ad Soyad</label>
+              <input className="fi" value={shippingContactName} onChange={(e) => setShippingContactName(e.target.value)} placeholder="Kargo teslim alınırken aranacak kişi" />
+            </div>
+            <div className="fg">
+              <label>Telefon</label>
+              <input className="fi" value={shippingContactPhone} onChange={(e) => setShippingContactPhone(e.target.value)} placeholder="05xx xxx xx xx" />
+            </div>
+            <div className="row2">
+              <div className="fg">
+                <label>İl</label>
+                <input className="fi" value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} />
+              </div>
+              <div className="fg">
+                <label>İlçe</label>
+                <input className="fi" value={shippingDistrict} onChange={(e) => setShippingDistrict(e.target.value)} />
+              </div>
+            </div>
+            <div className="fg">
+              <label>Açık Adres</label>
+              <textarea className="fi" rows={2} value={shippingAddressLine} onChange={(e) => setShippingAddressLine(e.target.value)} placeholder="Mahalle, cadde/sokak, bina/daire no" />
+            </div>
+            {shippingMessage && <p style={{ color: shippingMessage.type === "ok" ? "var(--ok)" : "var(--er)", fontSize: "0.85rem" }}>{shippingMessage.text}</p>}
+            <div>
+              <button className="btn btn-pr" type="submit" disabled={savingShipping}>
+                <i className="fas fa-save" /> {savingShipping ? "Kaydediliyor..." : "Kaydet"}
               </button>
             </div>
           </form>

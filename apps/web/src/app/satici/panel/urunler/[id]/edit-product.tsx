@@ -70,6 +70,13 @@ export default function EditProduct({
   // (varyantsız üründe totalStock === products.stock, bkz. backend
   // listVendorProducts).
   const [stock, setStock] = useState("0");
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): ürünün fiziksel kargo
+  // verisi - opsiyonel, HENÜZ hiçbir kargo ücreti hesabına bağlı değil,
+  // sadece ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  const [weightGrams, setWeightGrams] = useState("");
+  const [widthCm, setWidthCm] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [lengthCm, setLengthCm] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -109,6 +116,10 @@ export default function EditProduct({
       setDefectDescription(found.defectDescription ?? "");
       setDefectPhotoUrl(found.defectPhotoUrl ?? null);
       setStock(String(found.totalStock));
+      setWeightGrams(found.weightGrams != null ? String(found.weightGrams) : "");
+      setWidthCm(found.widthCm ?? "");
+      setHeightCm(found.heightCm ?? "");
+      setLengthCm(found.lengthCm ?? "");
     }
     setImages(imageList);
     setVariants(variantList);
@@ -154,6 +165,10 @@ export default function EditProduct({
         freeShipping,
         isSecondHand: isIndividual ? isSecondHand : false,
         ...(!isIndividual && variants.length === 0 ? { stock: Number(stock) } : {}),
+        weightGrams: weightGrams !== "" ? Number(weightGrams) : undefined,
+        widthCm: widthCm !== "" ? Number(widthCm) : undefined,
+        heightCm: heightCm !== "" ? Number(heightCm) : undefined,
+        lengthCm: lengthCm !== "" ? Number(lengthCm) : undefined,
       });
       setMessage("Kaydedildi.");
     } catch (err) {
@@ -469,6 +484,42 @@ export default function EditProduct({
           <button className="btn btn-pr" onClick={handleSave} disabled={saving} style={{ alignSelf: "flex-start" }}>
             {saving ? "Kaydediliyor..." : "Kaydet"}
           </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="ch">
+          <h3>Kargo Bilgileri</h3>
+        </div>
+        <div className="fc" style={{ padding: "20px" }}>
+          <p style={{ fontSize: "0.8rem", color: "var(--tx3)", margin: 0 }}>
+            Opsiyonel. Kargo hesaplamasında henüz kullanılmıyor, ileride taşıyıcı entegrasyonu için toplanıyor.
+          </p>
+          <div className="row2">
+            <div className="fg">
+              <label>Ağırlık (gram)</label>
+              <input className="fi" type="number" min={0} max={50000} value={weightGrams} onChange={(e) => setWeightGrams(e.target.value)} placeholder="ör. 750" />
+            </div>
+            <div className="fg">
+              <label>En (cm)</label>
+              <input className="fi" type="number" min={0} max={500} step="0.1" value={widthCm} onChange={(e) => setWidthCm(e.target.value)} placeholder="ör. 20" />
+            </div>
+          </div>
+          <div className="row2">
+            <div className="fg">
+              <label>Boy (cm)</label>
+              <input className="fi" type="number" min={0} max={500} step="0.1" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} placeholder="ör. 30" />
+            </div>
+            <div className="fg">
+              <label>Yükseklik (cm)</label>
+              <input className="fi" type="number" min={0} max={500} step="0.1" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="ör. 5" />
+            </div>
+          </div>
+          <div>
+            <button className="btn btn-pr" onClick={handleSave} disabled={saving} style={{ alignSelf: "flex-start" }}>
+              {saving ? "Kaydediliyor..." : "Kaydet"}
+            </button>
+          </div>
         </div>
       </div>
 

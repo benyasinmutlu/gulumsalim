@@ -83,3 +83,45 @@ export function computeMultiVendorShipping(
 ): number {
   return computeVendorShipping(lines, baseFee, freeShippingThreshold).total;
 }
+
+// bkz. kargo/PTT denetim raporu Faz 3 (2026-09-10): "Nasıl kargo fiyatı
+// hesaplanıyor?" sorusunu çözen soyutlama - checkout/cart bu sonucu sipariş
+// toplamına nasıl dahil edeceğine kendi karar verir (bkz. checkout-totals.ts,
+// cart.service.ts), provider bunun İÇİNE karışmaz. Bilinçli olarak SADECE
+// bugün gerçekten kullanılan tek method var (calculateQuote) - createShipment/
+// getTracking/cancelShipment burada YOK: bunların bugün hiçbir gerçek çağıranı
+// yok (Shipment oluşturma zaten shipment.repository.ts'te DB-gruplama ile
+// çalışıyor, bkz. Faz 2), üstelik carrier-API'ye özgü bir şekil uydurmadan
+// (PTT dokümantasyonu yok) bu methodları eklemek spekülatif olurdu. PTT
+// entegrasyonu geldiğinde bu arayüz YENİDEN değerlendirilecek (bkz. rapor
+// bölüm 22) - bugünden "doğru" şekli tahmin etmiyoruz.
+export interface ShippingProvider {
+  calculateQuote(
+    lines: VendorShippingLine[],
+    baseFee: number,
+    freeShippingThreshold: number,
+  ): Promise<{ total: number; breakdown: VendorShippingRow[] }>;
+}
+
+// Bugünkü TEK gerçek sağlayıcı: mevcut computeVendorShipping() davranışının
+// abstraction arkasına taşınmış hali - davranış BİREBİR AYNI (aynı fonksiyon
+// çağrılıyor, yeniden yazılmadı). "PTT" DEĞİL - satıcı henüz PTT ile
+// anlaşmadı, burada gösterilen sabit ücret/eşik gerçek bir taşıyıcı
+// fiyatı değil, admin-ayarlanabilir platform ücretidir (bkz. yukarıdaki
+// getShippingConfig yorumu). İsim bu gerçeği yansıtır, müşteriye yanlış
+// bir taşıyıcı izlenimi vermez.
+export class ManualShippingProvider implements ShippingProvider {
+  async calculateQuote(
+    lines: VendorShippingLine[],
+    baseFee: number,
+    freeShippingThreshold: number,
+  ): Promise<{ total: number; breakdown: VendorShippingRow[] }> {
+    return computeVendorShipping(lines, baseFee, freeShippingThreshold);
+  }
+}
+
+// Tek swap noktası: bugün tek sağlayıcı olduğu için basit bir singleton
+// yeterli (bkz. rapor bölüm 6 - "gereksiz provider registry kurma"). PTT
+// eklendiğinde bu satır (veya admin-ayarlanabilir bir seçim) değişir,
+// çağıran kodlar (cart.service.ts/checkout-totals.ts) HİÇ değişmez.
+export const shippingProvider: ShippingProvider = new ManualShippingProvider();

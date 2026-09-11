@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { bigint, boolean, check, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { campaignScopeEnum, campaignTypeEnum, couponTypeEnum, orderRefundStatusEnum, orderStatusEnum, paymentStatusEnum } from "./enums";
+import { campaignScopeEnum, campaignTypeEnum, couponTypeEnum, orderRefundStatusEnum, orderStatusEnum, paymentStatusEnum, shipmentDirectionEnum, shipmentStatusEnum } from "./enums";
 import { customers } from "./customers";
 import { products, productVariants } from "./catalog";
 import { vendors } from "./vendors";
@@ -115,6 +115,63 @@ export const couponRedemptions = pgTable("coupon_redemptions", {
   orderUnique: uniqueIndex("uniq_coupon_redemptions_order").on(table.orderId),
 }));
 
+// bkz. kargo/PTT denetim raporu Faz 2 (2026-09-10): "Order 1 → N Shipment,
+// Shipment 1 → N OrderItem" - bir siparişte her DİSTİNCT satıcı için bir
+// Shipment satırı (markOrderPaid() ödeme onaylanınca aynı transaction'da
+// oluşturur, bkz. shipment.repository.ts createShipmentsForOrder). PTT/
+// taşıyıcı API'si HENÜZ YOK - bu tablo sadece mevcut multi-vendor sipariş
+// yapısının üzerine gerçek bir operasyon katmanı ekliyor, hiçbir dış API
+// çağrısı içermiyor.
+export const shipments = pgTable("shipments", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  orderId: bigint("order_id", { mode: "number" }).notNull().references(() => orders.id),
+  vendorId: bigint("vendor_id", { mode: "number" }).notNull().references(() => vendors.id),
+  status: shipmentStatusEnum("status").notNull().default("created"),
+  direction: shipmentDirectionEnum("direction").notNull().default("outbound"),
+  // Taşıyıcı adı - order_items.trackingCarrier ile AYNI desen: serbest
+  // metin, PTT'ye özel enum/sabit DEĞİL (bkz. orders-table.tsx
+  // CARRIER_OPTIONS - satıcı zaten "PTT Kargo" dahil bir öneri listesinden
+  // seçip istediğini elle de yazabiliyor, backend hiçbirini zorlamıyor).
+  carrierName: text("carrier_name"),
+  trackingNumber: text("tracking_number"),
+  shippedAt: timestamp("shipped_at", { withTimezone: true, precision: 3 }),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true, precision: 3 }),
+  // Gönderen (satıcı) anlık görüntüsü - shipment oluşturulduğu anda
+  // vendors.shipping* alanlarından kopyalanır (bkz. vendors.ts Faz 1
+  // yorumu). Nullable: satıcı henüz kargo gönderim profilini doldurmamış
+  // olabilir - bu, shipment oluşturmayı ASLA engellemez (best-effort kopya).
+  // Satıcı adresini sonradan değiştirirse geçmiş shipment etkilenmez.
+  senderName: text("sender_name"),
+  senderPhone: text("sender_phone"),
+  senderCity: text("sender_city"),
+  senderDistrict: text("sender_district"),
+  senderAddressLine: text("sender_address_line"),
+  // Alıcı (müşteri) anlık görüntüsü - orders.shippingAddress'ten kopyalanır.
+  // orders.shippingAddress zaten değişmez bir snapshot (checkout sonrası
+  // hiçbir route güncellemiyor) - bu kopya veri bütünlüğü riski taşımaz,
+  // sadece ileride taşıyıcı API'sine gönderilecek veriyi shipment üzerinde
+  // yapılandırılmış (ham jsonb değil) tutar. NOT NULL: checkout adres
+  // olmadan tamamlanamıyor, bu yüzden her zaman mevcuttur.
+  recipientName: text("recipient_name").notNull(),
+  recipientPhone: text("recipient_phone").notNull(),
+  recipientCity: text("recipient_city").notNull(),
+  recipientDistrict: text("recipient_district").notNull(),
+  recipientAddressLine: text("recipient_address_line").notNull(),
+  recipientZipCode: text("recipient_zip_code"),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
+}, (table) => ({
+  orderIdx: index("idx_shipments_order").on(table.orderId),
+  vendorIdx: index("idx_shipments_vendor").on(table.vendorId, table.status),
+  trackingNumberIdx: index("idx_shipments_tracking_number").on(table.trackingNumber),
+  // Defense-in-depth idempotency: markOrderPaid() zaten pending->paid
+  // geçişiyle tek seferlik çalışmayı garanti ediyor (bkz. order.repository.ts),
+  // ama bu kısıt aynı (order, vendor) için ikinci bir shipment satırının
+  // HİÇBİR koşulda (bug, elle tekrar çağırma vb.) oluşamamasını DB
+  // seviyesinde de garanti eder.
+  orderVendorUnique: uniqueIndex("uniq_shipments_order_vendor").on(table.orderId, table.vendorId),
+}));
+
 // Bir sipariş birden fazla satıcıya yayılabilir; her satır tek bir
 // satıcının ürününü ve o satıcıya özel karşılama (fulfillment) durumunu
 // taşır. `orders.status` genel sipariş durumu, `order_items.vendorStatus`
@@ -141,9 +198,19 @@ export const orderItems = pgTable("order_items", {
   trackingCarrier: text("tracking_carrier"),
   trackingNumber: text("tracking_number"),
   shippedAt: timestamp("shipped_at", { withTimezone: true, precision: 3 }),
+  // bkz. kargo/PTT denetim raporu Faz 2 (2026-09-10): bu kalemin ait olduğu
+  // Shipment. Nullable: eski (Faz 2 öncesi) siparişlerde hiç dolmaz, geriye
+  // dönük backfill YAPILMADI (bkz. shipment.repository.ts yorumu) - yeni
+  // shipment modeli sadece yeni siparişlerle devreye girer. trackingCarrier/
+  // trackingNumber/shippedAt alanları YUKARIDA hâlâ duruyor ve satıcı paneli
+  // hâlâ bunları kullanıyor (geriye dönük uyumluluk) - shipmentId dolduğunda
+  // bu ikisi best-effort senkronize tutulur (bkz. vendor-orders.service.ts),
+  // birbirinin YERİNE GEÇMEZ.
+  shipmentId: bigint("shipment_id", { mode: "number" }).references(() => shipments.id),
 }, (table) => ({
   vendorIdx: index("idx_order_items_vendor").on(table.vendorId, table.vendorStatus),
   orderIdx: index("idx_order_items_order").on(table.orderId),
+  shipmentIdx: index("idx_order_items_shipment").on(table.shipmentId),
   paymentItemRefUnique: uniqueIndex("uniq_order_items_payment_item_ref").on(table.paymentItemRef),
   moneyCheck: check("order_item_money_check", sql`${table.quantity} > 0 AND ${table.unitPrice} >= 0 AND ${table.total} = ${table.unitPrice} * ${table.quantity}`),
 }));

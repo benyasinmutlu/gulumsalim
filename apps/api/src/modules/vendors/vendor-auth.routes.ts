@@ -62,16 +62,23 @@ function publicVendor(v: {
   bankAccountHolder: string | null;
   taxId: string | null;
   legalAddress: string | null;
+  shippingContactName: string | null;
+  shippingContactPhone: string | null;
+  shippingCity: string | null;
+  shippingDistrict: string | null;
+  shippingAddressLine: string | null;
 }) {
   const {
     id, storeName, storeSlug, email, status, vendorType, fullName, phone, logo, about, coverImage, city,
     whatsapp, instagram, facebook, twitter, youtube, tiktok, website, seoTitle, seoDescription,
     bankName, bankIban, bankAccountHolder, taxId, legalAddress,
+    shippingContactName, shippingContactPhone, shippingCity, shippingDistrict, shippingAddressLine,
   } = v;
   return {
     id, storeName, storeSlug, email, status, vendorType, fullName, phone, logo, about, coverImage, city,
     whatsapp, instagram, facebook, twitter, youtube, tiktok, website, seoTitle, seoDescription,
     bankName, bankIban, bankAccountHolder, taxId, legalAddress,
+    shippingContactName, shippingContactPhone, shippingCity, shippingDistrict, shippingAddressLine,
   };
 }
 
