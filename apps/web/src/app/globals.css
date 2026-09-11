@@ -611,7 +611,15 @@ button {
     color: var(--color-text-muted);
 }
 
-.header-search button {
+/* bkz. kullanıcı bildirimi (2026-09-12): "popüler aramalar ve son aramalar
+   çok çirkin, yuvarlak içine almış" - kök sebep buradaydı: genel ".header-search
+   button" seçicisi SADECE arama gönder düğmesini hedeflemek için yazılmıştı,
+   ama arama kutusuna (search-box.tsx) Son Aramalar/Popüler Aramalar/Keşfet
+   için YENİ <button>'lar eklenince onlar da bu genel seçiciye yakalanıp
+   38x38 siyah daireye dönüştü. Artık sadece kendi özel class'ını (.search-box-submit)
+   hedefliyor - ".header-search button" gibi genel etiket seçicileri gelecekte
+   kutunun içine eklenecek her yeni butonu sessizce bozma riski taşıyordu. */
+.header-search .search-box-submit {
     width: 38px;
     height: 38px;
     border-radius: 50%;
@@ -623,7 +631,7 @@ button {
     transition: var(--transition);
 }
 
-.header-search button:hover {
+.header-search .search-box-submit:hover {
     background: var(--color-primary-dark);
     transform: scale(1.05);
 }
@@ -7092,24 +7100,58 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
     visibility: visible;
 }
 
-/* Mobile search bar - bkz. header-shell.tsx: {searchOpen && <div
+/* Mobile arama - bkz. header-shell.tsx: {searchOpen && <div
    className="mobile-search">} koşullu render ile aç/kapa yapıyor, bu yüzden
    burada .active bekleyen ayrı bir display:none kuralı OLMAMALI - varsa,
    koşullu render mount ettiğinde bile bu kural onu gizli tutar (bkz.
    kullanıcı geri bildirimi: "mobilde arama yeri çalışmıyor" - kök neden
-   buydu, .active class'ı hiçbir yerde eklenmiyordu). */
+   buydu, .active class'ı hiçbir yerde eklenmiyordu).
+   bkz. kullanıcı isteği (2026-09-12): "aramaya tıklayınca tamamen sayfayı
+   kaplasın, aynı depop ve trendyolda olduğu gibi" - header'ın altında dar
+   bir şerit yerine artık tüm ekranı kaplayan sabit bir katman; üstte arama
+   çubuğu + kapat düğmesi sabit kalır, altında öneri/keşfet paneli kalan
+   yüksekliği doldurup kendi içinde kayar. */
 .mobile-search {
-    padding: 12px 16px;
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
     background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    height: 64px;
+    padding: 0 12px;
     border-bottom: 1px solid var(--color-border-light);
-    position: relative;
-    z-index: 50;
+}
+
+.mobile-search-input-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.mobile-search-close {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
 }
 
 .mobile-search form {
     display: flex;
     align-items: center;
-    background: var(--color-bg);
+    background: var(--color-bg-alt);
     border-radius: 50px;
     padding: 0 4px 0 16px;
 }
@@ -7118,9 +7160,13 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
     flex: 1;
     padding: 10px 0;
     background: none;
+    /* iOS Safari, 16px'ten küçük input font-size'ında odaklanınca sayfayı
+       otomatik yakınlaştırır (bkz. kullanıcı bildirimi: "arama yerine
+       tıklayınca sayfa yakınlaşıyor") - 16px bu davranışı devre dışı bırakır. */
+    font-size: 16px;
 }
 
-.mobile-search button {
+.mobile-search .search-box-submit {
     width: 36px;
     height: 36px;
     border-radius: 50%;
@@ -7129,6 +7175,23 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Tam ekran modunda öneri/keşfet paneli artık küçük bir açılır kart değil -
+   arama çubuğunun (64px) hemen altından ekranın geri kalanını dolduran,
+   kendi içinde kayan bir yüzey. */
+.mobile-search .search-suggest {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    max-height: none;
+    padding: 16px;
 }
 
 /* Dokunmatik cihazlarda hover'a bağlı hızlı işlem butonları görünür kalsın */

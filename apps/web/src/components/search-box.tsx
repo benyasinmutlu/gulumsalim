@@ -217,7 +217,7 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
           }}
           autoComplete="off"
         />
-        <button type="submit" aria-label="Ara">
+        <button type="submit" className="search-box-submit" aria-label="Ara">
           <i className="fas fa-search" />
         </button>
       </form>

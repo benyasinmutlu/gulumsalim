@@ -28,6 +28,20 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
   const actionsRef = useRef<HTMLDivElement>(null);
   const [searchStyle, setSearchStyle] = useState<{ left: number; width: number } | null>(null);
 
+  // bkz. kullanıcı isteği (2026-09-12): "aramaya tıklayınca tamamen sayfayı
+  // kaplasın arama sayfası çıksın aynı depop ve trendyolda olduğu gibi" -
+  // tam ekran arama açıkken arkadaki sayfanın kaymasını engelle (Depop/
+  // Trendyol'un mobil arama overlay'inde de arka plan sabit kalır).
+  useEffect(() => {
+    if (searchOpen) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+  }, [searchOpen]);
+
   useEffect(() => {
     function onScroll() {
       const y = window.scrollY;
@@ -141,7 +155,19 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
           satırında ayrı bir blok olarak taşındı - artık taşma yok. */}
       {searchOpen && (
         <div className="mobile-search">
-          <SearchBox categories={categories} autoFocus />
+          <div className="mobile-search-bar">
+            <div className="mobile-search-input-wrap">
+              <SearchBox categories={categories} autoFocus />
+            </div>
+            <button
+              type="button"
+              className="mobile-search-close"
+              aria-label="Aramayı kapat"
+              onClick={() => setSearchOpen(false)}
+            >
+              <i className="fas fa-times" />
+            </button>
+          </div>
         </div>
       )}
 
