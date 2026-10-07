@@ -34,4 +34,4 @@ Detaylar için her klasörün kendi README'sine bakın.
 
 ## Sunucu
 
-Hetzner VPS, AlmaLinux 10.2, `128.140.120.121`. Dağıtım: `infra/scripts/deploy.sh`, servisler systemd ile yönetilir (`infra/systemd/`). Geçiş stratejisi ve aşamalı yapım sırası plan dosyasında.
+Hetzner VPS, AlmaLinux 10.2, `xxx.xxx.xxx.xxx`. Dağıtım: `infra/scripts/deploy.sh`, servisler systemd ile yönetilir (`infra/systemd/`). Geçiş stratejisi ve aşamalı yapım sırası plan dosyasında.
