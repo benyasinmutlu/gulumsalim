@@ -519,6 +519,13 @@
       "when": 1789002228055,
       "tag": "0073_fancy_shen",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1791496055151,
+      "tag": "0074_ptt_shipping",
+      "breakpoints": true
     }
   ]
 }

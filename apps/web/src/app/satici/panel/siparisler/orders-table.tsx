@@ -52,6 +52,17 @@ const NEXT_ACTION: Partial<Record<VendorOrderItem["vendorStatus"], { label: stri
   shipped: { label: "Teslim Edildi Olarak İşaretle", next: "delivered" },
 };
 
+const PTT_STATUS_LABEL: Record<NonNullable<VendorOrderItem["shipmentProviderStatus"]>, string> = {
+  not_registered: "PTT kaydı oluşturulmadı",
+  registering: "PTT'ye kaydediliyor",
+  registration_pending: "PTT sonucu doğrulanıyor",
+  registered: "PTT kaydı hazır",
+  registration_failed: "PTT kaydı başarısız",
+  tracking: "PTT tarafından taşınıyor",
+  delivered: "PTT teslim etti",
+  cancelled: "PTT kaydı iptal",
+};
+
 // Geciken sipariş tespiti (SLA): yüksek hacimde (günde 100 sipariş) satıcı,
 // hangi siparişlere öncelik vermesi gerektiğini tek bakışta görsün. Yalnızca
 // aksiyon bekleyen durumlar (pending/processing) izlenir; kargolanan/teslim
@@ -87,6 +98,12 @@ export default function OrdersTable() {
   const [carrier, setCarrier] = useState(CARRIER_OPTIONS[0]);
   const [customCarrier, setCustomCarrier] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
+  const [pttDraftId, setPttDraftId] = useState<number | null>(null);
+  const [pttWeight, setPttWeight] = useState("");
+  const [pttWidth, setPttWidth] = useState("");
+  const [pttLength, setPttLength] = useState("");
+  const [pttHeight, setPttHeight] = useState("");
+  const [pttMessage, setPttMessage] = useState<string | null>(null);
   const [refundNoteDraft, setRefundNoteDraft] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Tümü");
@@ -172,6 +189,48 @@ export default function OrdersTable() {
       });
       setShippingDraftId(null);
       await load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function registerWithPtt(item: VendorOrderItem) {
+    if (!item.shipmentId) return;
+    setBusyId(item.id);
+    setPttMessage(null);
+    try {
+      const numericWeight = Number(pttWeight);
+      const body = numericWeight > 0
+        ? {
+            package: {
+              weightGrams: Math.round(numericWeight),
+              ...(Number(pttWidth) > 0 ? { widthCm: Number(pttWidth) } : {}),
+              ...(Number(pttLength) > 0 ? { lengthCm: Number(pttLength) } : {}),
+              ...(Number(pttHeight) > 0 ? { heightCm: Number(pttHeight) } : {}),
+            },
+          }
+        : {};
+      await mutateJson(`/vendor/shipments/${item.shipmentId}/ptt/register`, "POST", body);
+      setPttDraftId(null);
+      setPttMessage("PTT gönderi kaydı güvenli biçimde alındı.");
+      await load();
+    } catch (error) {
+      setPttMessage(error instanceof Error ? error.message : "PTT kaydı oluşturulamadı");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function refreshPtt(item: VendorOrderItem) {
+    if (!item.shipmentId) return;
+    setBusyId(item.id);
+    setPttMessage(null);
+    try {
+      await mutateJson(`/vendor/shipments/${item.shipmentId}/ptt/refresh`, "POST");
+      setPttMessage("PTT takip bilgisi güncellendi.");
+      await load();
+    } catch (error) {
+      setPttMessage(error instanceof Error ? error.message : "PTT takip bilgisi güncellenemedi");
     } finally {
       setBusyId(null);
     }
@@ -404,6 +463,71 @@ export default function OrdersTable() {
                               )}
                             </div>
                           </div>
+
+                          {item.shipmentId && (
+                            <div style={{ borderTop: "1px solid var(--bd)", marginTop: 10, paddingTop: 12, fontSize: "0.85rem" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                                <div>
+                                  <strong>PTT Kargo Entegrasyonu</strong>
+                                  <p style={{ marginTop: 4, color: "var(--tx2)" }}>
+                                    {PTT_STATUS_LABEL[item.shipmentProviderStatus ?? "not_registered"]}
+                                    {item.shipmentProviderReference ? ` · Referans: ${item.shipmentProviderReference}` : ""}
+                                    {item.trackingNumber ? ` · Barkod: ${item.trackingNumber}` : ""}
+                                  </p>
+                                </div>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  {(!item.shipmentProviderStatus || ["not_registered", "registration_failed"].includes(item.shipmentProviderStatus)) && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-pr btn-sm"
+                                      disabled={busyId === item.id}
+                                      onClick={() => {
+                                        setPttDraftId(pttDraftId === item.id ? null : item.id);
+                                        setPttMessage(null);
+                                        setPttWeight("");
+                                        setPttWidth("");
+                                        setPttLength("");
+                                        setPttHeight("");
+                                      }}
+                                    >
+                                      PTT Barkodu Oluştur
+                                    </button>
+                                  )}
+                                  {item.shipmentProvider === "ptt" && item.shipmentProviderStatus !== "not_registered" && (
+                                    <button type="button" className="btn btn-sec btn-sm" disabled={busyId === item.id} onClick={() => refreshPtt(item)}>
+                                      PTT Takibini Yenile
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              {pttDraftId === item.id && (
+                                <div style={{ marginTop: 10, padding: 12, background: "var(--s2)", borderRadius: 8 }}>
+                                  <p style={{ marginBottom: 8, color: "var(--tx2)" }}>
+                                    Üründe ağırlık kayıtlıysa alanları boş bırakabilirsiniz. Paketlenmiş gerçek ölçüler farklıysa gram ve santimetre olarak girin.
+                                  </p>
+                                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                    <input className="fi" style={{ maxWidth: 150 }} inputMode="numeric" placeholder="Ağırlık (gram)" value={pttWeight} onChange={(e) => setPttWeight(e.target.value)} />
+                                    <input className="fi" style={{ maxWidth: 110 }} inputMode="decimal" placeholder="En (cm)" value={pttWidth} onChange={(e) => setPttWidth(e.target.value)} />
+                                    <input className="fi" style={{ maxWidth: 110 }} inputMode="decimal" placeholder="Boy (cm)" value={pttLength} onChange={(e) => setPttLength(e.target.value)} />
+                                    <input className="fi" style={{ maxWidth: 130 }} inputMode="decimal" placeholder="Yükseklik (cm)" value={pttHeight} onChange={(e) => setPttHeight(e.target.value)} />
+                                    <button type="button" className="btn btn-pr btn-sm" disabled={busyId === item.id} onClick={() => registerWithPtt(item)}>
+                                      {busyId === item.id ? "Oluşturuluyor..." : "Kaydı Onayla"}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                              {item.shipmentProviderLastError && (
+                                <p style={{ color: "var(--er)", marginTop: 8 }}>{item.shipmentProviderLastError}</p>
+                              )}
+                              {item.shipmentProviderEvents?.length > 0 && (
+                                <p style={{ color: "var(--tx2)", marginTop: 8 }}>
+                                  Son hareket: {item.shipmentProviderEvents.at(-1)?.description}
+                                  {item.shipmentProviderEvents.at(-1)?.location ? ` · ${item.shipmentProviderEvents.at(-1)?.location}` : ""}
+                                </p>
+                              )}
+                              {pttMessage && <p style={{ marginTop: 8 }}>{pttMessage}</p>}
+                            </div>
+                          )}
 
                           {refund && (
                             <div style={{ borderTop: "1px solid #eee", marginTop: 8, paddingTop: 8, fontSize: "0.85rem" }}>

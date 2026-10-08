@@ -430,6 +430,11 @@ export interface VendorOrderItem {
   trackingNumber: string | null;
   shippedAt: string | null;
   shipmentId: number | null;
+  shipmentProvider: string | null;
+  shipmentProviderStatus: "not_registered" | "registering" | "registration_pending" | "registered" | "registration_failed" | "tracking" | "delivered" | "cancelled" | null;
+  shipmentProviderReference: string | null;
+  shipmentProviderLastError: string | null;
+  shipmentProviderEvents: Array<{ sequence: number | null; statusId: string | null; description: string; location: string | null; date: string | null }>;
   orderCreatedAt: string;
   shippingAddress: { fullName?: string; phone?: string; city?: string; district?: string; addressLine?: string; zipCode?: string };
   orderNote: string | null;

@@ -172,6 +172,9 @@ describe.runIf(Boolean(integrationDatabaseUrl))("shipment domain integration", (
       expect(shipment.recipientAddressLine).toBe(recipient.addressLine);
       expect(shipment.status).toBe("created");
       expect(shipment.direction).toBe("outbound");
+      expect(shipment.providerStatus).toBe("not_registered");
+      expect(shipment.providerAttemptCount).toBe(0);
+      expect(shipment.providerEvents).toEqual([]);
     }
   });
 
