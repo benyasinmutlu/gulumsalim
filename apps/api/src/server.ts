@@ -6,6 +6,7 @@ import { startOutboxDrainer, stopOutboxDrainer } from "./modules/integrations/ou
 import { startReconcileJob, stopReconcileJob } from "./modules/integrations/reconcile.job";
 import { startMerchantFeedScheduler, stopMerchantFeedScheduler } from "./modules/integrations/merchant-feed.scheduler";
 import { startOrderReconciliationJob } from "./modules/orders/order-reconciliation.scheduler";
+import { startPttTrackingScheduler, stopPttTrackingScheduler } from "./modules/shipping/ptt-tracking.scheduler";
 
 const app = buildApp();
 
@@ -39,6 +40,7 @@ app
   .listen({ port: env.PORT, host })
   .then(() => {
     orderReconcileJob = startOrderReconciliationJob(app);
+    startPttTrackingScheduler(app.log);
   })
   .catch((err) => {
     app.log.error(err);
@@ -57,6 +59,7 @@ for (const sig of ["SIGTERM", "SIGINT"] as const) {
     stopOutboxDrainer();
     stopReconcileJob();
     stopMerchantFeedScheduler();
+    stopPttTrackingScheduler();
     orderReconcileJob?.stop();
     Promise.all([app.close(), stopBulkImportWorker()])
       .then(() => {

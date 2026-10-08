@@ -1,6 +1,6 @@
 import { and, asc, desc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/client";
-import { customers, orderItems, orderRefunds, orders, productImages, products, productVariants } from "../../db/schema/index";
+import { customers, orderItems, orderRefunds, orders, productImages, products, productVariants, shipments } from "../../db/schema/index";
 import { recomputeOrderStatus, restoreOrderItemStockSingle } from "../orders/order.repository";
 import { syncShipmentAfterItemStatusChange } from "../orders/shipment.repository";
 import { createCustomerNotification } from "../notifications/customer-notifications.repository";
@@ -50,6 +50,11 @@ export async function listVendorOrderItems(vendorId: number) {
       trackingNumber: orderItems.trackingNumber,
       shippedAt: orderItems.shippedAt,
       shipmentId: orderItems.shipmentId,
+      shipmentProvider: shipments.provider,
+      shipmentProviderStatus: shipments.providerStatus,
+      shipmentProviderReference: shipments.providerReference,
+      shipmentProviderLastError: shipments.providerLastError,
+      shipmentProviderEvents: shipments.providerEvents,
       orderCreatedAt: orders.createdAt,
       shippingAddress: orders.shippingAddress,
       orderNote: orders.orderNote,
@@ -59,6 +64,7 @@ export async function listVendorOrderItems(vendorId: number) {
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .innerJoin(customers, eq(orders.customerId, customers.id))
     .leftJoin(productVariants, eq(orderItems.variantId, productVariants.id))
+    .leftJoin(shipments, eq(orderItems.shipmentId, shipments.id))
     .where(and(eq(orderItems.vendorId, vendorId), eq(orders.paymentStatus, "paid")))
     .orderBy(desc(orders.createdAt));
 

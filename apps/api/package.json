@@ -14,6 +14,7 @@
     "db:seed:settings": "tsx ../../infra/postgres/seed/seed-settings.ts",
     "db:seed:pages": "tsx ../../infra/postgres/seed/seed-pages.ts",
     "feed:verify": "tsx src/scripts/verify-merchant-feed.ts",
+    "ptt:verify:test": "tsx src/scripts/verify-ptt-test.ts",
     "reindex:products": "tsx ../../infra/postgres/seed/reindex-products.ts",
     "test": "vitest run"
   },

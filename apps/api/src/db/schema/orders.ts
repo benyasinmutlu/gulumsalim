@@ -134,6 +134,19 @@ export const shipments = pgTable("shipments", {
   // seçip istediğini elle de yazabiliyor, backend hiçbirini zorlamıyor).
   carrierName: text("carrier_name"),
   trackingNumber: text("tracking_number"),
+  // PTT gibi dış taşıyıcıların kayıt yaşam döngüsü, iç fulfillment
+  // status'undan ayrıdır. registration_pending, dış çağrının sonucunun ağ
+  // hatası yüzünden bilinmediği durumdur; tekrar POST etmeden önce referansla
+  // sorgulanır ve çift barkod oluşması engellenir.
+  provider: text("provider"),
+  providerStatus: text("provider_status").notNull().default("not_registered"),
+  providerReference: text("provider_reference"),
+  providerFileName: text("provider_file_name"),
+  providerLastError: text("provider_last_error"),
+  providerAttemptCount: integer("provider_attempt_count").notNull().default(0),
+  providerRegisteredAt: timestamp("provider_registered_at", { withTimezone: true, precision: 3 }),
+  providerLastCheckedAt: timestamp("provider_last_checked_at", { withTimezone: true, precision: 3 }),
+  providerEvents: jsonb("provider_events").notNull().default([]),
   shippedAt: timestamp("shipped_at", { withTimezone: true, precision: 3 }),
   deliveredAt: timestamp("delivered_at", { withTimezone: true, precision: 3 }),
   // Gönderen (satıcı) anlık görüntüsü - shipment oluşturulduğu anda
@@ -164,6 +177,9 @@ export const shipments = pgTable("shipments", {
   orderIdx: index("idx_shipments_order").on(table.orderId),
   vendorIdx: index("idx_shipments_vendor").on(table.vendorId, table.status),
   trackingNumberIdx: index("idx_shipments_tracking_number").on(table.trackingNumber),
+  providerReferenceUnique: uniqueIndex("uniq_shipments_provider_reference").on(table.providerReference),
+  providerPollIdx: index("idx_shipments_provider_poll").on(table.provider, table.providerStatus, table.providerLastCheckedAt),
+  providerStatusCheck: check("shipment_provider_status_check", sql`${table.providerStatus} IN ('not_registered', 'registering', 'registration_pending', 'registered', 'registration_failed', 'tracking', 'delivered', 'cancelled')`),
   // Defense-in-depth idempotency: markOrderPaid() zaten pending->paid
   // geçişiyle tek seferlik çalışmayı garanti ediyor (bkz. order.repository.ts),
   // ama bu kısıt aynı (order, vendor) için ikinci bir shipment satırının
