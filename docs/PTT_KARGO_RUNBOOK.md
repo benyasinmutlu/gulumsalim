@@ -21,7 +21,9 @@ ayrılmıştır.
 
 1. Ödeme kesinleşince sipariş ve satıcı bazında tek `shipment` oluşturulur.
 2. Satıcı gönderim profili ve alıcı snapshot'ı doğrulanır.
-3. PTT'ye her gönderi için sabit ve benzersiz müşteri referansı verilir.
+3. PTT'ye her gönderi için sabit ve benzersiz müşteri referansı verilir. PTT
+   kabul ekibinin önerisine uygun olarak referans yalnız ASCII harf ve rakamdan
+   oluşur; tire, boşluk veya başka noktalama işareti kullanılmaz.
 4. `kabulEkle2` başarılıysa barkod shipment ve sipariş kalemlerine yazılır.
 5. Ağ zaman aşımı gibi sonucu belirsiz bir hata olursa kayıt otomatik tekrar
    gönderilmez; `registration_pending` durumuna alınır ve referansla sorgulanır.

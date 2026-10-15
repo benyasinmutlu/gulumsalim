@@ -238,8 +238,8 @@ export class PttClient {
     if (!/^[A-Za-z0-9._-]{1,50}$/.test(input.fileName)) {
       throw new PttError("PTT dosya adı 1-50 güvenli karakterden oluşmalı", "PTT_INVALID_FILE_NAME");
     }
-    if (!input.reference || input.reference.length > 100) {
-      throw new PttError("PTT müşteri referansı 1-100 karakter olmalı", "PTT_INVALID_REFERENCE");
+    if (!/^[A-Za-z0-9]{1,100}$/.test(input.reference)) {
+      throw new PttError("PTT müşteri referansı 1-100 ASCII harf/rakamdan oluşmalı", "PTT_INVALID_REFERENCE");
     }
     const recipientPhone = normalizePttPhone(input.recipient.phone);
     const senderPhone = normalizePttPhone(input.sender.phone);
