@@ -27,7 +27,7 @@ if (existingReference) {
 
 const now = new Date();
 const compactTimestamp = now.toISOString().replace(/\D/g, "").slice(0, 14);
-const reference = `GS-VERIFY-${compactTimestamp}`;
+const reference = `GSVERIFY${compactTimestamp}`;
 const fileName = `GSV_${compactTimestamp}`;
 
 const result = await client.registerShipment({

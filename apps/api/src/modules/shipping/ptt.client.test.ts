@@ -22,7 +22,7 @@ function makeClient(fetchImpl: typeof fetch) {
 
 const registration = {
   fileName: "GS1_TEST",
-  reference: "GS-T-1",
+  reference: "GST1",
   recipient: { name: "Ayşe & Test", address: "A < B", city: "Ankara", district: "Çankaya", phone: "05551234567", email: "a@test.invalid" },
   sender: { name: "Gülüm Şalım", address: "Test adresi", city: "İstanbul", district: "Fatih", phone: "+90 555 987 65 43" },
   package: { weightGrams: 850, widthCm: 20, lengthCm: 30, heightCm: 10 },
@@ -44,11 +44,20 @@ describe("PttClient", () => {
       expect(body).toContain("A &lt; B");
       expect(body).toContain("<xsd:agirlik>850</xsd:agirlik>");
       expect(body).toContain("<xsd:desi>2</xsd:desi>");
+      expect(body).toContain("<xsd:musteriReferansNo>GST1</xsd:musteriReferansNo>");
       return new Response(successXml, { status: 200 });
     }) as typeof fetch;
     const result = await makeClient(fetchMock).registerShipment(registration);
     expect(result).toEqual({ barcode: "2750365698456", code: 1, description: "Kayıt başarılı" });
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("PTT kabul ekibinin istemediği noktalama işaretli referansı servise göndermeden reddeder", async () => {
+    const fetchMock = vi.fn() as unknown as typeof fetch;
+    const client = makeClient(fetchMock);
+    await expect(client.registerShipment({ ...registration, reference: "GS-T-1" }))
+      .rejects.toMatchObject({ code: "PTT_INVALID_REFERENCE" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("PTT satır hatasını başarı sanmaz", async () => {
@@ -88,7 +97,7 @@ describe("PttClient", () => {
   it("referansla takip yanıtındaki barkod ve hareketleri ayrıştırır", async () => {
     const trackingXml = `<soap:Envelope xmlns:soap="${"http://www.w3.org/2003/05/soap-envelope"}"><soap:Body><ns:gonderiSorgu_referansNo2Response xmlns:ns="http://takip.ptt.gov.tr"><ns:return><x:BARNO xmlns:x="http://takip.ptt.gov.tr/xsd">2750365698456</x:BARNO><x:TESALAN xmlns:x="http://takip.ptt.gov.tr/xsd"></x:TESALAN><x:dongu xmlns:x="http://takip.ptt.gov.tr/xsd"><x:IMERK>ANKARA</x:IMERK><x:ISLEM>Kabul Edildi</x:ISLEM><x:ITARIH>09/10/2026</x:ITARIH><x:gonderiDurumId>1</x:gonderiDurumId><x:siraNo>1</x:siraNo></x:dongu><x:sonucAciklama xmlns:x="http://takip.ptt.gov.tr/xsd">Başarılı</x:sonucAciklama><x:sonucKodu xmlns:x="http://takip.ptt.gov.tr/xsd">0</x:sonucKodu></ns:return></ns:gonderiSorgu_referansNo2Response></soap:Body></soap:Envelope>`;
     const client = makeClient(vi.fn(async () => new Response(trackingXml, { status: 200 })) as typeof fetch);
-    const result = await client.trackByReference("GS-T-1");
+    const result = await client.trackByReference("GST1");
     expect(result.found).toBe(true);
     expect(result.barcode).toBe("2750365698456");
     expect(result.events).toEqual([{ sequence: 1, statusId: "1", description: "Kabul Edildi", location: "ANKARA", date: "09/10/2026" }]);

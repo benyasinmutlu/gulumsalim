@@ -21,7 +21,15 @@ function configuredClient(): PttClient {
 }
 
 function pttReference(shipmentId: number): string {
-  return `GS-${env.PTT_ENV === "test" ? "T" : "P"}-${shipmentId}`;
+  return `GS${env.PTT_ENV === "test" ? "T" : "P"}${shipmentId}`;
+}
+
+function registrationReference(existingReference: string | null, shipmentId: number): string {
+  // PTT kabul ekibi tire gibi noktalama işaretlerinin kabul sırasında sorun
+  // çıkarabildiğini doğruladı. Eski başarısız kayıtların referansını yeniden
+  // kullanırken de yalnız ASCII harf/rakam bırakarak aynı kurala uyarız.
+  const normalized = existingReference?.replace(/[^A-Za-z0-9]/g, "");
+  return normalized || pttReference(shipmentId);
 }
 
 function uniqueFileName(shipmentId: number): string {
@@ -156,7 +164,7 @@ export async function registerPttShipment(vendorId: number, shipmentId: number, 
   if (!packageData?.weightGrams) {
     throw new PttShipmentValidationError("Ürün ağırlığı eksik. Ürüne gram bilgisi girin veya paket ağırlığını belirtin.");
   }
-  const reference = existing.shipment.providerReference ?? pttReference(shipmentId);
+  const reference = registrationReference(existing.shipment.providerReference, shipmentId);
   const fileName = uniqueFileName(shipmentId);
   const [claimed] = await db
     .update(shipments)
