@@ -10,7 +10,7 @@ import NewsletterSignupForm from "./newsletter-signup-form";
 // yeniden kullanılıyor, sadece sarmalayıcı tasarımı farklı.
 export default function NewsletterBanner() {
   return (
-    <section className="container">
+    <section className="container-hero">
       <div className="newsletter-banner">
         <div className="newsletter-banner-icon">
           <i className="fas fa-envelope-open-text" />

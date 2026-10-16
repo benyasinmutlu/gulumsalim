@@ -4,6 +4,7 @@ import { apiFetchJson, publicFetchJson } from "@/lib/api";
 import type {
   AdminSlider,
   CampaignVendor,
+  Category,
   CustomerProfile,
   ProductListItem,
   PublicVendorListItem,
@@ -16,6 +17,8 @@ import PopularVendorsSection from "@/components/popular-vendors-section";
 import CampaignVendorsSection from "@/components/campaign-vendors-section";
 import HeroSlider, { type HeroSlide } from "@/components/hero-slider";
 import HeroMobileCarousel from "@/components/hero-mobile-carousel";
+import CategoryShowcaseStrip, { type HeroCategoryShowcaseItem } from "@/components/hero-category-showcase";
+import NewArrivalsRow from "@/components/new-arrivals-row";
 import CountdownTimer from "@/components/countdown-timer";
 import ProductCard from "@/components/product-card";
 import HscrollArrows from "@/components/hscroll-arrows";
@@ -71,6 +74,43 @@ async function getBestSellingProducts(): Promise<ProductListItem[]> {
 async function getSliders(): Promise<AdminSlider[]> {
   try {
     return await apiFetchJson<AdminSlider[]>("/sliders");
+  } catch {
+    return [];
+  }
+}
+
+async function getCategories(): Promise<Category[]> {
+  try {
+    return await apiFetchJson<Category[]>("/categories");
+  } catch {
+    return [];
+  }
+}
+
+async function getCategoryShowcase(): Promise<HeroCategoryShowcaseItem[]> {
+  const categories = await getCategories();
+  const topLevel = categories.filter((c) => !c.parentId).slice(0, 4);
+  if (topLevel.length === 0) return [];
+  const resolved = await Promise.all(
+    topLevel.map(async (c): Promise<HeroCategoryShowcaseItem | null> => {
+      try {
+        const res = await apiFetchJson<{ items: ProductListItem[] }>(
+          `/products?category=${encodeURIComponent(c.slug)}&limit=1`,
+        );
+        const image = res.items[0]?.primaryImageUrl;
+        return image ? { id: c.id, name: c.name, slug: c.slug, image } : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return resolved.filter((c): c is HeroCategoryShowcaseItem => c !== null);
+}
+
+async function getNewestProducts(): Promise<ProductListItem[]> {
+  try {
+    const res = await apiFetchJson<{ items: ProductListItem[] }>("/products?sort=newest&limit=4");
+    return res.items;
   } catch {
     return [];
   }
@@ -267,7 +307,7 @@ function ProductRow({
   // shelf.tsx aynı deseni /kampanyalar sayfasında kullanır).
   return (
     <section className={`products-section${bgStyle === "alt" ? " section-bg-alt" : ""}`} style={{ background: bgColor ?? undefined }}>
-      <div className="container">
+      <div className="container-hero">
         <div className="deal-shelf">
           <div className="deal-shelf-header">
             <div>
@@ -310,7 +350,7 @@ function BannerRow({ section }: { section: ResolvedHomepageSection }) {
   const isStack = section.bannerLayout === "stack";
   return (
     <section className={`products-section promo-section-plain${section.bgStyle === "alt" ? " section-bg-alt" : ""}`} style={{ background: section.bgColor ?? undefined }}>
-      <div className="container">
+      <div className="container-hero">
         {section.showTitle && (
           <div className="section-header promo-section-title">
             <h2 className={`section-title ${TITLE_FONT_CLASS[section.titleFont ?? ""] ?? ""}`} style={{ color: section.titleColor ?? undefined }}>
@@ -382,20 +422,35 @@ async function getCampaignVendors(): Promise<CampaignVendor[]> {
 }
 
 export default async function Home() {
-  const [sliders, discover, sections, saleProducts, seasonTrendCandidates, bestSellingCandidates, homepageCollections, settings, customer, vendors, campaignVendors] =
-    await Promise.all([
-      getSliders(),
-      getDiscoverFeed(),
-      getHomepageSections(),
-      getSaleProducts(),
-      getSeasonTrendProducts(),
-      getBestSellingProducts(),
-      getHomepageCollections(),
-      getSiteSettings(),
-      getCurrentCustomer(),
-      getVendors(),
-      getCampaignVendors(),
-    ]);
+  const [
+    sliders,
+    discover,
+    sections,
+    saleProducts,
+    seasonTrendCandidates,
+    bestSellingCandidates,
+    homepageCollections,
+    settings,
+    customer,
+    vendors,
+    campaignVendors,
+    categoryShowcase,
+    newestProducts,
+  ] = await Promise.all([
+    getSliders(),
+    getDiscoverFeed(),
+    getHomepageSections(),
+    getSaleProducts(),
+    getSeasonTrendProducts(),
+    getBestSellingProducts(),
+    getHomepageCollections(),
+    getSiteSettings(),
+    getCurrentCustomer(),
+    getVendors(),
+    getCampaignVendors(),
+    getCategoryShowcase(),
+    getNewestProducts(),
+  ]);
   const heroIntervalMs = settings.hero_interval_ms ? Number(settings.hero_interval_ms) : undefined;
   const saleProductIds = new Set(saleProducts.map((product) => product.id));
   const nonSaleTrendProducts = seasonTrendCandidates.filter((product) => !saleProductIds.has(product.id));
@@ -443,7 +498,6 @@ export default async function Home() {
   return (
     <main className="main-content premium-home">
       <section className="home-stage hero-desktop-only" aria-label="Öne çıkan koleksiyonlar">
-      <div className="container home-hero-row">
         <div className="home-hero-main">
           {heroSlides.length > 0 ? (
             <HeroSlider slides={heroSlides} intervalMs={heroIntervalMs} />
@@ -463,12 +517,14 @@ export default async function Home() {
             </section>
           )}
         </div>
-      </div>
       </section>
 
       <HeroMobileGrid products={bestSellingProducts} />
 
-      <section className="container home-discovery-strip" aria-labelledby="home-discovery-title">
+      <CategoryShowcaseStrip categories={categoryShowcase} />
+      <NewArrivalsRow products={newestProducts} />
+
+      <section className="container-hero home-discovery-strip" aria-labelledby="home-discovery-title">
         <div className="home-discovery-heading">
           <span className="section-tag">Hızlı keşif</span>
           <h2 id="home-discovery-title">Aradığın stile doğrudan ulaş</h2>
@@ -600,7 +656,7 @@ export default async function Home() {
         <NewsletterBanner />
       </ScrollReveal>
 
-      <div className="container home-all-products-cta">
+      <div className="container-hero home-all-products-cta">
         <Link href="/urunler" className="btn btn-secondary btn-lg">
           Tüm Koleksiyonu Gör
         </Link>

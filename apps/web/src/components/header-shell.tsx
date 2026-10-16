@@ -89,7 +89,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
             className="header-search"
             style={searchStyle ? { left: searchStyle.left, width: searchStyle.width, transform: "none" } : undefined}
           >
-            <SearchBox categories={categories} />
+            <SearchBox />
           </div>
 
           <div className="header-actions" ref={actionsRef}>
@@ -105,6 +105,17 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
                 mobil alt tab-bar'da zaten var (bkz. mobile-bottom-nav.tsx),
                 burada .header-icon-mobile-hide ile <768px'te gizlenir,
                 Bildirimler (bottom-nav'da karşılığı yok) ve arama görünür kalır. */}
+            {customer && <NotificationBell />}
+            {customer ? (
+              <AccountMenu customer={customer} />
+            ) : (
+              <Link href="/giris" className="header-icon-labeled header-icon-mobile-hide" aria-label="Hesabım">
+                <span className="header-icon-wrap">
+                  <i className="far fa-user" />
+                </span>
+                <span>Hesabım</span>
+              </Link>
+            )}
             <Link href="/hesabim/favoriler" className="header-icon-labeled header-icon-mobile-hide" aria-label="Favorilerim">
               <span className="header-icon-wrap">
                 <i className="far fa-heart" />
@@ -112,23 +123,12 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
               </span>
               <span>Favorilerim</span>
             </Link>
-            {customer && <NotificationBell />}
-            {customer ? (
-              <AccountMenu customer={customer} />
-            ) : (
-              <Link href="/giris" className="header-icon-labeled header-icon-mobile-hide" aria-label="Giriş Yap">
-                <span className="header-icon-wrap">
-                  <i className="far fa-user" />
-                </span>
-                <span>Giriş Yap</span>
-              </Link>
-            )}
-            <Link href="/sepet" className="header-icon-labeled header-icon-mobile-hide" aria-label="Sepet">
+            <Link href="/sepet" className="header-icon-labeled header-icon-mobile-hide" aria-label="Sepetim">
               <span className="header-icon-wrap">
                 <i className="fas fa-shopping-bag" />
                 {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
               </span>
-              <span>Sepet</span>
+              <span>Sepetim</span>
             </Link>
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
           satırında ayrı bir blok olarak taşındı - artık taşma yok. */}
       {searchOpen && (
         <div className="mobile-search">
-          <SearchBox categories={categories} autoFocus />
+          <SearchBox autoFocus />
         </div>
       )}
 
@@ -149,33 +149,17 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
         <div className="container">
           <ul className="nav-list">
             <li>
+              <Link href="/urunler?sort=newest">Yeni Gelenler</Link>
+            </li>
+            <li>
               <CategoryDropdown categories={categories} />
             </li>
             <li>
-              <Link href="/urunler?sort=newest">
-                <i className="fas fa-wand-magic-sparkles" /> Yeni Gelenler
-              </Link>
-            </li>
-            <li>
-              <Link href="/urunler?sort=popular">Çok Satanlar</Link>
+              <Link href="/urunler?secondHand=true">Vintage &amp; 2. El</Link>
             </li>
             <li>
               <Link href="/urunler?saleOnly=true" className="nav-sale">
-                İndirimdekiler
-              </Link>
-            </li>
-            <li>
-              <Link href="/urunler">Markalar</Link>
-            </li>
-            <li>
-              <Link href="/kampanyalar">Kampanyalar</Link>
-            </li>
-            <li>
-              <Link href="/urunler?secondHand=true">2. El</Link>
-            </li>
-            <li>
-              <Link href="/magazalar">
-                <i className="fas fa-store" /> Mağazalar
+                İndirim
               </Link>
             </li>
           </ul>

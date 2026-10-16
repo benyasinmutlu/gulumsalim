@@ -220,7 +220,7 @@ export default async function ProductDetailView({
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedBreadcrumbJsonLd }} />
 
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span>
             {category && (
@@ -399,7 +399,7 @@ export default async function ProductDetailView({
       </section>
 
       <section className="products-section" style={{ backgroundColor: "var(--color-bg-alt)" }}>
-        <div className="container">
+        <div className="container-hero">
           <div className="reviews-qna-grid">
             <div id="degerlendirmeler">
               <div className="section-header" style={{ textAlign: "left", marginBottom: 20 }}>
@@ -493,7 +493,7 @@ export default async function ProductDetailView({
 
       {relatedProducts.length > 0 && (
         <section className="products-section">
-          <div className="container">
+          <div className="container-hero">
             <div className="section-header" style={{ marginBottom: 20 }}>
               <h2 className="section-title">Benzer Ürünler</h2>
             </div>
@@ -511,7 +511,7 @@ export default async function ProductDetailView({
           olmayan (gerçekten kişiselleştirilmiş) sonuçta gösterilir. */}
       {personalizedProducts.length > 0 && (
         <section className="products-section" style={{ backgroundColor: "var(--color-bg-alt)" }}>
-          <div className="container">
+          <div className="container-hero">
             <div className="section-header" style={{ marginBottom: 20 }}>
               <h2 className="section-title">Bunları da Beğenebilirsiniz</h2>
             </div>
@@ -527,7 +527,7 @@ export default async function ProductDetailView({
       {/* bkz. denetim raporu madde 19: "Aynı Mağazadan". */}
       {sameVendorProducts.length > 0 && (
         <section className="products-section">
-          <div className="container">
+          <div className="container-hero">
             <div className="section-header" style={{ marginBottom: 20 }}>
               <h2 className="section-title">{product.vendorStoreName} Mağazasından</h2>
             </div>

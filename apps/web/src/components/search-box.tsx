@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchJson } from "../lib/client-api";
-import type { Category, SearchSuggestion } from "../lib/types";
+import type { SearchSuggestion } from "../lib/types";
 
 // bkz. kullanıcı isteği: "arama yerinde efekt ile yazı yazılıp silinsin
 // ürünler kategoriler vs olsun" → "websitesindeki ürünleri mağazaları
@@ -89,13 +89,8 @@ function useTypewriterPlaceholder(active: boolean, words: string[]) {
 
 // gulumsalim.com'daki search-suggest.php canlı öneri dropdown'unun
 // karşılığı - yazarken 250ms bekleyip (debounce) /search-suggest'e sorar.
-// bkz. kullanıcı isteği (mockup): kategori seçici artık arama kutusunun
-// SOLUNDA ayrı bir buton değil, kutunun kendi içine gömülü bir "Tümü ▾"
-// açılır listesi - native <select name="category"> olduğu için JS
-// gerektirmeden form submit'inde /arama?search=&category= şeklinde gider.
-export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: boolean; categories?: Category[] }) {
+export default function SearchBox({ autoFocus }: { autoFocus?: boolean }) {
   const router = useRouter();
-  const topLevelCategories = categories.filter((c) => !c.parentId);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -192,16 +187,9 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
         action="/arama"
         onSubmit={handleSubmit}
       >
-        {topLevelCategories.length > 0 && (
-          <select name="category" className="search-box-category" defaultValue="" aria-label="Kategori seç">
-            <option value="">Tümü</option>
-            {topLevelCategories.map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        )}
+        <button type="submit" className="search-box-icon" aria-label="Ara">
+          <i className="fas fa-search" />
+        </button>
         <input
           type="text"
           name="search"
@@ -216,9 +204,6 @@ export default function SearchBox({ autoFocus, categories = [] }: { autoFocus?: 
           }}
           autoComplete="off"
         />
-        <button type="submit" aria-label="Ara">
-          <i className="fas fa-search" />
-        </button>
       </form>
 
       {emptyPanelOpen && (recentSearches.length > 0 || trendingSearches.length > 0) && (

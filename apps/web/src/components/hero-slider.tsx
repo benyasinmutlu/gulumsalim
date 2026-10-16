@@ -4,24 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { AdminSlider } from "../lib/types";
+import HeroDecorVase from "./hero-decor-vase";
 
 const ALIGN: Record<string, string> = { left: "flex-start", center: "center", right: "flex-end" };
 
-// bkz. kullanıcı isteği: "kadının gücünü kaldıralım ... animasyonla efektle
-// background renkleri yazılarıyla çok daha öne çıkartalım" - site geneli
-// monokrom ama ürün spotlight'ı bilinçli olarak bundan ayrılıp kendi yumuşak
-// pastel paletiyle (çocuk kategori temalarında kullandığımız aynı ton
-// ailesi - toz mavi/pembe - bkz. theme-boy/theme-girl) döner, her slaytta
-// --color-primary'i override ederek .hero-tag/.btn-primary otomatik
-// temalanır.
-const PRODUCT_PALETTES: { bg: string; accent: string; dark: string; rgb: string }[] = [
-  { bg: "linear-gradient(135deg, #FBEEF2 0%, #F5DCE3 100%)", accent: "#C98CA0", dark: "#A66A7E", rgb: "201, 140, 160" },
-  { bg: "linear-gradient(135deg, #EAF0F5 0%, #DCE6EE 100%)", accent: "#7FA0BF", dark: "#5D7C9B", rgb: "127, 160, 191" },
-  { bg: "linear-gradient(135deg, #F8F3E7 0%, #EFE4C9 100%)", accent: "#B8934A", dark: "#8A6F35", rgb: "184, 147, 74" },
-  { bg: "linear-gradient(135deg, #F1F4EE 0%, #E1E8DA 100%)", accent: "#8FA382", dark: "#657356", rgb: "143, 163, 130" },
-];
-
-const PRODUCT_TAGS = ["🔥 Çok Satan", "✨ Sezonun Trendi", "💫 Öne Çıkan", "🌟 Beğenilenler"];
+const PRODUCT_TAGS = ["Çok Satan", "Sezonun Trendi", "Öne Çıkan", "Beğenilenler"];
 
 // bkz. kullanıcı isteği: "'Kadının Gücü' yerinde ürünler dönsün" sonrası
 // "hiç olmadı bu şekilde" - ürün fotoğrafları dikey stüdyo çekimi, admin
@@ -66,18 +53,9 @@ export default function HeroSlider({ slides, intervalMs = 6000 }: { slides: Hero
         const isActive = i === current;
 
         if (slide.kind === "product") {
-          const palette = PRODUCT_PALETTES[i % PRODUCT_PALETTES.length];
           const tag = PRODUCT_TAGS[i % PRODUCT_TAGS.length];
-          const themeStyle = {
-            "--hero-product-bg": palette.bg,
-            "--color-primary": palette.accent,
-            "--color-primary-dark": palette.dark,
-            "--color-primary-rgb": palette.rgb,
-          } as CSSProperties;
           return (
-            <div key={slide.id} className={`hero-slide hero-slide-product${isActive ? " active" : ""}`} style={themeStyle}>
-              <span className="hero-product-blob hero-product-blob-1" />
-              <span className="hero-product-blob hero-product-blob-2" />
+            <div key={slide.id} className={`hero-slide hero-slide-product${isActive ? " active" : ""}`}>
               <div className="hero-product-slide">
                 <div className="hero-product-text">
                   <span className="hero-tag">{tag}</span>
@@ -95,6 +73,7 @@ export default function HeroSlider({ slides, intervalMs = 6000 }: { slides: Hero
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={slide.image} alt={slide.title ?? ""} loading={i === 0 ? undefined : "lazy"} />
                 </div>
+                <HeroDecorVase />
               </div>
             </div>
           );

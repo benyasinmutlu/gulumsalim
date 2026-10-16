@@ -17,7 +17,7 @@ const TIERS: { percent: number; color: string }[] = [
 export default function DiscountTiers() {
   return (
     <section className="discount-tiers-section">
-      <div className="container">
+      <div className="container-hero">
         <h2 className="section-title" style={{ marginBottom: 16 }}>
           İndirim Oranına Göre Keşfet
         </h2>

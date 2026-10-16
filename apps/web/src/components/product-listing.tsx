@@ -138,7 +138,7 @@ export default async function ProductListing({
     <main className={themeClass ? `main-content ${themeClass}` : "main-content"}>
       <CategoryNavSync categories={resultCategories} />
       <TitleBackgroundIcons icon={headingIcon} />
-      <div className="container products-page">
+      <div className="container-hero products-page">
         <h1 className="products-page-title">{heading}</h1>
 
         {beforeToolbar}

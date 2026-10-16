@@ -18,7 +18,7 @@ export default function PopularVendorsSection({ vendors }: { vendors: PublicVend
 
   return (
     <section className="popular-vendors-section">
-      <div className="container">
+      <div className="container-hero">
         <div className="section-header section-header-flex">
           <h2 className="section-title">Popüler Mağazalar</h2>
           <Link href="/magazalar" className="section-cta">

@@ -176,7 +176,7 @@ export default function CartPage() {
   return (
     <main className="main-content">
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span> <span className="current">Alışveriş Sepetim</span>
           </div>
@@ -184,7 +184,7 @@ export default function CartPage() {
       </div>
 
       <section className="cart-section">
-        <div className="container">
+        <div className="container-hero">
           <h1 className="page-title">Alışveriş Sepetim</h1>
 
           {/* bkz. kullanıcı isteği: "stok durumu sürekli kontrol ettirilmeli

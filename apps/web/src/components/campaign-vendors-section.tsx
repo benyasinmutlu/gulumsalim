@@ -6,7 +6,7 @@ export default function CampaignVendorsSection({ vendors }: { vendors: CampaignV
 
   return (
     <section className="popular-vendors-section">
-      <div className="container">
+      <div className="container-hero">
         <div className="section-header section-header-flex">
           <h2 className="section-title">Kampanyalı Mağazalar</h2>
           <Link href="/kampanyalar" className="section-cta">Tümünü Gör</Link>
