@@ -34,7 +34,7 @@ export default function CategoryDropdown({ categories }: { categories: Category[
   return (
     <div className="header-cat-wrap" ref={wrapRef}>
       <button type="button" className="header-cat-btn" onClick={() => setOpen((v) => !v)}>
-        Giyim <i className="fas fa-chevron-down header-cat-btn-caret" />
+        Kategoriler <i className="fas fa-chevron-down header-cat-btn-caret" />
       </button>
 
       {open && (

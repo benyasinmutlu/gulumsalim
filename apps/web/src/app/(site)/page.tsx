@@ -87,12 +87,16 @@ async function getCategories(): Promise<Category[]> {
   }
 }
 
+const FEATURED_CATEGORY_SLUGS = ["elbiseler", "giyim", "cantalar", "ayakkabilar"];
+
 async function getCategoryShowcase(): Promise<HeroCategoryShowcaseItem[]> {
   const categories = await getCategories();
-  const topLevel = categories.filter((c) => !c.parentId).slice(0, 4);
-  if (topLevel.length === 0) return [];
+  const bySlug = new Map(categories.map((c) => [c.slug, c]));
+  const picked = FEATURED_CATEGORY_SLUGS.map((slug) => bySlug.get(slug)).filter((c): c is Category => !!c);
+  if (picked.length === 0) return [];
   const resolved = await Promise.all(
-    topLevel.map(async (c): Promise<HeroCategoryShowcaseItem | null> => {
+    picked.map(async (c): Promise<HeroCategoryShowcaseItem | null> => {
+      if (c.image) return { id: c.id, name: c.name, slug: c.slug, image: c.image };
       try {
         const res = await apiFetchJson<{ items: ProductListItem[] }>(
           `/products?category=${encodeURIComponent(c.slug)}&limit=1`,
@@ -522,7 +526,6 @@ export default async function Home() {
       <HeroMobileGrid products={bestSellingProducts} />
 
       <CategoryShowcaseStrip categories={categoryShowcase} />
-      <NewArrivalsRow products={newestProducts} />
 
       <section className="container-hero home-discovery-strip" aria-labelledby="home-discovery-title">
         <div className="home-discovery-heading">
@@ -531,6 +534,8 @@ export default async function Home() {
         </div>
         <QuickLinksRow />
       </section>
+
+      <NewArrivalsRow products={newestProducts} />
 
       {/* Üst navigasyonda kategori erişimi bulunduğu için tekrar eden büyük
           kategori vitrini kaldırıldı. Ana keşif akışı doğrudan gerçek ürün
