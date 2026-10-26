@@ -34,7 +34,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
   return (
     <main className="main-content">
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span>{" "}
             <span className="current">Hesabım</span>
@@ -43,7 +43,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
       </div>
 
       <section className="account-section">
-        <div className="container">
+        <div className="container-hero">
           <h1 className="page-title">Hesabım</h1>
 
           <div className="account-grid">
