@@ -3,7 +3,7 @@
 // biçimlendirilmiş (bkz. index.php), o yüzden burada da aynı şekilde.
 export default function Advantages() {
   const items = [
-    { icon: "fa-shipping-fast", title: "Hızlı ve Ücretsiz Kargo", text: "500,00 ₺ üzeri alışverişlerinizde kargo bedava." },
+    { icon: "fa-shipping-fast", title: "Hızlı Kargo", text: "Siparişiniz özenle hazırlanıp kısa sürede kargoya verilir." },
     { icon: "fa-undo", title: "Kolay İade Garantisi", text: "Teslim aldığınız ürünü 14 gün içinde koşulsuz iade edebilirsiniz." },
     { icon: "fa-shield-alt", title: "%100 Güvenli Ödeme", text: "iyzico güvencesiyle 256-bit SSL korumalı kredi kartı ödemesi." },
     { icon: "fa-headset", title: "7/24 Canlı Destek", text: "Sorularınız için destek hattımız her zaman aktif." },

@@ -107,6 +107,11 @@ interface ProductWriteInput {
   videoUrl?: string | null;
   stock?: number;
   sizeChart?: ProductSizeChartInput;
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10) - bkz. catalog.ts yorumu.
+  weightGrams?: number;
+  widthCm?: string;
+  heightCm?: string;
+  lengthCm?: string;
 }
 
 interface ProductCreateInput {
@@ -131,6 +136,11 @@ interface ProductCreateInput {
   // Ürün-zeka yakın-kopya parmak izi (product-intelligence/dedupe). Kopya
   // tespiti için insert'te saklanır; opsiyonel (eski akışlar boş bırakabilir).
   fingerprint?: string;
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10) - bkz. catalog.ts yorumu.
+  weightGrams?: number;
+  widthCm?: string;
+  heightCm?: string;
+  lengthCm?: string;
 }
 
 export async function insertVendorProduct(vendorId: number, data: ProductCreateInput) {
@@ -246,6 +256,11 @@ interface VariantWriteInput {
   color?: string;
   priceOverride?: string;
   stock: number;
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10) - bkz. catalog.ts yorumu.
+  weightGrams?: number;
+  widthCm?: string;
+  heightCm?: string;
+  lengthCm?: string;
 }
 
 // bkz. kullanıcı isteği: "her şeyiyle sku'yu otomatik oluştursun sistem" -

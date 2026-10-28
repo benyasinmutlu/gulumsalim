@@ -38,6 +38,19 @@ const sizeChartSchema = z
   )
   .optional();
 
+// bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): ürün/varyant fiziksel
+// kargo verisi - üst sınırlar DB check constraint'leriyle (catalog.ts)
+// birebir aynı (50kg / 500cm). Opsiyonel: satıcı doldurmazsa null kalır,
+// mevcut ürünlere geriye dönük hiçbir değer zorlanmaz.
+const weightGramsSchema = z.coerce.number().int().min(0).max(50_000).optional();
+const dimensionCmSchema = z.coerce.number().min(0).max(500).optional();
+const shippingDimensionFields = {
+  weightGrams: weightGramsSchema,
+  widthCm: dimensionCmSchema,
+  heightCm: dimensionCmSchema,
+  lengthCm: dimensionCmSchema,
+};
+
 const optionalQueryText = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   z.string().trim().max(100).optional(),
@@ -86,6 +99,7 @@ export const createProductSchema = z
     stock: z.coerce.number().int().min(0).max(1_000_000).optional(),
     sizeChart: sizeChartSchema,
     ...defectFields,
+    ...shippingDimensionFields,
   })
   .superRefine(refineDefect);
 
@@ -112,6 +126,7 @@ export const updateProductSchema = z
     stock: z.coerce.number().int().min(0).max(1_000_000).optional(),
     sizeChart: sizeChartSchema,
     ...defectFields,
+    ...shippingDimensionFields,
   })
   .superRefine(refineDefect);
 
@@ -141,6 +156,7 @@ export const createVariantSchema = z.object({
   color: z.string().min(1).optional(),
   priceOverride: z.coerce.number().positive().optional(),
   stock: z.coerce.number().int().min(0).max(1_000_000).default(0),
+  ...shippingDimensionFields,
 });
 
 export const updateVariantSchema = z.object({
@@ -149,6 +165,7 @@ export const updateVariantSchema = z.object({
   color: z.string().min(1).optional(),
   priceOverride: z.coerce.number().positive().optional(),
   stock: z.coerce.number().int().min(0).max(1_000_000).optional(),
+  ...shippingDimensionFields,
 });
 
 export const productVariantParamsSchema = z.object({

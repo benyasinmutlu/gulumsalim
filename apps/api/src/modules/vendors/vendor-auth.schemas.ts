@@ -91,6 +91,14 @@ export const updateVendorProfileSchema = z.object({
   bankAccountHolder: z.string().trim().max(120).optional(),
   taxId: corporateTaxIdSchema.optional(),
   legalAddress: z.string().trim().min(10, "Açık adres giriniz").max(500).optional(),
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): legalAddress'ten
+  // AYRI operasyonel kargo çıkış adresi - customerAddresses (customers.ts)
+  // ile AYNI doğrulama standardı (min uzunluklar) kullanılır.
+  shippingContactName: z.string().trim().min(2).max(120).optional(),
+  shippingContactPhone: z.string().trim().min(10).max(30).optional(),
+  shippingCity: z.string().trim().min(2).max(120).optional(),
+  shippingDistrict: z.string().trim().min(2).max(120).optional(),
+  shippingAddressLine: z.string().trim().min(5).max(500).optional(),
   currentPassword: z.string().max(72).optional(),
   bankOwnershipConfirmed: z.boolean().optional(),
   newPassword: passwordSchema.optional(),

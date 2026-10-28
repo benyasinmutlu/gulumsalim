@@ -89,6 +89,13 @@ export default function NewProductForm() {
   // zorunlu olarak girilmeli" - renk/beden satırı eklenmezse ürün artık
   // stok takibi olmadan DEĞİL, bu düz alandaki miktarla satılır (zorunlu).
   const [plainStock, setPlainStock] = useState("");
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): ürünün fiziksel kargo
+  // verisi - opsiyonel, HENÜZ hiçbir kargo ücreti hesabına bağlı değil,
+  // sadece ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  const [weightGrams, setWeightGrams] = useState("");
+  const [widthCm, setWidthCm] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [lengthCm, setLengthCm] = useState("");
   const [showSizeChart, setShowSizeChart] = useState(false);
   const [sizeChart, setSizeChart] = useState<Record<string, { bust: string; waist: string; hip: string }>>({});
   const [images, setImages] = useState<StagedImage[]>([]);
@@ -384,6 +391,10 @@ export default function NewProductForm() {
         isSecondHand: isIndividual ? isSecondHandCondition(condition) : false,
         stock: !isIndividual && colorRows.length === 0 ? Number(plainStock) : undefined,
         sizeChart: buildSizeChart(),
+        weightGrams: weightGrams !== "" ? Number(weightGrams) : undefined,
+        widthCm: widthCm !== "" ? Number(widthCm) : undefined,
+        heightCm: heightCm !== "" ? Number(heightCm) : undefined,
+        lengthCm: lengthCm !== "" ? Number(lengthCm) : undefined,
       });
       const setupFailures: string[] = [];
 
@@ -519,6 +530,35 @@ export default function NewProductForm() {
         <i className="fas fa-video" />
         <p>{video ? video.name : "Kısa tanıtım videosu ekleyin"}</p>
         <small>MP4, WEBM, MOV · en fazla 50MB</small>
+      </div>
+    </div>
+  );
+
+  // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): opsiyonel fiziksel
+  // kargo verisi - henüz hiçbir kargo ücreti hesabına bağlı değil, sadece
+  // ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  const shippingBlock = (
+    <div className="fg">
+      <label>Kargo Bilgileri (opsiyonel)</label>
+      <div className="row2">
+        <div className="fg">
+          <label>Ağırlık (gram)</label>
+          <input className="fi" type="number" min={0} max={50000} value={weightGrams} onChange={(e) => setWeightGrams(e.target.value)} placeholder="ör. 750" />
+        </div>
+        <div className="fg">
+          <label>En (cm)</label>
+          <input className="fi" type="number" min={0} max={500} step="0.1" value={widthCm} onChange={(e) => setWidthCm(e.target.value)} placeholder="ör. 20" />
+        </div>
+      </div>
+      <div className="row2">
+        <div className="fg">
+          <label>Boy (cm)</label>
+          <input className="fi" type="number" min={0} max={500} step="0.1" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} placeholder="ör. 30" />
+        </div>
+        <div className="fg">
+          <label>Yükseklik (cm)</label>
+          <input className="fi" type="number" min={0} max={500} step="0.1" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="ör. 5" />
+        </div>
       </div>
     </div>
   );
@@ -676,6 +716,7 @@ export default function NewProductForm() {
             <input className="fi" type="number" min={0} step="0.01" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} placeholder="Opsiyonel" />
           </div>
 
+          {shippingBlock}
           {conditionBlock}
           {defectBlock}
 
@@ -869,6 +910,7 @@ export default function NewProductForm() {
                 <label>İndirimli Fiyat (₺)</label>
                 <input className="fi" type="number" min={0} step="0.01" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} placeholder="Opsiyonel" />
               </div>
+              {shippingBlock}
             </>
           )}
 

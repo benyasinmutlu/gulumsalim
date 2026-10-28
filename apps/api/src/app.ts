@@ -75,6 +75,7 @@ import adminBrandsRoutes from "./modules/admin/admin-brands.routes";
 import brandsRoutes from "./modules/catalog/brands.routes";
 import presenceRoutes from "./modules/analytics/presence.routes";
 import supportRoutes from "./modules/support/support.routes";
+import pttShippingRoutes from "./modules/shipping/ptt-shipping.routes";
 import { env } from "./config/env";
 import { buildCorsAllowlist, isCorsOriginAllowed } from "./lib/cors-origin";
 
@@ -182,6 +183,7 @@ export function buildApp() {
   app.register(brandsRoutes);
   app.register(presenceRoutes);
   app.register(supportRoutes);
+  app.register(pttShippingRoutes);
 
   // Deploy sonrası doğrulama ve systemd/uptime izleme için: hem Postgres
   // hem Redis'e gerçekten bağlanabildiğini kontrol eder, sadece process'in

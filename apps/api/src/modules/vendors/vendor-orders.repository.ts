@@ -1,7 +1,8 @@
 import { and, asc, desc, count, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/client";
-import { customers, orderItems, orderRefunds, orders, productImages, products, productVariants } from "../../db/schema/index";
+import { customers, orderItems, orderRefunds, orders, productImages, products, productVariants, shipments } from "../../db/schema/index";
 import { recomputeOrderStatus, restoreOrderItemStockSingle } from "../orders/order.repository";
+import { syncShipmentAfterItemStatusChange } from "../orders/shipment.repository";
 import { createCustomerNotification } from "../notifications/customer-notifications.repository";
 
 // Sidebar'daki "Siparişler" rozeti için - eski sitede bu sayaç vardı,
@@ -48,6 +49,12 @@ export async function listVendorOrderItems(vendorId: number) {
       trackingCarrier: orderItems.trackingCarrier,
       trackingNumber: orderItems.trackingNumber,
       shippedAt: orderItems.shippedAt,
+      shipmentId: orderItems.shipmentId,
+      shipmentProvider: shipments.provider,
+      shipmentProviderStatus: shipments.providerStatus,
+      shipmentProviderReference: shipments.providerReference,
+      shipmentProviderLastError: shipments.providerLastError,
+      shipmentProviderEvents: shipments.providerEvents,
       orderCreatedAt: orders.createdAt,
       shippingAddress: orders.shippingAddress,
       orderNote: orders.orderNote,
@@ -57,6 +64,7 @@ export async function listVendorOrderItems(vendorId: number) {
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .innerJoin(customers, eq(orders.customerId, customers.id))
     .leftJoin(productVariants, eq(orderItems.variantId, productVariants.id))
+    .leftJoin(shipments, eq(orderItems.shipmentId, shipments.id))
     .where(and(eq(orderItems.vendorId, vendorId), eq(orders.paymentStatus, "paid")))
     .orderBy(desc(orders.createdAt));
 
@@ -99,6 +107,7 @@ export async function findVendorOrderItem(vendorId: number, orderItemId: number)
       trackingCarrier: orderItems.trackingCarrier,
       trackingNumber: orderItems.trackingNumber,
       shippedAt: orderItems.shippedAt,
+      shipmentId: orderItems.shipmentId,
       // bkz. kullanıcı isteği: "ürünlerin resimleri de olsun" - kargo
       // durumu e-postalarında da ürün görseli gösterilir.
       productSlug: products.slug,
@@ -256,6 +265,13 @@ export async function updateVendorOrderItemStatus(
       await restoreOrderItemStockSingle(tx, orderItemId);
     }
     await recomputeOrderStatus(tx, row.orderId);
+    // bkz. kargo/PTT denetim raporu Faz 2 (2026-09-10) bölüm 11: satıcı
+    // "shipped"/"cancelled" işaretlerken, bağlı Shipment'ı da senkronize et.
+    // Eski trackingCarrier/trackingNumber/shippedAt davranışı YUKARIDA
+    // DEĞİŞMEDEN duruyor - bu sadece üzerine eklenen bir senkronizasyon.
+    if (status === "shipped" || status === "cancelled") {
+      await syncShipmentAfterItemStatusChange(tx, row.shipmentId, status, tracking);
+    }
     return row;
   });
 }

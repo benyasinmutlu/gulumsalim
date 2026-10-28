@@ -19,10 +19,22 @@ import { normalizePublicLink } from "../../lib/public-url";
 // Footer/site iletişim bilgisi gibi herkese açık ayarlar için: settings
 // tablosundaki her şeyi değil, sadece istenen (izin verilen) anahtarları
 // döner - ileride gizli/hassas bir ayar eklenirse yanlışlıkla dışarı sızmaz.
+//
+// bkz. olay (2026-09-11): settings.value jsonb sütunu, ama upsertSettings
+// (admin-settings.repository.ts) HER ZAMAN düz string yazıyor. drizzle-orm'un
+// PgJsonb.mapFromDriverValue'su, pg driver'ın ZATEN parse ettiği bir string
+// değeri ("59.90" gibi) tekrar JSON.parse'a sokuyor - rakam GÖRÜNÜMLÜ
+// string'ler ("59.90", "999999", "0" vb.) bu ikinci parse'ta sessizce
+// number'a dönüşüyor (JSON.parse("59.90") === 59.9). Bu da aşağıdaki
+// filterUnsafePublicSettings'in "yalnız string" kuralına takılıp o ayarın
+// public API'den TAMAMEN kaybolmasına yol açıyordu (bkz. shipping_cost/
+// free_shipping_limit - haftalarca hiç dönmemiş). Kayıt HER ZAMAN string
+// olarak yazıldığı için (upsertSettings imzası) burada String() ile geri
+// normalize etmek veri kaybı yaratmaz, sadece bu round-trip hatasını düzeltir.
 export async function getPublicSettings(keys: string[]) {
   if (keys.length === 0) return {};
   const rows = await db.select().from(settings).where(inArray(settings.key, keys));
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return Object.fromEntries(rows.map((r) => [r.key, String(r.value)]));
 }
 
 export async function findPublicPageBySlug(slug: string) {

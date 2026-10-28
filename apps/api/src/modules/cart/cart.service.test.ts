@@ -18,6 +18,15 @@ vi.mock("../../lib/shipping", async (importActual) => ({
   ...(await importActual<typeof import("../../lib/shipping")>()),
   getShippingConfig: vi.fn().mockResolvedValue({ shippingFee: 49.9, freeShippingThreshold: 500 }),
 }));
+// bkz. kargo/PTT denetim raporu Faz 3.1 (2026-09-10): "sepet ile checkout aynı
+// shipping business rule'larını kullanmalı" - hydrateCart artık checkout ile
+// AYNI computeCampaigns() çağrısını yapıyor, bu yüzden listActiveCampaigns
+// burada da mock'lanmalı (aksi halde gerçek DB'ye gitmeye çalışırdı).
+// Varsayılan: kampanya yok - kampanya senaryolarını test eden case'ler kendi
+// mockResolvedValue'sunu ayrıca verir.
+vi.mock("../orders/campaign.repository", () => ({
+  listActiveCampaigns: vi.fn().mockResolvedValue([]),
+}));
 
 describe("addToCart", () => {
   it("boş sepete yeni bir satır ekler", () => {
@@ -83,7 +92,7 @@ describe("hydrateCart", () => {
     vi.clearAllMocks();
     const { fetchProductsForCart, fetchVariantsForCart, fetchPrimaryImages } = await import("./cart.repository");
     vi.mocked(fetchProductsForCart).mockResolvedValue([
-      { id: 1, name: "Şort Etek", slug: "sort-etek", basePrice: "1500.00", status: "active", vendorId: 11, storeName: "Butik 11", vendorStatus: "active", freeShipping: false, stock: 0 },
+      { id: 1, name: "Şort Etek", slug: "sort-etek", basePrice: "1500.00", status: "active", vendorId: 11, categoryId: 3, storeName: "Butik 11", vendorStatus: "active", freeShipping: false, stock: 0 },
     ]);
     vi.mocked(fetchPrimaryImages).mockResolvedValue([]);
     vi.mocked(fetchVariantsForCart).mockResolvedValue([
@@ -124,7 +133,7 @@ describe("hydrateCart", () => {
   it("varyantsız üründe miktarı products.stock'a göre kırpar", async () => {
     const { fetchProductsForCart, fetchVariantsForCart } = await import("./cart.repository");
     vi.mocked(fetchProductsForCart).mockResolvedValue([
-      { id: 2, name: "El Yapımı Şal", slug: "el-yapimi-sal", basePrice: "300.00", status: "active", vendorId: 11, storeName: "Butik 11", vendorStatus: "active", freeShipping: false, stock: 1 },
+      { id: 2, name: "El Yapımı Şal", slug: "el-yapimi-sal", basePrice: "300.00", status: "active", vendorId: 11, categoryId: 3, storeName: "Butik 11", vendorStatus: "active", freeShipping: false, stock: 1 },
     ]);
     vi.mocked(fetchVariantsForCart).mockResolvedValue([]);
     const { hydrateCart } = await import("./cart.service");
@@ -138,8 +147,8 @@ describe("hydrateCart", () => {
   it("iki farklı satıcı, ikisi de eşiğin altında → satıcı başına ayrı kargo (2 × 49.90)", async () => {
     const { fetchProductsForCart, fetchVariantsForCart } = await import("./cart.repository");
     vi.mocked(fetchProductsForCart).mockResolvedValue([
-      { id: 1, name: "A", slug: "a", basePrice: "100.00", status: "active", vendorId: 11, storeName: "Butik A", vendorStatus: "active", freeShipping: false, stock: 10 },
-      { id: 2, name: "B", slug: "b", basePrice: "100.00", status: "active", vendorId: 22, storeName: "Butik B", vendorStatus: "active", freeShipping: false, stock: 10 },
+      { id: 1, name: "A", slug: "a", basePrice: "100.00", status: "active", vendorId: 11, categoryId: 3, storeName: "Butik A", vendorStatus: "active", freeShipping: false, stock: 10 },
+      { id: 2, name: "B", slug: "b", basePrice: "100.00", status: "active", vendorId: 22, categoryId: 3, storeName: "Butik B", vendorStatus: "active", freeShipping: false, stock: 10 },
     ]);
     vi.mocked(fetchVariantsForCart).mockResolvedValue([]);
     const { hydrateCart } = await import("./cart.service");
@@ -157,8 +166,8 @@ describe("hydrateCart", () => {
   it("eşiği geçen satıcının kargosu ücretsiz, eşiğin altındaki satıcıya kargo eklenir", async () => {
     const { fetchProductsForCart, fetchVariantsForCart } = await import("./cart.repository");
     vi.mocked(fetchProductsForCart).mockResolvedValue([
-      { id: 1, name: "A", slug: "a", basePrice: "600.00", status: "active", vendorId: 11, storeName: "Butik A", vendorStatus: "active", freeShipping: false, stock: 10 },
-      { id: 2, name: "B", slug: "b", basePrice: "100.00", status: "active", vendorId: 22, storeName: "Butik B", vendorStatus: "active", freeShipping: false, stock: 10 },
+      { id: 1, name: "A", slug: "a", basePrice: "600.00", status: "active", vendorId: 11, categoryId: 3, storeName: "Butik A", vendorStatus: "active", freeShipping: false, stock: 10 },
+      { id: 2, name: "B", slug: "b", basePrice: "100.00", status: "active", vendorId: 22, categoryId: 3, storeName: "Butik B", vendorStatus: "active", freeShipping: false, stock: 10 },
     ]);
     vi.mocked(fetchVariantsForCart).mockResolvedValue([]);
     const { hydrateCart } = await import("./cart.service");

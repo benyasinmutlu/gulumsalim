@@ -59,6 +59,15 @@ const envSchema = z.object({
   // API instance'inda da ayni kaynagin iki kez calismasini engeller.
   MERCHANT_FEED_POLL_INTERVAL_MS: z.coerce.number().int().min(5_000).max(300_000).default(15_000),
   MERCHANT_FEED_BATCH_SIZE: z.coerce.number().int().min(1).max(10).default(4),
+
+  // PTT Kargo SOAP entegrasyonu. Kimlik bilgileri opsiyoneldir: boşsa API
+  // ayağa kalkar ancak PTT uçları güvenli biçimde 503 döner. Böylece secret
+  // hiçbir zaman repoya yazılmaz ve yalnız sunucu ortamından enjekte edilir.
+  PTT_ENV: z.enum(["test", "production"]).default("test"),
+  PTT_CUSTOMER_ID: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^\d+$/).optional()),
+  PTT_PASSWORD: z.preprocess((value) => value === "" ? undefined : value, z.string().min(1).optional()),
+  PTT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(15_000),
+  PTT_TRACKING_POLL_INTERVAL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(900_000),
 });
 
 // Parsed once at boot. Fails fast with a readable error if the environment

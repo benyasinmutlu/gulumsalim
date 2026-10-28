@@ -49,7 +49,7 @@ export default async function SiteNav() {
 
   return (
     <>
-      <TopBar customer={customer} freeShippingLimit={branding.free_shipping_limit} />
+      <TopBar customer={customer} />
       <HeaderShell
         categories={categories}
         customer={customer}

@@ -139,3 +139,22 @@ export const couponTypeEnum = pgEnum("coupon_type", ["percent", "fixed"]);
 
 export const campaignTypeEnum = pgEnum("campaign_type", ["percent", "free_shipping"]);
 export const campaignScopeEnum = pgEnum("campaign_scope", ["all", "category", "vendor", "product"]);
+
+// bkz. kargo/PTT denetim raporu Faz 2 (2026-09-10): Shipment (bir siparişte
+// belirli bir satıcının müşteriye gönderdiği fiziksel gönderi), orderItems.
+// vendorStatus'tan KASITLI OLARAK ayrı bir durum kümesi - PTT/taşıyıcı API'si
+// henüz yok, bu yüzden taşıyıcıdan gelecek GERÇEK durumlar (in_transit,
+// out_for_delivery, label_created vb.) BİLİNÇLİ OLARAK eklenmedi. "created":
+// shipment kaydı oluştu ama henüz hiçbir kalemi kargoya verilmedi. "shipped":
+// en az bir kalemi kargoya verildi. "delivered": tüm (iptal olmayan)
+// kalemleri teslim edildi. "cancelled": tüm kalemleri iptal oldu. Bu enum
+// büyüyecek (Faz 3+, gerçek taşıyıcı entegrasyonu ile) ama şimdiden
+// taşıyıcıya özgü durum uydurulmadı.
+export const shipmentStatusEnum = pgEnum("shipment_status", ["created", "shipped", "delivered", "cancelled"]);
+
+// Gidiş (satıcı->müşteri) / dönüş (müşteri->satıcı, iade) gönderisi ayrımı.
+// Bu faz SADECE "outbound" üretir - return shipment akışı (order_refunds.
+// returnTrackingCarrier/Number ile ayrı yürüyen mevcut iade sistemi) bu
+// fazda BİLİNÇLİ OLARAK Shipment'a bağlanmadı, ileride ayrı ele alınacak.
+// Alan şimdiden açıldı ki o faz geldiğinde şema değişikliği gerekmesin.
+export const shipmentDirectionEnum = pgEnum("shipment_direction", ["outbound", "return"]);

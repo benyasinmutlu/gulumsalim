@@ -113,6 +113,11 @@ export async function updateVendorProfile(
     bankAccountChangedAt: Date;
     taxId: string;
     legalAddress: string;
+    shippingContactName: string;
+    shippingContactPhone: string;
+    shippingCity: string;
+    shippingDistrict: string;
+    shippingAddressLine: string;
     passwordHash: string;
   }>,
 ) {

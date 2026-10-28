@@ -12,6 +12,7 @@ export async function fetchProductsForCart(productIds: number[]) {
       basePrice: products.basePrice,
       status: products.status,
       vendorId: products.vendorId,
+      categoryId: products.categoryId,
       storeName: vendors.storeName,
       vendorStatus: vendors.status,
       freeShipping: products.freeShipping,

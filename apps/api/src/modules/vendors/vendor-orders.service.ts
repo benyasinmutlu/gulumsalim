@@ -4,6 +4,7 @@ import { orderItems, vendorEarnings, vendors } from "../../db/schema/index";
 import { env } from "../../config/env";
 import { emailButton, emailHeading, emailProductRow, renderEmailLayout, sendMail } from "../../lib/mailer";
 import { recomputeOrderStatus } from "../orders/order.repository";
+import { syncShipmentAfterItemStatusChange } from "../orders/shipment.repository";
 import { findCustomerById } from "../auth/auth.repository";
 import { createCustomerNotification } from "../notifications/customer-notifications.repository";
 import { findVendorOrderItem, updateVendorOrderItemStatus } from "./vendor-orders.repository";
@@ -176,6 +177,11 @@ async function markDeliveredAndCreditEarning(vendorId: number, orderItemId: numb
       .where(eq(vendors.id, vendorId));
 
     await recomputeOrderStatus(tx, orderId);
+    // bkz. kargo/PTT denetim raporu Faz 2 (2026-09-10) bölüm 11: kalem
+    // teslim edildiğinde bağlı Shipment'ı da senkronize et (tüm kalemleri
+    // teslim edilince Shipment de "delivered" olur, bkz. shipment.repository.ts
+    // recomputeShipmentStatus).
+    await syncShipmentAfterItemStatusChange(tx, updatedItem.shipmentId, "delivered");
 
     return updatedItem;
   });

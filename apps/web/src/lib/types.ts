@@ -349,6 +349,11 @@ export interface VendorProfile {
   bankAccountHolder: string | null;
   taxId: string | null;
   legalAddress: string | null;
+  shippingContactName: string | null;
+  shippingContactPhone: string | null;
+  shippingCity: string | null;
+  shippingDistrict: string | null;
+  shippingAddressLine: string | null;
 }
 
 export interface VendorProduct {
@@ -379,6 +384,10 @@ export interface VendorProduct {
   hasVariants: boolean;
   primaryImageUrl: string | null;
   videoUrl?: string | null;
+  weightGrams?: number | null;
+  widthCm?: string | null;
+  heightCm?: string | null;
+  lengthCm?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -398,6 +407,10 @@ export interface VendorProductVariant {
   color: string | null;
   priceOverride: string | null;
   stock: number;
+  weightGrams: number | null;
+  widthCm: string | null;
+  heightCm: string | null;
+  lengthCm: string | null;
 }
 
 export interface VendorOrderItem {
@@ -416,6 +429,12 @@ export interface VendorOrderItem {
   trackingCarrier: string | null;
   trackingNumber: string | null;
   shippedAt: string | null;
+  shipmentId: number | null;
+  shipmentProvider: string | null;
+  shipmentProviderStatus: "not_registered" | "registering" | "registration_pending" | "registered" | "registration_failed" | "tracking" | "delivered" | "cancelled" | null;
+  shipmentProviderReference: string | null;
+  shipmentProviderLastError: string | null;
+  shipmentProviderEvents: Array<{ sequence: number | null; statusId: string | null; description: string; location: string | null; date: string | null }>;
   orderCreatedAt: string;
   shippingAddress: { fullName?: string; phone?: string; city?: string; district?: string; addressLine?: string; zipCode?: string };
   orderNote: string | null;

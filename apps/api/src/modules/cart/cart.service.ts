@@ -1,5 +1,7 @@
 import { fetchPrimaryImages, fetchProductsForCart, fetchVariantsForCart } from "./cart.repository";
-import { getShippingConfig, computeVendorShipping } from "../../lib/shipping";
+import { getShippingConfig, shippingProvider } from "../../lib/shipping";
+import { listActiveCampaigns } from "../orders/campaign.repository";
+import { computeCampaigns } from "../orders/campaign.service";
 import type { CartLine } from "./cart.types";
 
 export function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
@@ -135,6 +137,26 @@ export async function hydrateCart(cart: CartLine[]) {
   }
 
   const { shippingFee: baseShippingFee, freeShippingThreshold } = await getShippingConfig();
+  // bkz. kargo/PTT denetim raporu Faz 3.1 (2026-09-10): "Sepet ile checkout
+  // aynı shipping business rule'larını kullanmalı" tespiti - checkout-totals.ts
+  // resolveCheckoutTotals() kampanya kaynaklı ücretsiz kargoyu (free_shipping
+  // tipi kampanyalar) computeVendorShipping girdisine dahil ediyordu, burası
+  // ETMİYORDU (sadece ürünün kendi freeShipping bayrağına bakıyordu). computeCampaigns
+  // ZATEN tek/paylaşılan business rule (campaign.service.ts) - burada YENİDEN
+  // YAZILMADI, checkout ile AYNI fonksiyon AYNI şekilde çağrılıyor.
+  const campaigns = computeCampaigns(
+    await listActiveCampaigns(),
+    items.map((item) => {
+      const product = productMap.get(item.productId);
+      return {
+        productId: item.productId,
+        vendorId: product?.vendorId ?? 0,
+        categoryId: product?.categoryId ?? 0,
+        lineTotal: Number(item.lineTotal),
+      };
+    }),
+  );
+  const freeShippingVendors = new Set(campaigns.freeShippingVendorIds);
   // Satıcı-bazlı kargo (bkz. lib/shipping.ts computeVendorShipping): her satıcı
   // için ayrı ücret, o satıcının toplamı eşiği geçince/tümü ücretsizse sıfır.
   // Checkout toplamla BİREBİR aynı hesabı kullanır; burada ayrıca müşteriye
@@ -145,10 +167,15 @@ export async function hydrateCart(cart: CartLine[]) {
       vendorId: p?.vendorId ?? 0,
       storeName: p?.storeName ?? "Mağaza",
       lineTotal: Number(item.lineTotal),
-      freeShipping: p?.freeShipping === true,
+      freeShipping: p?.freeShipping === true || (p ? freeShippingVendors.has(p.vendorId) : false),
     };
   });
-  const { total: shippingFee, breakdown } = computeVendorShipping(shippingLines, baseShippingFee, freeShippingThreshold);
+  // bkz. kargo/PTT denetim raporu Faz 3 (2026-09-10): checkout ile AYNI
+  // provider'dan geçer (ManualShippingProvider = computeVendorShipping()'in
+  // abstraction arkasına taşınmış hali, davranış birebir aynı) - sepet/
+  // checkout arasında hesap driftini engelleyen kural (bkz. yukarıdaki
+  // yorum) böylece korunmuş oluyor.
+  const { total: shippingFee, breakdown } = await shippingProvider.calculateQuote(shippingLines, baseShippingFee, freeShippingThreshold);
   const shippingBreakdown = breakdown.map((b) => ({ storeName: b.storeName ?? "Mağaza", fee: b.fee.toFixed(2), free: b.free }));
 
   return { items, subtotal: subtotal.toFixed(2), validCart, shippingFee: shippingFee.toFixed(2), shippingBreakdown, freeShippingThreshold, stockNotices };
