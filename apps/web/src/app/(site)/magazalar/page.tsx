@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import type { PublicVendorListItem, ProductListResponse, VendorStorefront } from "@/lib/types";
 import StoresFilterBar from "./stores-filter-bar";
@@ -86,22 +87,43 @@ export default async function StoresPage({ searchParams }: Props) {
 
   return (
     <main className="main-content">
-      <div className="stores-hero">
-        <h1>Mağazalar</h1>
-        <p>Gülüm Şalım&apos;daki tüm satıcı mağazalarını keşfedin, favori markalarınızı takip edin.</p>
-        <form className="stores-search" method="GET" action="/magazalar">
-          <input type="text" name="s" defaultValue={s ?? ""} placeholder="Mağaza ara..." />
-          <button type="submit" aria-label="Ara">
-            <i className="fas fa-search" />
-          </button>
-        </form>
-        <StoresFilterBar s={s} sort={sort} verified={verified} />
+      <div className="breadcrumb-bar">
+        <div className="container-hero">
+          <div className="breadcrumb">
+            <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span> <span className="current">Mağazalar</span>
+          </div>
+        </div>
       </div>
 
-      <div className="container">
+      {/* bkz. hesabım karşılama bandından farklı bir kompozisyon: burada
+          bant sadece bilgilendirici değil, arama/sıralama/filtre KENDİSİ
+          bandın içinde yaşıyor - mağaza keşfi öncelikle bir arama eylemi. */}
+      <section className="store-discover-hero">
+        <div className="container-hero">
+          <span className="hero-tag">Keşfet</span>
+          <h1 className="store-discover-title">Mağazalar</h1>
+          <p className="store-discover-sub">
+            Gülüm Şalım&apos;daki tüm satıcı mağazalarını keşfedin, favori butiklerinizi takip edin.
+          </p>
+          <div className="store-discover-controls">
+            <form className="store-discover-search" method="GET" action="/magazalar">
+              <input type="text" name="s" defaultValue={s ?? ""} placeholder="Mağaza ara..." />
+              <button type="submit" aria-label="Ara">
+                <i className="fas fa-search" />
+              </button>
+            </form>
+            <StoresFilterBar s={s} sort={sort} verified={verified} />
+          </div>
+        </div>
+      </section>
+
+      <div className="container-hero">
         <div className="stores-result-count">{nonEmptyShelves.length} mağaza bulundu</div>
         {nonEmptyShelves.length === 0 ? (
-          <p className="empty-state">Bu aramaya uygun mağaza bulunamadı.</p>
+          <div className="empty-state">
+            <i className="fas fa-store-slash" aria-hidden />
+            <p>Bu aramaya uygun mağaza bulunamadı.</p>
+          </div>
         ) : (
           <div>
             {nonEmptyShelves.map(({ vendor, products }) => (

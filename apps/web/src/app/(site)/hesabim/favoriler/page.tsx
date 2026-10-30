@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { apiFetchJson } from "@/lib/api";
 import type { ProductListItem } from "@/lib/types";
 import ProductCard from "@/components/product-card";
+import AccountPageHeader from "@/components/account-page-header";
 
 export const metadata: Metadata = { title: "Favorilerim | Gülüm Şalım" };
 
@@ -19,15 +20,11 @@ export default async function CustomerFavoritesPage() {
 
   return (
     <>
-      <div className="account-page-header">
-        <div className="account-page-header-icon">
-          <i className="fas fa-heart" />
-        </div>
-        <div>
-          <h3>Favorilerim</h3>
-          <div className="account-page-subtitle">{favorites.length > 0 ? `${favorites.length} ürün` : "Beğendiğiniz ürünler"}</div>
-        </div>
-      </div>
+      <AccountPageHeader
+        icon="fa-heart"
+        title="Favorilerim"
+        subtitle={favorites.length > 0 ? `${favorites.length} ürün` : "Beğendiğiniz ürünler"}
+      />
       {favorites.length === 0 ? (
         <div className="form-card account-empty-state">
           <i className="fas fa-heart" />

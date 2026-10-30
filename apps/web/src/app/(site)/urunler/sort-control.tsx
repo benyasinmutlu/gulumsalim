@@ -28,16 +28,24 @@ export default function SortControl({ basePath }: { basePath: string }) {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set("sort", value);
     else params.delete("sort");
+    // Sıralama değişince eski sayfa konumu (cursor) ve "önceki sayfa" yığını
+    // (pc) artık geçersiz - yeni sıralamayla baştan başlanır.
+    params.delete("cursor");
+    params.delete("pc");
     router.push(`${basePath}?${params.toString()}`);
   }
 
   return (
-    <select className="sort-select" value={currentSort} onChange={(e) => handleChange(e.target.value)}>
-      {SORT_OPTIONS.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+    <label className="sort-control">
+      <i className="fas fa-arrow-down-wide-short" />
+      <span>Sırala:</span>
+      <select className="sort-select" value={currentSort} onChange={(e) => handleChange(e.target.value)}>
+        {SORT_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

@@ -94,7 +94,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
   return (
     <div className={`sticky-header-wrap${hidden ? " header-hidden" : ""}`}>
       <header className="main-header">
-        <div className="container header-inner" ref={innerRef}>
+        <div className="container-hero header-inner" ref={innerRef}>
           <Link href="/" className="logo" ref={logoRef}>
             <span className="logo-text">{siteName || "Gülüm Şalım"}</span>
           </Link>
@@ -172,7 +172,7 @@ export default function HeaderShell({ categories, customer, cartCount, favoriteC
       )}
 
       <nav className="main-nav">
-        <div className="container">
+        <div className="container-hero">
           <ul className="nav-list">
             <li>
               <Link href="/urunler?sort=newest">Yeni Gelenler</Link>

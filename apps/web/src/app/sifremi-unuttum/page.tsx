@@ -10,14 +10,15 @@ export default function ForgotPasswordPage() {
       <Link href="/giris" className="ga-back">
         <i className="fas fa-arrow-left" /> Girişe Dön
       </Link>
-      <div className="ga-wrap">
+      <div className="ga-wrap ga-photo-panel">
         <div className="ga-visual">
-          <div className="ga-orb ga-orb1" />
-          <div className="ga-orb ga-orb2" />
           <div className="ga-visual-inner">
             <Link href="/" className="ga-brand">
               <div className="ga-brand-name">Gülüm Şalım</div>
             </Link>
+          </div>
+          <div className="ga-visual-bottom">
+            <span className="hero-tag">Vintage &amp; Özgün Seçkiler</span>
             <h1>Şifrenizi mi unuttunuz?</h1>
             <p>Endişelenmeyin, e-posta adresinize birkaç dakika içinde bir sıfırlama bağlantısı gönderelim.</p>
           </div>

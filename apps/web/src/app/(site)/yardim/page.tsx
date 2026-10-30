@@ -23,26 +23,30 @@ export default async function HelpPage() {
   return (
     <main className="main-content">
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span> <span className="current">Yardım &amp; Destek</span>
           </div>
         </div>
       </div>
 
-      <section className="products-section">
-        <div className="container" style={{ maxWidth: 820 }}>
-          <div className="section-header" style={{ textAlign: "left", marginBottom: 8 }}>
-            <h1 className="page-title" style={{ marginBottom: 4 }}>
-              Yardım &amp; Destek
-            </h1>
-            <p style={{ color: "var(--color-text-light)", fontSize: "0.9rem" }}>
-              Sık sorulan sorulara göz atın ya da destek asistanımıza yazın.
-            </p>
-          </div>
+      {/* bkz. hesabım karşılama bandı dilinden farklı bir kompozisyon:
+          burada SSS akordeonu ve destek asistanı yan yana iki kolon -
+          sayfanın işlevi "gözat" değil "cevap bul/sor". */}
+      <section className="page-intro">
+        <div className="container-hero">
+          <span className="hero-tag">Destek</span>
+          <h1 className="page-intro-title">Yardım &amp; Destek</h1>
+          <p className="page-intro-sub">Sık sorulan sorulara göz atın ya da destek asistanımıza yazın.</p>
+        </div>
+      </section>
 
-          <SupportFaqList entries={faq} />
-          <SupportChat />
+      <section className="support-section">
+        <div className="container-hero">
+          <div className="support-layout">
+            <SupportFaqList entries={faq} />
+            <SupportChat />
+          </div>
         </div>
       </section>
     </main>

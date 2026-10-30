@@ -181,14 +181,14 @@ async function SectionPage({ section }: { section: ResolvedHomepageSection }) {
       <CategoryNavSync categories={resultCategories} />
       <TitleBackgroundIcons icon={sectionIcon(section.algoType)} />
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span> <span className="current">{section.title}</span>
           </div>
         </div>
       </div>
       <section className="products-section">
-        <div className="container">
+        <div className="container-hero">
           <div className="section-header">
             <h1 className="page-title">{section.title}</h1>
             {section.subtitle && <p className="section-subtitle">{section.subtitle}</p>}
@@ -286,7 +286,7 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
   return (
     <main className="main-content">
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span> <span className="current">{page.title}</span>
           </div>
@@ -329,8 +329,8 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
               </div>
               <div style={{ lineHeight: 1.8, color: "var(--color-text-light)" }} dangerouslySetInnerHTML={{ __html: page.content }} />
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20, margin: "40px 0" }}>
-                <div className="about-feature-card" style={{ textAlign: "left" }}>
+              <div className="about-grow-grid">
+                <div className="about-feature-card about-feature-card-wide">
                   <i className="fas fa-store" />
                   <h3>Mağazanızı Dijitale Taşıyın</h3>
                   <p>
@@ -338,11 +338,11 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
                     müşteri kitlelerine ulaşabilmelerini hedefler. Satıcılarımız kendi mağazalarını oluşturabilir, ürünlerini sergileyebilir
                     ve siparişlerini platform üzerinden yönetebilir.
                   </p>
-                  <Link href="/satici/kayit" className="btn btn-primary btn-lg" style={{ marginTop: 12 }}>
+                  <Link href="/satici/kayit" className="btn btn-primary btn-lg">
                     Satıcı Ol
                   </Link>
                 </div>
-                <div className="about-feature-card" style={{ textAlign: "left" }}>
+                <div className="about-feature-card about-feature-card-wide">
                   <i className="fas fa-magnifying-glass" />
                   <h3>Tarzınızı Tek Bir Yerde Keşfedin</h3>
                   <p>
@@ -350,15 +350,15 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
                     size uygun ürünleri bulun, favorilerinizi oluşturun ve alışverişinizi kolayca tamamlayın. Gülüm Şalım&apos;da alışveriş
                     deneyiminin kolay, güvenilir ve keyifli olması temel önceliklerimizden biridir.
                   </p>
-                  <Link href="/urunler" className="btn btn-secondary btn-lg" style={{ marginTop: 12 }}>
+                  <Link href="/urunler" className="btn btn-secondary btn-lg">
                     Alışverişe Başla
                   </Link>
                 </div>
               </div>
 
-              <div style={{ margin: "40px 0" }}>
-                <h3 style={{ marginBottom: 10 }}>Kadın Modasının Dijital Buluşma Noktası</h3>
-                <p style={{ lineHeight: 1.8, color: "var(--color-text-light)" }}>
+              <div className="about-copy-block">
+                <h3>Kadın Modasının Dijital Buluşma Noktası</h3>
+                <p>
                   Vizyonumuz; Türkiye&apos;de kadın modası denildiğinde akla gelen güçlü dijital pazaryerlerinden biri olmak, mağazaların
                   dijital dünyada büyümesine katkı sağlarken müşterilerimize zengin ürün çeşitliliği ve güçlü bir alışveriş deneyimi
                   sunmaktır. Gülüm Şalım büyüdükçe mağazalarımızın, ürün çeşitliliğimizin ve kullanıcı topluluğumuzun da birlikte büyüdüğü
@@ -366,29 +366,19 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
                 </p>
               </div>
 
-              <div style={{ margin: "40px 0" }}>
-                <h3 style={{ marginBottom: 10 }}>Teknolojiyle Gelişen Moda</h3>
-                <p style={{ lineHeight: 1.8, color: "var(--color-text-light)" }}>
+              <div className="about-copy-block">
+                <h3>Teknolojiyle Gelişen Moda</h3>
+                <p>
                   Gülüm Şalım&apos;ı yalnızca bugünün değil, geleceğin alışveriş deneyimini düşünerek geliştiriyoruz. Ürün çeşitliliğimiz ve
                   kullanıcı topluluğumuz büyüdükçe kişiselleştirilmiş ürün keşfi, akıllı öneriler ve yapay zekâ destekli kombin ve stil
                   çözümleri gibi yeni teknolojileri platformumuza kazandırmayı hedefliyoruz.
                 </p>
               </div>
 
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "36px 24px",
-                  borderRadius: 16,
-                  background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark, var(--color-primary)) 100%)",
-                  color: "#fff",
-                }}
-              >
-                <h3 style={{ color: "#fff", marginBottom: 8 }}>Gülüm Şalım&apos;da yerinizi alın</h3>
-                <p style={{ color: "rgba(255,255,255,.9)", marginBottom: 20 }}>
-                  İster yeni tarzları keşfedin, ister mağazanızı yeni müşterilerle buluşturma yolculuğuna başlayın.
-                </p>
-                <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              <div className="about-join-banner">
+                <h3>Gülüm Şalım&apos;da yerinizi alın</h3>
+                <p>İster yeni tarzları keşfedin, ister mağazanızı yeni müşterilerle buluşturma yolculuğuna başlayın.</p>
+                <div className="about-join-banner-actions">
                   <Link href="/urunler" className="btn btn-lg join-cta-btn-light">
                     Alışverişe Başla
                   </Link>
@@ -411,32 +401,20 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
               const { html, toc } = buildTableOfContents(page.content);
               return (
                 <>
-                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 12, marginBottom: 8 }}>
-                    <h1 className="page-title" style={{ marginBottom: 0 }}>{page.title}</h1>
-                    <div className="hide-on-print" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ fontSize: 12, color: "var(--color-text-light)" }}>
-                        Son güncelleme: {formatUpdatedAt(page.updatedAt)}
-                      </span>
+                  <div className="legal-page-head">
+                    <h1 className="page-title">{page.title}</h1>
+                    <div className="legal-page-updated hide-on-print">
+                      <span>Son güncelleme: {formatUpdatedAt(page.updatedAt)}</span>
                       <LegalPagePrintButton />
                     </div>
                   </div>
 
                   {toc.length > 0 && (
-                    <nav
-                      className="hide-on-print"
-                      aria-label="İçindekiler"
-                      style={{
-                        margin: "20px 0",
-                        padding: "16px 20px",
-                        background: "rgba(204,124,148,.04)",
-                        border: "1px solid rgba(204,124,148,.15)",
-                        borderRadius: 12,
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: "var(--color-primary)" }}>
+                    <nav className="legal-toc hide-on-print" aria-label="İçindekiler">
+                      <div className="legal-toc-title">
                         <i className="fas fa-list" /> İçindekiler
                       </div>
-                      <ul style={{ margin: 0, paddingLeft: 18, columns: toc.length > 6 ? 2 : 1, fontSize: 13, lineHeight: 1.9 }}>
+                      <ul className={`legal-toc-list ${toc.length > 6 ? "legal-toc-list-cols" : ""}`}>
                         {toc.map((item) => (
                           <li key={item.id}>
                             <a href={`#${item.id}`}>{item.text}</a>
@@ -448,18 +426,7 @@ export default async function CatchAllRoute({ params, searchParams }: Props) {
 
                   {/* page.content admin panelinden zengin metin (HTML) olarak geliyor -
                       eski sitede de page.php aynı şekilde ham HTML olarak basıyordu. */}
-                  <div
-                    style={{
-                      lineHeight: 1.8,
-                      color: "var(--color-text-light)",
-                      background: "#fff",
-                      border: "1px solid rgba(0,0,0,.06)",
-                      borderRadius: 14,
-                      padding: "28px 32px",
-                      boxShadow: "0 4px 24px rgba(0,0,0,.04)",
-                    }}
-                    dangerouslySetInnerHTML={{ __html: html }}
-                  />
+                  <div className="legal-content" dangerouslySetInnerHTML={{ __html: html }} />
                 </>
               );
             })()

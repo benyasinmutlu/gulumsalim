@@ -26,7 +26,7 @@ export default async function SiteFooter() {
           estetik/gezinme-içi bir bülten kartı var (bkz. newsletter-banner.tsx),
           footer'daki bu düz şerit kaldırıldı. */}
       <div className="footer-top">
-        <div className="container footer-grid">
+        <div className="container-hero footer-grid">
           <div className="footer-col">
             <Link href="/" className="footer-logo">
               <span className="logo-text">{settings.site_name || "Gülüm Şalım"}</span>
@@ -160,7 +160,7 @@ export default async function SiteFooter() {
       </div>
 
       <div className="footer-bottom">
-        <div className="container">
+        <div className="container-hero">
           <p>© {new Date().getFullYear()} {settings.site_name || "Gülüm Şalım"}. Tüm hakları saklıdır.</p>
           <div className="footer-admin-links">
             <Link href="/satici/giris">Kurumsal Üye Girişi</Link>

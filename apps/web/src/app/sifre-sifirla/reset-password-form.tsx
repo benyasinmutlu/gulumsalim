@@ -43,12 +43,9 @@ export default function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+      <div className="ga-alert ga-alert-ok">
         <i className="fas fa-check-circle" /> Şifreniz güncellendi. Artık yeni şifrenizle{" "}
-        <Link href="/giris" style={{ textDecoration: "underline" }}>
-          giriş yapabilirsiniz
-        </Link>
-        .
+        <Link href="/giris">giriş yapabilirsiniz</Link>.
       </div>
     );
   }

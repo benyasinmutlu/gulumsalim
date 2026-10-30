@@ -187,7 +187,7 @@ export default function CartPage() {
               (bkz. cart.service.ts hydrateCart) müşteri neden azaldığını
               sessizce merak etmesin diye açık bir uyarı gösterilir. */}
           {stockNotices.length > 0 && (
-            <div className="cart-stock-notice" style={{ marginBottom: 16 }}>
+            <div className="cart-stock-notice">
               {stockNotices.map((n, i) => (
                 <p key={i}>
                   <i className="fas fa-exclamation-triangle" /> <strong>{n.productName}{n.variantLabel ? ` (${n.variantLabel})` : ""}</strong>{" "}
@@ -265,7 +265,7 @@ export default function CartPage() {
                           <div className="cart-item-stock-hint">Stokta {item.availableStock} adet kaldı</div>
                         )}
                       </div>
-                      <div style={{ textAlign: "right" }}>
+                      <div className="cart-item-price-col">
                         <div className="cart-item-price">
                           {Number(item.lineTotal).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
                         </div>
@@ -336,13 +336,9 @@ export default function CartPage() {
                 </div>
                 {pricedCart && pricedCart.shippingBreakdown.length > 1 &&
                   pricedCart.shippingBreakdown.map((b, i) => (
-                    <div
-                      key={i}
-                      className="summary-row"
-                      style={{ fontSize: "0.8rem", color: "var(--color-text-light)", paddingLeft: 14, marginTop: -4 }}
-                    >
+                    <div key={i} className="summary-row cart-shipping-breakdown-row">
                       <span>
-                        <i className="fas fa-store" style={{ fontSize: 10, opacity: 0.6 }} /> {b.storeName}
+                        <i className="fas fa-store" /> {b.storeName}
                       </span>
                       <span>{b.free ? "Ücretsiz" : `${Number(b.fee).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}</span>
                     </div>

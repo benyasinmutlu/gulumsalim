@@ -27,7 +27,7 @@ export default function AddressList({ addresses }: { addresses: CustomerAddress[
       {error && <p className="error-text">{error}</p>}
 
       {addresses.length === 0 && !creating && (
-        <div className="account-empty-state" style={{ padding: "32px 0" }}>
+        <div className="account-empty-state account-empty-state-compact">
           <i className="fas fa-map-marker-alt" />
           <p>Henüz kayıtlı adresiniz yok.</p>
         </div>
@@ -37,17 +37,17 @@ export default function AddressList({ addresses }: { addresses: CustomerAddress[
         editingId === addr.id ? (
           <AddressForm key={addr.id} address={addr} onDone={() => setEditingId(null)} />
         ) : (
-          <div key={addr.id} className="detail-vendor" style={{ flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+          <div key={addr.id} className="address-card">
+            <div className="address-card-head">
               <strong>
                 {addr.fullName} {addr.isDefault && <span className="badge badge-new">VARSAYILAN</span>}
               </strong>
             </div>
-            <div style={{ fontSize: "0.85rem" }}>{addr.phone}</div>
-            <div style={{ fontSize: "0.85rem" }}>
+            <div className="address-card-line">{addr.phone}</div>
+            <div className="address-card-line">
               {addr.addressLine}, {addr.district} / {addr.city} {addr.zipCode ?? ""}
             </div>
-            <div style={{ display: "flex", gap: "0.6rem", marginTop: 6 }}>
+            <div className="address-card-actions">
               <button className="btn btn-secondary btn-sm" type="button" onClick={() => setEditingId(addr.id)}>
                 Düzenle
               </button>
@@ -62,7 +62,7 @@ export default function AddressList({ addresses }: { addresses: CustomerAddress[
       {creating ? (
         <AddressForm onDone={() => setCreating(false)} />
       ) : (
-        <button className="btn btn-sm" type="button" onClick={() => setCreating(true)} style={{ marginTop: "1rem" }}>
+        <button className="btn btn-sm address-add-btn" type="button" onClick={() => setCreating(true)}>
           <i className="fas fa-plus" /> Yeni Adres Ekle
         </button>
       )}

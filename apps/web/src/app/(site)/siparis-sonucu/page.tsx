@@ -41,7 +41,7 @@ export default async function OrderResultPage({ searchParams }: Props) {
   return (
     <main className="main-content">
       <section className="cart-section">
-        <div className="container">
+        <div className="container-hero">
           <div className="empty-state">
             {success === "true" && lookup.state === "found" ? (
               <>

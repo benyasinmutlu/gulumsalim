@@ -290,6 +290,7 @@ function ProductRow({
   ctaHref,
   products,
   endsAt,
+  landscape,
 }: {
   title: string;
   subtitle?: string | null;
@@ -301,6 +302,7 @@ function ProductRow({
   ctaHref?: string | null;
   products: ProductListItem[];
   endsAt?: string;
+  landscape?: boolean;
 }) {
   if (products.length === 0) return null;
   // bkz. kullanıcı isteği (2026-08-02): "sana özel, bu haftanın en iyileri,
@@ -327,7 +329,7 @@ function ProductRow({
             {endsAt && <CountdownTimer endsAt={endsAt} />}
           </div>
           <HscrollArrows>
-            <div className="product-grid hscroll deal-shelf-products">
+            <div className={`product-grid hscroll deal-shelf-products${landscape ? " shelf-landscape" : ""}`}>
               {products.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
@@ -557,6 +559,7 @@ export default async function Home() {
             subtitle="Bu sezon en çok ilgi gören parçalar"
             ctaHref="/urunler?sort=popular"
             products={seasonTrendProducts}
+            landscape
           />
         </ScrollReveal>
       </div>

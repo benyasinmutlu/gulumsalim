@@ -8,11 +8,10 @@ import type { Category } from "../lib/types";
 interface Props {
   categories: Category[];
   cartCount: number;
-  favoriteCount: number;
   loggedIn: boolean;
 }
 
-export default function MobileBottomNavClient({ categories, cartCount, favoriteCount, loggedIn }: Props) {
+export default function MobileBottomNavClient({ categories, cartCount, loggedIn }: Props) {
   const pathname = usePathname();
   const [catOpen, setCatOpen] = useState(false);
   const topLevel = categories.filter((c) => !c.parentId);
@@ -59,13 +58,6 @@ export default function MobileBottomNavClient({ categories, cartCount, favoriteC
             {cartCount > 0 && <span className="mbn-badge">{cartCount}</span>}
           </span>
           <span>Sepetim</span>
-        </Link>
-        <Link href="/hesabim/favoriler" className={`mbn-item${isActive("/hesabim/favoriler") ? " is-active" : ""}`}>
-          <span className="mbn-icon-wrap">
-            <i className="far fa-heart" />
-            {favoriteCount > 0 && <span className="mbn-badge">{favoriteCount}</span>}
-          </span>
-          <span>Favorilerim</span>
         </Link>
         <Link
           href={loggedIn ? "/hesabim" : "/giris"}

@@ -21,32 +21,14 @@ async function getCartCount(): Promise<number> {
   return cart.items.reduce((sum, item) => sum + item.quantity, 0);
 }
 
-async function getFavoriteCount(hasCustomer: boolean): Promise<number> {
-  if (!hasCustomer) return 0;
-  const res = await apiFetch("/favorites");
-  if (!res.ok) return 0;
-  const rows: unknown[] = await res.json();
-  return rows.length;
-}
-
-// bkz. onaylı plan Faz 7: mobilde sabit alt tab-bar (Ana Sayfa/Kategoriler/
-// Sepetim/Favorilerim/Hesabım) - Trendyol/Hepsiburada gibi pazar yeri
-// uygulamalarının mobil alışkanlığına uyar. Masaüstünde hiç render edilmez
-// (bkz. globals.css .mobile-bottom-nav media query - sadece <768px görünür).
+// bkz. kullanıcı isteği (2026-10-30): "favorilerimi bence buradan kaldıralım
+// zaten hesabımda var" - alt tab-bar artık Ana Sayfa/Kategoriler/Sepetim/
+// Hesabım (Favorilerim, Hesabım > Favorilerim altında zaten erişilebilir).
+// Masaüstünde hiç render edilmez (bkz. globals.css .mobile-bottom-nav
+// media query - sadece <768px görünür).
 export default async function MobileBottomNav() {
   const customer = await getCurrentCustomer();
-  const [categories, cartCount, favoriteCount] = await Promise.all([
-    getCategories(),
-    getCartCount(),
-    getFavoriteCount(Boolean(customer)),
-  ]);
+  const [categories, cartCount] = await Promise.all([getCategories(), getCartCount()]);
 
-  return (
-    <MobileBottomNavClient
-      categories={categories}
-      cartCount={cartCount}
-      favoriteCount={favoriteCount}
-      loggedIn={Boolean(customer)}
-    />
-  );
+  return <MobileBottomNavClient categories={categories} cartCount={cartCount} loggedIn={Boolean(customer)} />;
 }

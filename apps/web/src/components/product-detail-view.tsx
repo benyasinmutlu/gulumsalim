@@ -234,7 +234,7 @@ export default async function ProductDetailView({
       </div>
 
       <section className="product-detail-section">
-        <div className="container">
+        <div className="container-hero">
           <div className="product-detail-grid">
             <ProductGallery productId={product.id} productName={product.name} images={product.images} />
 
@@ -340,11 +340,11 @@ export default async function ProductDetailView({
               {product.description && <div className="detail-description">{product.description}</div>}
 
               {Object.keys(product.attributes ?? {}).length > 0 && (
-                <div style={{ marginTop: "1rem", border: "1px solid var(--color-border)", borderRadius: 12, overflow: "hidden" }}>
-                  <div style={{ padding: "10px 14px", fontWeight: 700, background: "var(--color-bg-alt)" }}>Ürün Özellikleri</div>
+                <div className="pdp-spec-table">
+                  <div className="pdp-spec-table-head">Ürün Özellikleri</div>
                   {Object.entries(product.attributes).map(([key, value]) => (
-                    <div key={key} style={{ display: "grid", gridTemplateColumns: "minmax(100px, 0.8fr) 1.2fr", gap: 12, padding: "9px 14px", borderTop: "1px solid var(--color-border)", fontSize: "0.9rem" }}>
-                      <span style={{ color: "var(--color-text-light)" }}>{key}</span>
+                    <div key={key} className="pdp-spec-row">
+                      <span>{key}</span>
                       <strong>{value}</strong>
                     </div>
                   ))}
@@ -352,22 +352,11 @@ export default async function ProductDetailView({
               )}
 
               {product.hasDefect && (
-                <div
-                  style={{
-                    marginTop: "1rem",
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "flex-start",
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: "1px solid var(--er)",
-                    background: "rgba(226,59,82,.06)",
-                  }}
-                >
-                  <i className="fas fa-triangle-exclamation" style={{ color: "var(--er)", marginTop: 2 }} />
+                <div className="pdp-defect-notice">
+                  <i className="fas fa-triangle-exclamation" />
                   <div>
-                    <strong style={{ color: "var(--er)" }}>Bu üründe kusur/deformasyon var</strong>
-                    {product.defectDescription && <p style={{ margin: "4px 0 0", fontSize: "0.9rem" }}>{product.defectDescription}</p>}
+                    <strong>Bu üründe kusur/deformasyon var</strong>
+                    {product.defectDescription && <p>{product.defectDescription}</p>}
                   </div>
                 </div>
               )}

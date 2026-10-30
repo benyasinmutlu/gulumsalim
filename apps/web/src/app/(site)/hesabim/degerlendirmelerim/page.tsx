@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { apiFetchJson } from "@/lib/api";
 import type { CustomerQuestion, CustomerReview } from "@/lib/types";
 import StarRating from "@/components/star-rating";
+import AccountPageHeader from "@/components/account-page-header";
 
 export const metadata: Metadata = { title: "Değerlendirmelerim | Gülüm Şalım" };
 
@@ -33,15 +34,7 @@ export default async function CustomerReviewsPage() {
 
   return (
     <>
-      <div className="account-page-header">
-        <div className="account-page-header-icon">
-          <i className="fas fa-star" />
-        </div>
-        <div>
-          <h3>Değerlendirmelerim</h3>
-          <div className="account-page-subtitle">Yorumlarınız ve sorularınız</div>
-        </div>
-      </div>
+      <AccountPageHeader icon="fa-star" title="Değerlendirmelerim" subtitle="Yorumlarınız ve sorularınız" />
       <div className="form-card">
         <h3>Yorumlarım</h3>
         {reviews.length === 0 ? (

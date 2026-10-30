@@ -91,8 +91,8 @@ export default function RefundSection({ orderItemId, initialRefund }: { orderIte
 
   if (!refund && showForm) {
     return (
-      <div style={{ maxWidth: 420 }}>
-        {error && <p style={{ color: "var(--color-error)", fontSize: "0.85rem" }}>{error}</p>}
+      <div className="refund-box">
+        {error && <p className="refund-error">{error}</p>}
         <textarea
           className="ga-input"
           rows={3}
@@ -100,7 +100,7 @@ export default function RefundSection({ orderItemId, initialRefund }: { orderIte
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <div className="refund-actions">
           <button className="btn btn-primary btn-sm" disabled={loading} onClick={submitRequest}>
             {loading ? "Gönderiliyor..." : "Talebi Gönder"}
           </button>
@@ -115,19 +115,19 @@ export default function RefundSection({ orderItemId, initialRefund }: { orderIte
   if (!refund) return null;
 
   return (
-    <div style={{ maxWidth: 420, fontSize: "0.85rem" }}>
+    <div className="refund-box refund-box-sm">
       <p>
         <strong>{STATUS_LABEL[refund.status]}</strong>
       </p>
-      <p style={{ marginTop: 4, color: "var(--color-text-muted)" }}>Sebep: {refund.reason}</p>
+      <p className="refund-reason">Sebep: {refund.reason}</p>
 
       {refund.status === "pending" && (
-        <div style={{ marginTop: 8 }}>
+        <div className="refund-mt">
           {refund.photos.length > 0 && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+            <div className="refund-photos">
               {refund.photos.map((p) => (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={p} src={p} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6 }} />
+                <img key={p} src={p} alt="" className="refund-photo-thumb" />
               ))}
             </div>
           )}
@@ -147,16 +147,16 @@ export default function RefundSection({ orderItemId, initialRefund }: { orderIte
       )}
 
       {refund.vendorNote && (
-        <p style={{ marginTop: 8 }}>
+        <p className="refund-mt">
           <strong>Satıcı notu:</strong> {refund.vendorNote}
         </p>
       )}
 
       {refund.status === "approved" && !refund.returnTrackingNumber && (
-        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-          {error && <p style={{ color: "var(--color-error)", width: "100%" }}>{error}</p>}
-          <div>
-            <label style={{ display: "block", fontSize: "0.75rem" }}>Kargo Firması</label>
+        <div className="refund-tracking-row">
+          {error && <p className="refund-error refund-error-full">{error}</p>}
+          <div className="refund-field">
+            <label>Kargo Firması</label>
             <select className="ga-input" value={carrier} onChange={(e) => setCarrier(e.target.value)}>
               {CARRIER_OPTIONS.map((c) => (
                 <option key={c} value={c}>
@@ -166,13 +166,13 @@ export default function RefundSection({ orderItemId, initialRefund }: { orderIte
             </select>
           </div>
           {carrier === "Diğer" && (
-            <div>
-              <label style={{ display: "block", fontSize: "0.75rem" }}>Firma Adı</label>
+            <div className="refund-field">
+              <label>Firma Adı</label>
               <input className="ga-input" value={customCarrier} onChange={(e) => setCustomCarrier(e.target.value)} />
             </div>
           )}
-          <div>
-            <label style={{ display: "block", fontSize: "0.75rem" }}>Takip Numarası</label>
+          <div className="refund-field">
+            <label>Takip Numarası</label>
             <input className="ga-input" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} />
           </div>
           <button
@@ -186,7 +186,7 @@ export default function RefundSection({ orderItemId, initialRefund }: { orderIte
       )}
 
       {refund.returnTrackingNumber && (
-        <p style={{ marginTop: 8 }}>
+        <p className="refund-mt">
           <strong>Kargo:</strong> {refund.returnTrackingCarrier} — {refund.returnTrackingNumber}
         </p>
       )}

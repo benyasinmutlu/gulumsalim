@@ -14,7 +14,7 @@ import type { CustomerProfile } from "../lib/types";
 export default function TopBar({ customer }: { customer: CustomerProfile | null }) {
   return (
     <div className="top-bar">
-      <div className="container">
+      <div className="container-hero">
         <div className="top-bar-left">
           <span>
             <i className="fas fa-undo" /> 14 Gün Koşulsuz İade

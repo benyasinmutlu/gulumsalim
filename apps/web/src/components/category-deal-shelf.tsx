@@ -29,7 +29,7 @@ export default function CategoryDealShelf({
         {category.name}
       </Link>
       <HscrollArrows>
-        <div className="deal-shelf-products product-grid hscroll">
+        <div className="deal-shelf-products product-grid hscroll shelf-landscape">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

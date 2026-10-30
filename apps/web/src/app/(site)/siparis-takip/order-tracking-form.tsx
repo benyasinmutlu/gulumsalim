@@ -49,7 +49,7 @@ export default function OrderTrackingForm() {
 
   return (
     <div>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+      <form onSubmit={handleSubmit} className="lookup-form">
         <input
           type="text"
           className="form-control"
@@ -71,15 +71,15 @@ export default function OrderTrackingForm() {
         </button>
       </form>
 
-      {error && <p style={{ color: "var(--color-error)" }}>{error}</p>}
+      {error && <p className="lookup-error">{error}</p>}
 
       {order && (
         <div className="form-card">
           <h3>Sipariş #{order.orderNumber}</h3>
-          <p style={{ margin: "8px 0" }}>
+          <p className="lookup-result-status">
             <span className={`status-badge status-${order.status}`}>{STATUS_LABEL[order.status] ?? order.status}</span>
           </p>
-          <div style={{ overflowX: "auto", marginTop: 16 }}>
+          <div style={{ overflowX: "auto" }}>
             <table className="orders-table">
               <thead>
                 <tr>
@@ -94,10 +94,10 @@ export default function OrderTrackingForm() {
                 {order.items.map((item) => (
                   <tr key={item.id}>
                     <td>{item.productNameSnapshot}</td>
-                    <td style={{ fontSize: "0.85rem" }}>{item.vendorStoreName}</td>
+                    <td className="lookup-table-meta">{item.vendorStoreName}</td>
                     <td>{item.quantity}</td>
                     <td>{ITEM_STATUS_LABEL[item.vendorStatus] ?? item.vendorStatus}</td>
-                    <td style={{ fontSize: "0.8rem" }}>
+                    <td className="lookup-table-meta">
                       {item.trackingNumber ? `${item.trackingCarrier} — ${item.trackingNumber}` : "—"}
                     </td>
                   </tr>

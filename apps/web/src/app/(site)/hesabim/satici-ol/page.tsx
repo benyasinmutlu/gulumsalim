@@ -2,6 +2,7 @@ import Link from "next/link";
 import { apiFetchJson } from "@/lib/api";
 import type { VendorProfile } from "@/lib/types";
 import BecomeSellerButton from "./become-seller-button";
+import AccountPageHeader from "@/components/account-page-header";
 
 const PERKS = [
   { icon: "fa-bolt", text: "Anında aktif olur, onay beklemezsiniz" },
@@ -27,22 +28,17 @@ export default async function SaticiOlPage() {
 
   return (
     <>
-      <div className="account-page-header">
-        <div className="account-page-header-icon">
-          <i className="fas fa-tags" />
-        </div>
-        <div>
-          <h3>Ürünlerini Satışa Çıkar</h3>
-          <div className="account-page-subtitle">Kendi mağazanı aç, dakikalar içinde satışa başla</div>
-        </div>
-      </div>
+      <AccountPageHeader
+        icon="fa-tags"
+        title="Ürünlerini Satışa Çıkar"
+        subtitle="Kendi mağazanı aç, dakikalar içinde satışa başla"
+      />
       <div className="form-card">
         {vendor ? (
           <>
-            <p style={{ fontSize: "0.9rem", marginBottom: 20 }}>
-              <i className="fas fa-circle-check" style={{ color: "var(--color-success)", marginRight: 6 }} />
-              Zaten bir mağazan var: <strong>{vendor.storeName}</strong>. Vergi no ve adres bilgilerini tekrar
-              girmene gerek yok.
+            <p className="account-vendor-note">
+              <i className="fas fa-circle-check" /> Zaten bir mağazan var: <strong>{vendor.storeName}</strong>. Vergi
+              no ve adres bilgilerini tekrar girmene gerek yok.
             </p>
             <Link href="/satici/panel/urunler/yeni" className="btn btn-primary btn-lg">
               Ürün Ekle
@@ -53,19 +49,14 @@ export default async function SaticiOlPage() {
           </>
         ) : (
           <>
-            <p style={{ fontSize: "0.9rem", color: "var(--color-text-light)", marginBottom: 20 }}>
+            <p className="form-hint form-hint-flush">
               Dolabındaki kullanmadığın ürünleri, ikinci el veya sıfır fark etmeksizin, dakikalar içinde satışa
               çıkarabilirsin.
             </p>
-            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <ul className="account-perk-list">
               {PERKS.map((p) => (
-                <li key={p.text} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: "0.9rem" }}>
-                  <span
-                    style={{
-                      width: 34, height: 34, borderRadius: "50%", background: "var(--color-primary)", color: "#fff",
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 13,
-                    }}
-                  >
+                <li key={p.text}>
+                  <span className="account-perk-icon">
                     <i className={`fas ${p.icon}`} />
                   </span>
                   <span>{p.text}</span>

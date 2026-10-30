@@ -68,7 +68,7 @@ export default async function CheckoutPage({ searchParams }: Props) {
   return (
     <main className="main-content">
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span>
             <Link href="/sepet">Sepetim</Link> <span className="sep">{">"}</span> <span className="current">Ödeme</span>
@@ -77,7 +77,8 @@ export default async function CheckoutPage({ searchParams }: Props) {
       </div>
 
       <section className="checkout-section">
-        <div className="container">
+        <div className="container-hero">
+          <div className="checkout-inner">
           <h1 className="page-title">Teslimat Bilgileri</h1>
 
           {/* bkz. kullanıcı isteği: "stok durumu sürekli kontrol ettirilmeli
@@ -86,7 +87,7 @@ export default async function CheckoutPage({ searchParams }: Props) {
               stoğa göre düzeltilmiş gelir, sadece bu düzeltme açıkça
               gösterilir. */}
           {cart.stockNotices.length > 0 && (
-            <div className="cart-stock-notice" style={{ marginBottom: 20 }}>
+            <div className="cart-stock-notice">
               {cart.stockNotices.map((n, i) => (
                 <p key={i}>
                   <i className="fas fa-exclamation-triangle" /> <strong>{n.productName}{n.variantLabel ? ` (${n.variantLabel})` : ""}</strong>{" "}
@@ -131,13 +132,9 @@ export default async function CheckoutPage({ searchParams }: Props) {
               </div>
               {cart.shippingBreakdown.length > 1 &&
                 cart.shippingBreakdown.map((b, i) => (
-                  <div
-                    key={i}
-                    className="summary-row"
-                    style={{ fontSize: "0.8rem", color: "var(--color-text-light)", paddingLeft: 14, marginTop: -4 }}
-                  >
+                  <div key={i} className="summary-row cart-shipping-breakdown-row">
                     <span>
-                      <i className="fas fa-store" style={{ fontSize: 10, opacity: 0.6 }} /> {b.storeName}
+                      <i className="fas fa-store" /> {b.storeName}
                     </span>
                     <span>{b.free ? "Ücretsiz" : `${Number(b.fee).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}</span>
                   </div>
@@ -147,6 +144,7 @@ export default async function CheckoutPage({ searchParams }: Props) {
                 <span>{total.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </section>

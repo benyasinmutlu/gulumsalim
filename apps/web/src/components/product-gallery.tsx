@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import FavoriteButton from "./favorite-button";
 
 interface Props {
@@ -23,12 +24,42 @@ export default function ProductGallery({ productId, productName, images }: Props
   const [dragPx, setDragPx] = useState(0);
   const [dragWidth, setDragWidth] = useState(1);
   const [dragging, setDragging] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const startX = useRef(0);
   const trackRef = useRef<HTMLDivElement>(null);
+
+  // bkz. kullanıcı bildirimi: büyütme görünümü .product-gallery'nin (sticky
+  // konumlandırılmış, bu yüzden kendi yığın bağlamını kuran) içinde
+  // render edildiğinde header'ın (z-index:1000) ALTINDA kalıyordu - z-index
+  // ne olursa olsun. document.body'ye portal ile taşımak bu tuzağı tamamen
+  // atlıyor (bkz. urunler filtre çekmecesindeki aynı kök sebep/çözüm).
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   function clamp(i: number) {
     return Math.max(0, Math.min(images.length - 1, i));
   }
+
+  // bkz. kullanıcı isteği: "kullanıcı isterse büyüteçe tıklayıp büyültebilsin"
+  // - tam ekran büyütme görünümü açıkken Escape ile kapanabilsin, arka plan
+  // kaydırmasın (bkz. modal.tsx'teki aynı desen).
+  useEffect(() => {
+    if (!zoomOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setZoomOpen(false);
+      if (e.key === "ArrowRight") setActive((i) => clamp(i + 1));
+      if (e.key === "ArrowLeft") setActive((i) => clamp(i - 1));
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = "";
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomOpen, images.length]);
 
   function handlePointerDown(e: React.PointerEvent) {
     if (images.length < 2) return;
@@ -103,6 +134,19 @@ export default function ProductGallery({ productId, productName, images }: Props
           ))}
         </div>
         <FavoriteButton productId={productId} />
+        <button
+          type="button"
+          className="gallery-zoom-btn"
+          aria-label="Büyüt"
+          title="Büyüt"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoomOpen(true);
+          }}
+        >
+          <i className="fas fa-magnifying-glass-plus" />
+        </button>
         {images.length > 1 && (
           <div className="gallery-dots">
             {images.map((img, i) => (
@@ -126,6 +170,57 @@ export default function ProductGallery({ productId, productName, images }: Props
           ))}
         </div>
       )}
+
+      {zoomOpen &&
+        mounted &&
+        createPortal(
+          <div className="gallery-zoom-overlay" role="presentation" onClick={() => setZoomOpen(false)}>
+            <button
+              type="button"
+              className="gallery-zoom-close"
+              aria-label="Kapat"
+              onClick={() => setZoomOpen(false)}
+            >
+              <i className="fas fa-xmark" />
+            </button>
+            {images.length > 1 && (
+              <button
+                type="button"
+                className="gallery-zoom-nav gallery-zoom-prev"
+                aria-label="Önceki görsel"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActive((i) => clamp(i - 1));
+                }}
+                disabled={active === 0}
+              >
+                <i className="fas fa-chevron-left" />
+              </button>
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={images[active].url}
+              alt={`${productName} - ${active + 1}`}
+              className="gallery-zoom-img"
+              onClick={(e) => e.stopPropagation()}
+            />
+            {images.length > 1 && (
+              <button
+                type="button"
+                className="gallery-zoom-nav gallery-zoom-next"
+                aria-label="Sonraki görsel"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActive((i) => clamp(i + 1));
+                }}
+                disabled={active === images.length - 1}
+              >
+                <i className="fas fa-chevron-right" />
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

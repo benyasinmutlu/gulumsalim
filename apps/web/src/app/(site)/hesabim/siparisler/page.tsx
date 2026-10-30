@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { apiFetchJson } from "@/lib/api";
 import type { CustomerOrderListItem, PendingReviewItem } from "@/lib/types";
 import PendingReviewsPrompt from "./pending-reviews-prompt";
+import AccountPageHeader from "@/components/account-page-header";
 
 export const metadata: Metadata = { title: "Siparişlerim | Gülüm Şalım" };
 
@@ -50,15 +51,11 @@ export default async function CustomerOrdersPage() {
   return (
     <>
       <PendingReviewsPrompt items={pendingReviews} />
-      <div className="account-page-header">
-        <div className="account-page-header-icon">
-          <i className="fas fa-box" />
-        </div>
-        <div>
-          <h3>Siparişlerim</h3>
-          <div className="account-page-subtitle">{orders.length > 0 ? `${orders.length} sipariş` : "Sipariş geçmişiniz"}</div>
-        </div>
-      </div>
+      <AccountPageHeader
+        icon="fa-box"
+        title="Siparişlerim"
+        subtitle={orders.length > 0 ? `${orders.length} sipariş` : "Sipariş geçmişiniz"}
+      />
 
       {orders.length === 0 ? (
         <div className="form-card account-empty-state">
@@ -94,7 +91,7 @@ export default async function CustomerOrdersPage() {
               <div className="order-card-footer">
                 <span className="order-total">{Number(order.total).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
                 <Link href={`/hesabim/siparisler/${order.orderNumber}`} className="btn btn-sec btn-sm">
-                  Detayları Gör <i className="fas fa-arrow-right" style={{ fontSize: 11 }} />
+                  Detayları Gör <i className="fas fa-arrow-right icon-sm" />
                 </Link>
               </div>
             </div>

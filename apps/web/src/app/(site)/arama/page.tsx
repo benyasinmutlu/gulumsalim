@@ -33,9 +33,13 @@ export default async function SearchPage({ searchParams }: Props) {
   if (!q) {
     return (
       <main className="main-content">
-        <div className="container products-page">
-          <h1 className="products-page-title">Arama</h1>
-          <p className="empty-state">Aramak için bir kelime girin.</p>
+        <div className="container-hero products-page">
+          <span className="hero-tag products-page-eyebrow">Arama</span>
+          <h1 className="products-page-title">Ne arıyorsunuz?</h1>
+          <div className="empty-state">
+            <i className="fas fa-magnifying-glass" aria-hidden />
+            <p>Ürün, mağaza veya kategori aramak için yukarıdaki arama kutusunu kullanın.</p>
+          </div>
         </div>
       </main>
     );
@@ -51,35 +55,31 @@ export default async function SearchPage({ searchParams }: Props) {
       heading={`"${q}" için arama sonuçları`}
       beforeToolbar={
         hasMatches ? (
-          <div className="search-matches" style={{ marginBottom: 24 }}>
+          <div className="search-matches">
             {matches.vendors.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Mağazalar ({matches.vendors.length})</h3>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div className="search-match-group">
+                <h3 className="search-match-group-title">Mağazalar ({matches.vendors.length})</h3>
+                <div className="search-match-chips">
                   {matches.vendors.map((v) => (
-                    <Link
-                      key={v.id}
-                      href={`/${v.storeSlug}`}
-                      style={{ display: "flex", alignItems: "center", gap: 8, border: "1px solid var(--color-border)", borderRadius: 20, padding: "6px 14px 6px 6px" }}
-                    >
-                      {v.logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={v.logo} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
-                      ) : (
-                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--color-bg-alt)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <i className="fas fa-store" style={{ fontSize: 12 }} />
-                        </span>
-                      )}
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{v.storeName}</span>
+                    <Link key={v.id} href={`/${v.storeSlug}`} className="search-match-vendor-chip">
+                      <span className="search-match-vendor-avatar">
+                        {v.logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={v.logo} alt="" />
+                        ) : (
+                          <i className="fas fa-store" />
+                        )}
+                      </span>
+                      <span>{v.storeName}</span>
                     </Link>
                   ))}
                 </div>
               </div>
             )}
             {matches.categories.length > 0 && (
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Kategoriler</h3>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div className="search-match-group">
+                <h3 className="search-match-group-title">Kategoriler</h3>
+                <div className="search-match-chips">
                   {matches.categories.map((c) => (
                     <Link key={c.id} href={`/${c.slug}`} className="btn btn-secondary btn-sm">
                       {c.name}

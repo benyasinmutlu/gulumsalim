@@ -55,7 +55,7 @@ export default function RegisterForm() {
 
   if (sent) {
     return (
-      <div className="ga-alert" style={{ background: "var(--color-success-bg)", color: "var(--color-success)" }}>
+      <div className="ga-alert ga-alert-ok">
         <i className="fas fa-envelope-circle-check" /> <strong>{email}</strong> adresine bir doğrulama bağlantısı gönderdik. Hesabınızı
         kullanabilmek için gelen kutunuzdaki (ve spam klasörünüzdeki) bağlantıya tıklayın.
       </div>
@@ -142,7 +142,7 @@ export default function RegisterForm() {
         </div>
       </div>
 
-      <div style={{ margin: "18px 0 14px" }}>
+      <div className="ga-consent-doc-wrap">
         <ConsentDocumentCard
           label="Üyelik Sözleşmesi ve KVKK Aydınlatma Metni"
           accepted={membershipConsent}

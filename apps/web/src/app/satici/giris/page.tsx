@@ -14,27 +14,17 @@ export default async function VendorLoginPage() {
       <Link href="/" className="ga-back">
         <i className="fas fa-arrow-left" /> Ana Sayfa
       </Link>
-      <div className="ga-wrap">
+      <div className="ga-wrap ga-photo-panel ga-vendor-photo-panel">
         <div className="ga-visual">
-          <div className="ga-orb ga-orb1" />
-          <div className="ga-orb ga-orb2" />
           <div className="ga-visual-inner">
             <Link href="/" className="ga-brand">
               <div className="ga-brand-name">Gülüm Şalım</div>
             </Link>
+          </div>
+          <div className="ga-visual-bottom">
+            <span className="hero-tag">Kurumsal Panel</span>
             <h1>Mağazanızı yönetmeye devam edin</h1>
-            <p>Satıcı panelinizden ürünlerinizi, siparişlerinizi ve kazançlarınızı takip edin.</p>
-            <div className="ga-perks">
-              <div className="ga-perk">
-                <i className="fas fa-store" /> {buyerPhrase}
-              </div>
-              <div className="ga-perk">
-                <i className="fas fa-bolt" /> Dakikalar içinde kurulan satıcı paneli
-              </div>
-              <div className="ga-perk">
-                <i className="fas fa-wallet" /> Hızlı ve güvenli ödeme akışı
-              </div>
-            </div>
+            <p>Satıcı panelinizden ürünlerinizi, siparişlerinizi ve kazançlarınızı takip edin — {buyerPhrase.toLocaleLowerCase("tr-TR")}.</p>
           </div>
         </div>
 

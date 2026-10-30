@@ -193,8 +193,12 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  // bkz. kullanıcı bildirimi (2026-10-30): "her çıkış yaptığımızda sepet
+  // siliniyor" - session.destroy() tüm oturumu (sepet dahil) siliyordu.
+  // Girişteki regenerate(["cart", ...]) deseniyle simetrik: sadece
+  // customerId düşer, sepet (ve varsa vendorId/adminId) yeni oturuma taşınır.
   app.post("/auth/logout", { preHandler: app.csrfProtection }, async (request, reply) => {
-    await request.session.destroy();
+    await request.session.regenerate(["cart", "vendorId", "adminId"]);
     return reply.send({ ok: true });
   });
 
@@ -205,7 +209,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   // görünebiliyordu (bkz. logout-button.tsx yorumu) - bu yüzden buton bu
   // uca yönlendiren bir linke çevrildi.
   app.get("/auth/logout", async (request, reply) => {
-    await request.session.destroy();
+    await request.session.regenerate(["cart", "vendorId", "adminId"]);
     return reply.redirect("/");
   });
 

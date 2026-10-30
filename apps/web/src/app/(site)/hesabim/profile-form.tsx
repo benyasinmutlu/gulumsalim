@@ -10,22 +10,7 @@ const AYAKKABI_NOLARI = [35, 36, 37, 38, 39, 40, 41, 42, 43];
 
 function SizeChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      style={{
-        padding: "6px 14px",
-        borderRadius: 999,
-        cursor: "pointer",
-        fontSize: "0.85rem",
-        fontWeight: active ? 600 : 400,
-        border: active ? "1.5px solid var(--color-primary)" : "1.5px solid var(--color-border, #e0d6d9)",
-        background: active ? "var(--color-primary)" : "transparent",
-        color: active ? "#fff" : "var(--color-text)",
-        transition: "all 0.15s ease",
-      }}
-    >
+    <button type="button" onClick={onClick} aria-pressed={active} className={`size-chip${active ? " active" : ""}`}>
       {label}
     </button>
   );
@@ -128,7 +113,7 @@ export default function ProfileForm({ customer }: { customer: CustomerProfile })
             {avatarUploading ? "Yükleniyor..." : "Fotoğrafı Değiştir"}
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarChange} />
-          {avatarError && <p className="error-text" style={{ marginTop: 6 }}>{avatarError}</p>}
+          {avatarError && <p className="error-text form-hint-flush">{avatarError}</p>}
         </div>
       </div>
 
@@ -159,20 +144,18 @@ export default function ProfileForm({ customer }: { customer: CustomerProfile })
           <input className="form-control" type="number" min={30} max={250} value={weightKg} onChange={(e) => setWeightKg(e.target.value)} />
         </div>
       </div>
-      <p style={{ fontSize: "0.8rem", color: "var(--color-text-light)", marginTop: "-0.5rem", marginBottom: "1rem" }}>
-        Size en uygun bedeni önerebilmemiz için (opsiyonel).
-      </p>
+      <p className="form-hint">Size en uygun bedeni önerebilmemiz için (opsiyonel).</p>
 
-      <h3 style={{ marginTop: "1.5rem" }}>
+      <h3>
         <i className="fas fa-ruler" /> Beden Tercihlerim
       </h3>
-      <p style={{ fontSize: "0.8rem", color: "var(--color-text-light)", marginTop: "-0.5rem", marginBottom: "1rem" }}>
+      <p className="form-hint">
         Bedenlerini seç; mağazada <strong>&quot;Bedenime Uygun&quot;</strong> filtresi stoktaki uygun ürünleri öne çıkarsın.
       </p>
 
       <div className="form-group">
         <label>Kadın Beden</label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div className="size-chip-row">
           {KADIN_BEDENLER.map((size) => (
             <SizeChip key={size} label={size} active={kadinBeden.includes(size)} onClick={() => toggleKadin(size)} />
           ))}
@@ -181,7 +164,7 @@ export default function ProfileForm({ customer }: { customer: CustomerProfile })
 
       <div className="form-group">
         <label>Ayakkabı Numarası</label>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div className="size-chip-row">
           {AYAKKABI_NOLARI.map((size) => (
             <SizeChip key={size} label={String(size)} active={ayakkabiNo.includes(size)} onClick={() => toggleAyakkabi(size)} />
           ))}
@@ -198,7 +181,7 @@ export default function ProfileForm({ customer }: { customer: CustomerProfile })
         />
       </div>
 
-      <h3 style={{ marginTop: "1.5rem" }}>Şifre Değiştir</h3>
+      <h3>Şifre Değiştir</h3>
       <div className="form-group">
         <label>Mevcut Şifre</label>
         <input
@@ -214,7 +197,7 @@ export default function ProfileForm({ customer }: { customer: CustomerProfile })
       </div>
 
       {error && <p className="error-text">{error}</p>}
-      {message && <p style={{ fontSize: "0.9rem", color: "var(--color-success)" }}>{message}</p>}
+      {message && <p className="form-success-text">{message}</p>}
 
       <button className="btn btn-sm" type="submit" disabled={loading}>
         {loading ? "Kaydediliyor..." : "Kaydet"}

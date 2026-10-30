@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchJson, mutateJson } from "@/lib/client-api";
 import type { CustomerSideVendorConversation, CustomerThreadMessage } from "@/lib/types";
+import AccountPageHeader from "@/components/account-page-header";
 
 export default function MessagesClient() {
   const searchParams = useSearchParams();
@@ -64,8 +65,9 @@ export default function MessagesClient() {
   const hasVendorFromQuery = initialVendorId && !conversations?.some((c) => c.vendorId === Number(initialVendorId));
 
   return (
-    <div className="form-card">
-      <h3>Mesajlarım</h3>
+    <>
+      <AccountPageHeader icon="fa-envelope" title="Mesajlarım" subtitle="Satıcılarla olan yazışmalarınız" />
+      <div className="form-card">
       <div className="messages-layout">
         <div className="messages-list">
           {conversations === null ? (
@@ -136,6 +138,7 @@ export default function MessagesClient() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

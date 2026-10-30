@@ -62,14 +62,14 @@ function ProductRow({ title, subtitle, products }: { title: string; subtitle?: s
   if (products.length === 0) return null;
   return (
     <section className="products-section">
-      <div className="container">
+      <div className="container-hero">
         <div className="section-scroll-shell">
           <div className="section-header">
             <h2 className="section-title">{title}</h2>
             {subtitle && <p className="section-subtitle">{subtitle}</p>}
           </div>
           <HscrollArrows>
-            <div className="product-grid hscroll">
+            <div className="product-grid hscroll shelf-landscape">
               {products.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
@@ -116,21 +116,25 @@ export default async function SanaOzelPage() {
     <main className="main-content">
       <CategoryNavSync categories={relevantCategories} />
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span> <span className="current">{heading}</span>
           </div>
         </div>
       </div>
 
-      <div className="container products-page">
+      <div className="container-hero products-page">
+        <span className="hero-tag products-page-eyebrow">Kişisel Seçki</span>
         <h1 className="products-page-title">{heading}</h1>
         <p className="section-subtitle" style={{ marginBottom: "1.5rem" }}>
           İlgi alanlarınıza, baktığınız/favorilediğiniz ürün ve kategorilere göre seçildi
         </p>
 
         {feed.items.length === 0 ? (
-          <p className="empty-state">Şu an için önerebileceğimiz bir ürün yok, alışverişe devam ettikçe burası dolacak.</p>
+          <div className="empty-state">
+            <i className="fas fa-wand-magic-sparkles" aria-hidden />
+            <p>Şu an için önerebileceğimiz bir ürün yok, alışverişe devam ettikçe burası dolacak.</p>
+          </div>
         ) : (
           <div className="product-grid">
             {feed.items.map((p) => (
@@ -142,7 +146,7 @@ export default async function SanaOzelPage() {
 
       {trending.topCategories.length > 0 && (
         <section className="categories-section">
-          <div className="container">
+          <div className="container-hero">
             <div className="section-header">
               <h2 className="section-title">En Çok İlgi Gören Kategoriler</h2>
             </div>

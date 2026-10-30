@@ -47,47 +47,31 @@ export default function SupportChat() {
   }
 
   return (
-    <div style={{ border: "1px solid var(--color-border)", borderRadius: 14, overflow: "hidden" }}>
-      <div style={{ padding: "12px 16px", background: "var(--color-bg-alt)", fontWeight: 700, fontSize: "0.9rem" }}>
-        <i className="fas fa-comments" style={{ color: "var(--color-primary)" }} /> Destek Asistanı
+    <div className="support-chat">
+      <div className="support-chat-head">
+        <i className="fas fa-comments" /> Destek Asistanı
       </div>
 
-      <div style={{ padding: 16, minHeight: 160, maxHeight: 420, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="support-chat-body">
         {messages.length === 0 && (
-          <p style={{ fontSize: "0.85rem", color: "var(--color-text-light)", margin: 0 }}>
-            Merhaba! Kargo, iade, ödeme veya satıcı olma hakkında bana soru sorabilirsin.
-          </p>
+          <p className="support-chat-empty">Merhaba! Kargo, iade, ödeme veya satıcı olma hakkında bana soru sorabilirsin.</p>
         )}
         {messages.map((m, i) => (
-          <div
-            key={i}
-            style={{
-              alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              background: m.role === "user" ? "var(--color-primary)" : "var(--color-bg-alt)",
-              color: m.role === "user" ? "#fff" : "var(--color-text)",
-              borderRadius: 12,
-              padding: "8px 12px",
-              maxWidth: "85%",
-              fontSize: "0.85rem",
-              lineHeight: 1.6,
-              whiteSpace: "pre-wrap",
-            }}
-          >
+          <div key={i} className={`support-chat-bubble ${m.role === "user" ? "user" : "assistant"}`}>
             {m.content}
           </div>
         ))}
-        {loading && <p style={{ fontSize: "0.8rem", color: "var(--color-text-light)", margin: 0 }}>Yazıyor...</p>}
-        {error && <p className="error-text" style={{ fontSize: "0.8rem" }}>{error}</p>}
+        {loading && <p className="support-chat-typing">Yazıyor...</p>}
+        {error && <p className="error-text support-chat-typing">{error}</p>}
       </div>
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, padding: 12, borderTop: "1px solid var(--color-border)" }}>
+      <form onSubmit={handleSubmit} className="support-chat-form">
         <input
           className="form-control"
           placeholder="Bir soru yazın..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           maxLength={1000}
-          style={{ flex: 1 }}
         />
         <button className="btn btn-sm btn-pr" type="submit" disabled={loading || !input.trim()}>
           Gönder

@@ -56,7 +56,7 @@ export default function LoginForm() {
           {needsVerification && !resendSent && (
             <>
               {" "}
-              <button type="button" onClick={handleResendVerification} style={{ textDecoration: "underline", color: "inherit" }}>
+              <button type="button" className="ga-inline-link-btn" onClick={handleResendVerification}>
                 Doğrulama e-postasını tekrar gönder
               </button>
             </>
@@ -105,10 +105,8 @@ export default function LoginForm() {
             <i className={showPassword ? "fas fa-eye-slash" : "fas fa-eye"} />
           </button>
         </div>
-        <div style={{ textAlign: "right", marginTop: 6 }}>
-          <Link href="/sifremi-unuttum" style={{ fontSize: "0.85rem" }}>
-            Şifremi Unuttum?
-          </Link>
+        <div className="ga-forgot-row">
+          <Link href="/sifremi-unuttum">Şifremi Unuttum?</Link>
         </div>
       </div>
 

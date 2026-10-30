@@ -17,8 +17,6 @@ export default async function VendorRegisterPage() {
       </Link>
       <div className="ga-wrap ga-vendor-register">
         <div className="ga-visual">
-          <div className="ga-orb ga-orb1" />
-          <div className="ga-orb ga-orb2" />
           <div className="ga-visual-inner">
             <Link href="/" className="ga-brand">
               <div className="ga-brand-name">Gülüm Şalım</div>

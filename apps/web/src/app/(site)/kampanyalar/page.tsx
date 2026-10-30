@@ -82,7 +82,8 @@ export default async function CampaignsPage() {
   return (
     <main className="main-content">
       <TitleBackgroundIcons icon="fa-bullhorn" />
-      <div className="container products-page">
+      <div className="container-hero products-page">
+        <span className="hero-tag products-page-eyebrow">İndirim &amp; Kampanyalar</span>
         <h1 className="products-page-title">Kampanyalar</h1>
 
         {banners.length === 0 && categoryShelves.length === 0 && activeCampaigns.length === 0 ? (
@@ -122,7 +123,7 @@ export default async function CampaignsPage() {
             )}
 
             {banners.length > 0 && (
-              <section className="vstore-section" style={{ marginBottom: 32 }}>
+              <section className="vstore-section">
                 <div className="vstore-section-title">
                   <i className="fas fa-star" /> Öne Çıkan Kampanyalar
                 </div>

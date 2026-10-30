@@ -414,7 +414,7 @@ export default async function VendorStorefrontView({ slug, cursor }: { slug: str
           mockup'ın MODA&CO örneğindeki gibi düz beyaz zeminli, sade bir
           başlık satırı (avatar + isim + satır içi istatistikler + Takip Et). */}
       <div className="vendor-header">
-        <div className="container">
+        <div className="container-hero">
           <div className="vendor-header-row">
             <div className="vendor-avatar-flat">
               {vendor.logo ? (

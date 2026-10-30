@@ -72,11 +72,11 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
 
   return (
     <div className="form-card">
-      <Link href="/hesabim/siparisler" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, marginBottom: 16 }}>
+      <Link href="/hesabim/siparisler" className="order-detail-back">
         <i className="fas fa-arrow-left" /> Siparişlerim
       </Link>
 
-      <div className="order-card-header" style={{ borderRadius: "var(--radius-md)", border: "1px solid var(--color-border-light)", marginBottom: 16 }}>
+      <div className="order-card-header order-detail-header-card">
         <div className="order-card-header-left">
           <span className="order-number">Sipariş #{order.orderNumber}</span>
           <span className="order-date">{new Date(order.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}</span>
@@ -102,7 +102,7 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      <h4 style={{ fontSize: 15, margin: "20px 0 4px" }}>Ürünler</h4>
+      <h4 className="order-detail-section-title">Ürünler</h4>
       <div>
         {order.items.map((item) => (
           <div className="order-item-row" key={item.id}>
@@ -115,12 +115,12 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
               </div>
             )}
             <div className="order-item-info">
-              <Link href={`/urun/${item.productSlug}`} className="order-item-name" style={{ color: "inherit", textDecoration: "none" }}>
+              <Link href={`/urun/${item.productSlug}`} className="order-item-name">
                 {item.productNameSnapshot}
               </Link>
               <div className="order-item-meta">
                 {item.vendorStoreName} · {item.quantity} adet ·{" "}
-                <span className={`status-badge status-${item.vendorStatus}`} style={{ padding: "2px 10px", fontSize: 11 }}>
+                <span className={`status-badge status-badge-sm status-${item.vendorStatus}`}>
                   {ITEM_STATUS_LABEL[item.vendorStatus] ?? item.vendorStatus}
                 </span>
               </div>
@@ -136,14 +136,14 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
       </div>
 
       {order.items.some((item) => item.vendorStatus === "delivered") && (
-        <div style={{ marginTop: 24 }}>
-          <h4 style={{ fontSize: 15, marginBottom: 10 }}>İade İşlemleri</h4>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="order-detail-refunds">
+          <h4 className="order-detail-section-title">İade İşlemleri</h4>
+          <div className="order-detail-refunds-list">
             {order.items
               .filter((item) => item.vendorStatus === "delivered")
               .map((item) => (
                 <div key={item.id}>
-                  <p style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: 6 }}>{item.productNameSnapshot}</p>
+                  <p className="order-detail-refund-item-name">{item.productNameSnapshot}</p>
                   <RefundSection orderItemId={item.id} initialRefund={refunds.find((r) => r.orderItemId === item.id) ?? null} />
                 </div>
               ))}
@@ -151,7 +151,7 @@ export default async function CustomerOrderDetailPage({ params }: Props) {
         </div>
       )}
 
-      <div style={{ marginTop: 20, maxWidth: 320, marginLeft: "auto" }}>
+      <div className="order-detail-summary">
         <div className="order-summary-row">
           <span>Ara Toplam</span>
           <span>{Number(order.subtotal).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>

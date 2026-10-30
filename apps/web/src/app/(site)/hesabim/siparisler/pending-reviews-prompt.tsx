@@ -40,12 +40,12 @@ function ReviewCard({ item, onDone }: { item: PendingReviewItem; onDone: (orderI
           <i className="fas fa-image" />
         )}
       </Link>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="pending-review-body">
         <Link href={`/urun/${item.productSlug}`} className="pending-review-name">
           {item.productName}
         </Link>
-        <div style={{ fontSize: 12, color: "var(--color-text-light)", marginBottom: 8 }}>Sipariş: {item.orderNumber}</div>
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="pending-review-order">Sipariş: {item.orderNumber}</div>
+        <form onSubmit={handleSubmit} className="pending-review-form">
           <div className="star-rating-input">
             {[1, 2, 3, 4, 5].map((s) => (
               <button
@@ -55,22 +55,21 @@ function ReviewCard({ item, onDone }: { item: PendingReviewItem; onDone: (orderI
                 onClick={() => setRating(s)}
                 onMouseEnter={() => setHoverRating(s)}
                 onMouseLeave={() => setHoverRating(0)}
-                style={{ color: s <= (hoverRating || rating) ? "#f5a623" : "#ddd" }}
+                className={s <= (hoverRating || rating) ? "star-filled" : "star-empty"}
               >
                 <i className="fas fa-star" />
               </button>
             ))}
           </div>
           <textarea
-            className="form-control"
+            className="form-control pending-review-textarea"
             placeholder="Ürün hakkındaki düşünceleriniz (isteğe bağlı)..."
             rows={2}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            style={{ fontSize: 13 }}
           />
-          {error && <p className="error-text" style={{ fontSize: 12 }}>{error}</p>}
-          <button className="btn btn-sm" type="submit" disabled={loading} style={{ alignSelf: "flex-start" }}>
+          {error && <p className="error-text error-text-sm">{error}</p>}
+          <button className="btn btn-sm pending-review-submit" type="submit" disabled={loading}>
             {loading ? "Gönderiliyor..." : "Değerlendirmeyi Gönder"}
           </button>
         </form>
@@ -91,20 +90,15 @@ export default function PendingReviewsPrompt({ items }: { items: PendingReviewIt
 
   return (
     <div className="form-card pending-reviews-section">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+      <div className="pending-reviews-head">
         <h3>
-          <i className="fas fa-star" style={{ color: "#f5a623" }} /> Değerlendirmenizi Bekleyen Ürünler
+          <i className="fas fa-star" /> Değerlendirmenizi Bekleyen Ürünler
         </h3>
-        <button
-          type="button"
-          onClick={() => setDismissed(true)}
-          aria-label="Kapat"
-          style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "var(--color-text-light)" }}
-        >
+        <button type="button" onClick={() => setDismissed(true)} aria-label="Kapat" className="pending-reviews-close">
           <i className="fas fa-xmark" />
         </button>
       </div>
-      <p style={{ fontSize: "0.85rem", color: "var(--color-text-light)", marginBottom: 16 }}>
+      <p className="pending-reviews-desc">
         Teslim aldığınız bu ürünler hakkında görüşlerinizi paylaşarak diğer alıcılara yardımcı olabilirsiniz.
       </p>
       <div className="pending-reviews-grid">

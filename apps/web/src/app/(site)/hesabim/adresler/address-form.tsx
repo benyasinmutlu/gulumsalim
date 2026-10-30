@@ -43,7 +43,7 @@ export default function AddressForm({ address, onDone }: Props) {
   }
 
   return (
-    <form className="form-card" onSubmit={handleSubmit} style={{ marginTop: "1rem" }}>
+    <form className="form-card address-form" onSubmit={handleSubmit}>
       <div className="form-group">
         <label>Ad Soyad</label>
         <input className="form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
@@ -81,7 +81,7 @@ export default function AddressForm({ address, onDone }: Props) {
         </label>
       </div>
       {error && <p className="error-text">{error}</p>}
-      <div style={{ display: "flex", gap: "0.6rem" }}>
+      <div className="address-form-actions">
         <button className="btn btn-sm" type="submit" disabled={loading}>
           {loading ? "Kaydediliyor..." : "Kaydet"}
         </button>

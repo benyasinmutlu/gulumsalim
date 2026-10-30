@@ -31,6 +31,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const [customer, hasStore] = await Promise.all([getCustomer(), getHasStore()]);
   if (!customer) redirect("/giris?redirect=/hesabim");
 
+  const firstName = customer.fullName?.trim().split(/\s+/)[0] || "Hoş geldiniz";
+
   return (
     <main className="main-content">
       <div className="breadcrumb-bar">
@@ -42,16 +44,21 @@ export default async function AccountLayout({ children }: { children: React.Reac
         </div>
       </div>
 
+      <section className="account-hero">
+        <div className="container-hero">
+          <h1 className="account-hero-title">Merhaba, {firstName}</h1>
+          <p className="account-hero-sub">Siparişlerinizi takip edin, favorilerinizi ve adreslerinizi tek yerden yönetin.</p>
+        </div>
+      </section>
+
       <section className="account-section">
         <div className="container-hero">
-          <h1 className="page-title">Hesabım</h1>
-
-          <div className="account-grid">
-            <aside className="account-sidebar">
+          <div className="account-layout">
+            <aside className="account-nav-rail">
               <AccountNav hasStore={hasStore} />
             </aside>
 
-            <div>{children}</div>
+            <div className="account-content">{children}</div>
           </div>
         </div>
       </section>

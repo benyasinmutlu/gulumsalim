@@ -41,7 +41,7 @@ export default async function VendorCollectionPage({ params }: Props) {
   return (
     <main className="main-content">
       <div className="breadcrumb-bar">
-        <div className="container">
+        <div className="container-hero">
           <div className="breadcrumb">
             <Link href="/">Ana Sayfa</Link> <span className="sep">{">"}</span>
             <Link href={`/${vendor.storeSlug}`}>{vendor.storeName}</Link> <span className="sep">{">"}</span>
@@ -50,11 +50,17 @@ export default async function VendorCollectionPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="container products-page">
+      <div className="container-hero products-page">
+        <Link href={`/${vendor.storeSlug}`} className="hero-tag products-page-eyebrow">
+          {vendor.storeName}
+        </Link>
         <h1 className="products-page-title">{collection.name}</h1>
 
         {products.length === 0 ? (
-          <p className="empty-state">Bu koleksiyonda henüz ürün yok.</p>
+          <div className="empty-state">
+            <i className="fas fa-layer-group" aria-hidden />
+            <p>Bu koleksiyonda henüz ürün yok.</p>
+          </div>
         ) : (
           <div className="product-grid">
             {products.map((p) => (

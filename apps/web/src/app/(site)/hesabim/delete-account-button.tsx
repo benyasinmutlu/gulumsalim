@@ -47,14 +47,13 @@ export default function DeleteAccountButton() {
         Onaylamak için aşağıya <strong>{CONFIRM_PHRASE}</strong> yazın:
       </p>
       <input
-        className="fi"
+        className="fi delete-account-confirm-input"
         value={confirmText}
         onChange={(e) => setConfirmText(e.target.value)}
         placeholder={CONFIRM_PHRASE}
-        style={{ marginBottom: 10, maxWidth: 260 }}
       />
-      {error && <p style={{ color: "var(--color-error)", fontSize: "0.85rem", marginBottom: 10 }}>{error}</p>}
-      <div style={{ display: "flex", gap: 8 }}>
+      {error && <p className="error-text delete-account-error">{error}</p>}
+      <div className="delete-account-actions">
         <button
           type="button"
           className="btn btn-danger btn-sm"

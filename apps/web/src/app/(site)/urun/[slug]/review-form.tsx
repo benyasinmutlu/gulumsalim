@@ -55,7 +55,7 @@ export default function ReviewForm({ slug, loggedIn }: { slug: string; loggedIn:
             onClick={() => setRating(s)}
             onMouseEnter={() => setHoverRating(s)}
             onMouseLeave={() => setHoverRating(0)}
-            style={{ color: s <= (hoverRating || rating) ? "#f5a623" : "#ddd" }}
+            style={{ color: s <= (hoverRating || rating) ? "var(--color-gold)" : "var(--color-border)" }}
           >
             <i className="fas fa-star" />
           </button>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { apiFetchJson } from "@/lib/api";
 import type { FollowedVendor } from "@/lib/types";
+import AccountPageHeader from "@/components/account-page-header";
 
 export const metadata: Metadata = { title: "Takip Ettiğim Mağazalar | Gülüm Şalım" };
 
@@ -18,15 +19,11 @@ export default async function FollowedVendorsPage() {
 
   return (
     <>
-      <div className="account-page-header">
-        <div className="account-page-header-icon">
-          <i className="fas fa-store" />
-        </div>
-        <div>
-          <h3>Takip Ettiğim Mağazalar</h3>
-          <div className="account-page-subtitle">{vendors.length > 0 ? `${vendors.length} mağaza` : "Takip ettiğiniz satıcılar"}</div>
-        </div>
-      </div>
+      <AccountPageHeader
+        icon="fa-store"
+        title="Takip Ettiğim Mağazalar"
+        subtitle={vendors.length > 0 ? `${vendors.length} mağaza` : "Takip ettiğiniz satıcılar"}
+      />
       {vendors.length === 0 ? (
         <div className="form-card account-empty-state">
           <i className="fas fa-store" />
