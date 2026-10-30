@@ -1247,7 +1247,7 @@ button {
 
 .season-trends-mobile-tile-img-wrap {
     position: relative;
-    aspect-ratio: 1/1;
+    aspect-ratio: 4/3;
     background: var(--color-bg-alt);
 }
 
@@ -1301,13 +1301,13 @@ button {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    background: linear-gradient(135deg, var(--color-gold), #6B5A41);
     color: #fff;
     font-weight: 700;
     padding: 15px;
     border-radius: 50px;
     text-decoration: none;
-    box-shadow: 0 8px 20px rgba(var(--color-primary-rgb),.25);
+    box-shadow: 0 8px 20px rgba(138, 118, 88, .3);
     transition: transform .15s ease, box-shadow .15s ease;
 }
 .season-trends-mobile-cta:active { transform: scale(.97); }
@@ -1372,7 +1372,7 @@ button {
 
 .hero-mobile-carousel-tile-img-wrap {
     position: relative;
-    aspect-ratio: 3/4;
+    aspect-ratio: 4/3;
     background: var(--color-bg-alt);
 }
 
@@ -2058,8 +2058,13 @@ button {
         border: 0;
         gap: 8px;
     }
+    /* bkz. mobil denetim: sabit 190px genişlik, ekrana göre ya tam olarak
+       2 kutuyu sığdırıp "kaydırılabilir" olduğuna dair hiçbir ipucu
+       bırakmıyordu ya da 3. kutuyu belirsizce kırpıyordu. Diğer yatay
+       kaydırma şeritleriyle (bkz. .product-grid.hscroll mobil kuralı)
+       aynı "sonraki kart kasıtlı olarak kısmen görünsün" deseni. */
     .quick-link-item {
-        flex: 0 0 190px;
+        flex: 0 0 76%;
         border: 1px solid var(--color-border);
         border-radius: 10px;
         padding: 12px;
@@ -4891,20 +4896,61 @@ button {
     border-top: 0;
 }
 
+/* bkz. kullanıcı isteği: "kampanyalar sayfasını masaüstünde de rengini
+   ayarlar mısın" - tek başına ortadaki düz beyaz kart, geniş masaüstü
+   genişliğinde soluk/ıssız duruyordu; sıcak altın tonlu bir dolgu + üst
+   vurgu çizgisiyle diğer panellerle (sepet özeti, filtre paneli) aynı dile
+   kavuştu. */
 .empty-state-card {
     max-width: 660px;
     margin: 24px auto 48px;
     padding: 56px 32px;
-    background: var(--color-surface);
+    background: linear-gradient(180deg, rgba(138, 118, 88, .06), var(--color-surface) 55%);
     border: 1px solid var(--color-border-light);
+    border-top: 3px solid var(--color-gold);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+}
+
+.empty-state-card i {
+    color: var(--color-gold);
+}
+
+.empty-state-card .btn-primary {
+    background: linear-gradient(135deg, var(--color-gold), #6B5A41);
+    box-shadow: 0 4px 15px rgba(138, 118, 88, .3);
+}
+
+.empty-state-card .btn-primary:hover {
+    box-shadow: 0 6px 25px rgba(138, 118, 88, .4);
 }
 
 .empty-state i {
     font-size: 64px;
     color: var(--color-border);
     margin-bottom: 20px;
+}
+
+/* bkz. mobil denetim: /arama sayfasının boş durumundaki kendi kendine
+   yeten arama kutusu - sadece mobilde (masaüstünde header'daki arama
+   kutusu zaten her zaman görünür, burada tekrar göstermeye gerek yok). */
+.search-empty-form {
+    display: none;
+}
+@media (max-width: 768px) {
+    .search-empty-form {
+        display: flex;
+        gap: 8px;
+        max-width: 420px;
+        margin: 20px auto 0;
+    }
+    .search-empty-form .form-control {
+        flex: 1;
+    }
+    .search-empty-form .btn {
+        flex-shrink: 0;
+        padding: 0 18px;
+    }
 }
 
 .empty-state h2 {
@@ -6746,6 +6792,14 @@ a.products-page-eyebrow:hover {
         min-width: 0;
     }
 
+    /* bkz. mobil denetim: "Filtrele ve Sırala" tetikleyicisi (yukarıda)
+       zaten geçerli sıralamayı alt yazı olarak gösterip çekmece içinde
+       değiştirmeyi sağlıyor - bağımsız .sort-control (masaüstünde sağ üstte)
+       mobilde aynı bilgiyi ikinci kez, ayrı bir satırda tekrarlıyordu. */
+    .products-count-row .sort-control {
+        display: none;
+    }
+
     .filter-sidebar-desktop {
         display: none;
     }
@@ -7609,30 +7663,51 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 
     /* Hesabım */
     .account-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         gap: 28px;
     }
 
+    /* bkz. kullanıcı bildirimi: "profilim sayfası yamuk olmuş sığımıyor" -
+       .account-menu'nün yatay kaydırmalı çip şeridi (bkz. aşağıdaki kural),
+       bu min-width:0 olmadan kendi iç genişliğini .account-layout'un grid
+       sütununa (ve dolayısıyla tüm sayfaya) dayatıp yatay taşmaya sebep
+       oluyordu - taşma burada değil ÇİPLERİN KENDİ İÇİNDE olmalı. */
     .account-nav-rail {
         position: static;
+        min-width: 0;
     }
 
+    /* bkz. kullanıcı isteği: "mobil için hoş bir görüntü istiyorum" - eski
+       sürüm düz metin linklerini sarıp altında ince bir çizgiyle "aktif"i
+       gösteriyordu, pek tasarlanmış durmuyordu. Artık sitenin diğer
+       kaydırmalı çip şeritleriyle (bkz. .pt-chip) aynı dilde, yatayda
+       kaydırılabilir hap/çip sekmeleri. */
     .account-menu {
         flex-direction: row;
-        flex-wrap: wrap;
-        gap: 4px 18px;
-        border-bottom: 1px solid var(--color-border-light);
-        padding-bottom: 16px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 8px;
+        border-bottom: none;
+        padding: 2px 2px 14px;
+        scrollbar-width: none;
+    }
+
+    .account-menu::-webkit-scrollbar {
+        display: none;
     }
 
     .account-menu a {
-        border-left: none;
-        border-bottom: 2px solid transparent;
-        padding: 6px 0;
+        flex: 0 0 auto;
+        border: 1px solid var(--color-border);
+        border-radius: 999px;
+        padding: 9px 15px;
+        background: var(--color-surface);
+        white-space: nowrap;
+        font-size: 13px;
     }
 
     .account-menu a.active {
-        border-bottom-color: var(--color-gold);
+        border-color: var(--color-gold);
     }
 
     .account-hero-title {
@@ -8264,7 +8339,15 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
     .ga-wrap { grid-template-columns: 1fr; }
     .ga-visual { display: none; }
     .ga-vendor-register .ga-visual { display: none; }
-    .ga-panel { padding: 90px 20px 40px; min-height: 100vh; }
+    /* bkz. mobil denetim: fotoğraf paneli gizlenince .ga-panel'in taban
+       kuralındaki align-items:center + min-height:100vh, formu dikeyde
+       tam ortalayıp üstte (ve altta) yüzlerce piksel boş alan bırakıyordu -
+       mobilde form en üstten doğal akışla başlamalı. */
+    .ga-panel {
+        align-items: flex-start;
+        padding: 90px 20px 40px;
+        min-height: 0;
+    }
 }
 @media (max-width: 480px) {
     .ga-row2 { grid-template-columns: 1fr; }
@@ -8793,6 +8876,10 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
 }
 
 @media (max-width: 768px) {
+  /* bkz. kullanıcı isteği: "çubuğu da modernleştirelim" - düz beyaz şerit
+     yerine üstten hafifçe yuvarlatılmış, daha belirgin gölgeli "yüzen kart"
+     hissi; aktif sekme artık sadece metin rengiyle değil altın tonlu bir
+     hap/pill arka planla işaretleniyor (bkz. .mbn-item.is-active). */
   .mobile-bottom-nav {
     display: flex;
     position: fixed;
@@ -8802,8 +8889,9 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
     z-index: 80;
     background: var(--color-surface);
     border-top: 1px solid var(--color-border-light);
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.06);
-    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.1);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
   }
 
   .mobile-sticky-buy {
@@ -8840,21 +8928,32 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 6px 2px;
+  padding: 7px 2px;
+  margin: 0 2px;
   border: none;
+  border-radius: 14px;
   background: none;
   color: var(--color-text-light);
   font-size: 10.5px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
+  transition: background .2s ease, color .2s ease;
 }
 
 .mbn-item i {
   font-size: 19px;
+  transition: transform .2s ease, color .2s ease;
 }
 
 .mbn-item.is-active {
   color: var(--color-primary);
+  background: rgba(138, 118, 88, .12);
+}
+
+.mbn-item.is-active i {
+  color: var(--color-gold);
+  transform: translateY(-1px);
 }
 
 .mbn-icon-wrap {
@@ -8866,17 +8965,18 @@ a.detail-vendor:hover{border-color:var(--color-primary);box-shadow:0 6px 20px rg
   position: absolute;
   top: -6px;
   right: -10px;
-  background: var(--color-accent);
+  background: var(--color-gold);
   color: #fff;
   font-size: 9px;
   font-weight: 700;
-  min-width: 15px;
-  height: 15px;
+  min-width: 16px;
+  height: 16px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 3px;
+  border: 2px solid var(--color-surface);
 }
 
 .mbn-overlay {

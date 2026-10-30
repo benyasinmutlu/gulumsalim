@@ -17,11 +17,7 @@ export default async function AccountPage() {
 
   return (
     <>
-      <AccountPageHeader
-        icon="fa-user-edit"
-        title="Profil Bilgilerim"
-        subtitle={`Merhaba, ${customer.fullName.split(" ")[0]}`}
-      />
+      <AccountPageHeader icon="fa-user-edit" title="Profil Bilgilerim" />
       <ProfileForm customer={customer} />
       <div className="account-actions-row">
         <CustomerLogoutButton />

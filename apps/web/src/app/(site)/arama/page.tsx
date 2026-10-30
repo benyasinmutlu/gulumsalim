@@ -39,6 +39,17 @@ export default async function SearchPage({ searchParams }: Props) {
           <div className="empty-state">
             <i className="fas fa-magnifying-glass" aria-hidden />
             <p>Ürün, mağaza veya kategori aramak için yukarıdaki arama kutusunu kullanın.</p>
+            {/* bkz. mobil denetim: "yukarıdaki arama kutusunu kullanın" metni
+                mobilde yanıltıcı - header'da sabit bir kutu yok, sadece arama
+                sayfasını açan bir büyüteç ikonu var. Bu sayfayı kendi
+                başına yeterli kılan, JS gerektirmeyen (native GET form) bir
+                arama kutusu - sadece mobilde görünür, masaüstü değişmiyor. */}
+            <form action="/arama" method="GET" className="search-empty-form">
+              <input type="search" name="search" placeholder="Ürün, mağaza veya kategori ara..." className="form-control" autoFocus />
+              <button type="submit" className="btn btn-primary">
+                <i className="fas fa-magnifying-glass" />
+              </button>
+            </form>
           </div>
         </div>
       </main>
