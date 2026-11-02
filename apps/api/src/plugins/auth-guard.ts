@@ -31,7 +31,7 @@ const authGuardPlugin: FastifyPluginAsync = async (app) => {
   });
 
   app.decorate("requireAdmin", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.session.adminId) {
+    if (!request.session.adminId || request.session.adminMfaVerified !== true) {
       return reply.status(401).send({ error: { message: "Admin girişi yapmanız gerekiyor" } });
     }
   });

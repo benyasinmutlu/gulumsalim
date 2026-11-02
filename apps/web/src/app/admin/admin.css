@@ -1049,6 +1049,99 @@ select.admin-form-control {
     gap: 8px;
 }
 
+.admin-mfa-setup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: var(--admin-text-secondary);
+    font-size: 13px;
+}
+
+.admin-mfa-setup img {
+    width: min(240px, 100%);
+    height: auto;
+    border-radius: 14px;
+    border: 1px solid var(--admin-border);
+    background: #fff;
+    padding: 8px;
+}
+
+.admin-mfa-setup > code,
+.admin-mfa-codes code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--admin-text);
+    background: var(--admin-bg);
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+}
+
+.admin-mfa-setup > code {
+    max-width: 100%;
+    padding: 8px 10px;
+    overflow-wrap: anywhere;
+}
+
+.admin-mfa-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 18px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    color: var(--admin-text-secondary);
+    background: var(--admin-bg);
+}
+
+.admin-mfa-notice > i {
+    margin-top: 3px;
+    color: var(--admin-accent);
+}
+
+.admin-mfa-notice strong {
+    color: var(--admin-text);
+}
+
+.admin-mfa-notice p {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.admin-mfa-code-input {
+    letter-spacing: .12em;
+}
+
+.admin-mfa-back {
+    display: block;
+    width: 100%;
+    margin-top: 14px;
+    border: 0;
+    background: transparent;
+    color: var(--admin-text-muted);
+    cursor: pointer;
+}
+
+.admin-mfa-codes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 18px 0;
+}
+
+.admin-mfa-codes code {
+    padding: 8px;
+    text-align: center;
+    font-size: 12px;
+}
+
+@media (max-width: 480px) {
+    .admin-mfa-codes { grid-template-columns: 1fr; }
+}
+
 /* ---- Admin Pagination ---- */
 .admin-pagination {
     display: flex;

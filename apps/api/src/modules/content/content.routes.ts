@@ -154,7 +154,7 @@ const contentRoutes: FastifyPluginAsync = async (app) => {
   // Çerez tercih paneli (bkz. cookie-consent-banner.tsx) - contact/
   // site-feedback ile aynı gerekçeyle CSRF yok: banner ilk sayfa
   // yüklemesinde çıkabilir, ziyaretçi henüz CSRF token almamış olabilir.
-  app.post("/cookie-consent", async (request, reply) => {
+  app.post("/cookie-consent", { preHandler: app.publicAnalyticsRateLimit }, async (request, reply) => {
     const input = cookieConsentSchema.parse(request.body);
     const row = await insertCookieConsent({
       ...input,

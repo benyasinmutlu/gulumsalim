@@ -18,6 +18,10 @@ declare module "fastify" {
     customerId?: number;
     vendorId?: number;
     adminId?: number;
+    adminMfaVerified?: boolean;
+    pendingAdminId?: number;
+    pendingAdminMfaExpiresAt?: number;
+    pendingAdminMfaSecretEncrypted?: string;
     cart?: CartLine[];
     // bkz. coupon.service.ts - sepetle aynı oturum tabanlı yaklaşım:
     // kod POST /cart/coupon ile doğrulanıp burada saklanır, checkout

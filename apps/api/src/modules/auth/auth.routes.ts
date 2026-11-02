@@ -93,7 +93,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     const input = loginSchema.parse(request.body);
     try {
       const customer = await verifyCustomerCredentials(input);
-      await request.session.regenerate(["cart", "vendorId", "adminId"]);
+      await request.session.regenerate(["cart", "vendorId", "adminId", "adminMfaVerified"]);
       request.session.customerId = customer.id;
       await attachVendorSession(request, customer.id);
       return reply.send(publicCustomer(customer));
@@ -117,7 +117,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     const input = googleLoginSchema.parse(request.body);
     try {
       const customer = await loginWithGoogle(input.idToken);
-      await request.session.regenerate(["cart", "vendorId", "adminId"]);
+      await request.session.regenerate(["cart", "vendorId", "adminId", "adminMfaVerified"]);
       request.session.customerId = customer.id;
       await attachVendorSession(request, customer.id);
       return reply.send(publicCustomer(customer));
@@ -198,7 +198,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   // Girişteki regenerate(["cart", ...]) deseniyle simetrik: sadece
   // customerId düşer, sepet (ve varsa vendorId/adminId) yeni oturuma taşınır.
   app.post("/auth/logout", { preHandler: app.csrfProtection }, async (request, reply) => {
-    await request.session.regenerate(["cart", "vendorId", "adminId"]);
+    await request.session.regenerate(["cart", "vendorId", "adminId", "adminMfaVerified"]);
     return reply.send({ ok: true });
   });
 
@@ -209,7 +209,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   // görünebiliyordu (bkz. logout-button.tsx yorumu) - bu yüzden buton bu
   // uca yönlendiren bir linke çevrildi.
   app.get("/auth/logout", async (request, reply) => {
-    await request.session.regenerate(["cart", "vendorId", "adminId"]);
+    await request.session.regenerate(["cart", "vendorId", "adminId", "adminMfaVerified"]);
     return reply.redirect("/");
   });
 

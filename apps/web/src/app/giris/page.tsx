@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import LoginForm from "./login-form";
 
 export const metadata: Metadata = { title: "Bireysel Üye Girişi | Gülüm Şalım" };
@@ -10,7 +11,8 @@ export const metadata: Metadata = { title: "Bireysel Üye Girişi | Gülüm Şal
 // (Müşteri/Satıcı) giriş formu. Satıcı girişi zaten ayrı bir sayfada
 // (/satici/giris) olduğu için buradaki "Satıcı Girişi" sekmesi oraya
 // yönlendirir.
-export default function LoginPage() {
+export default async function LoginPage() {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <>
       <Link href="/" className="ga-back">
@@ -43,7 +45,7 @@ export default function LoginPage() {
             <p className="ga-sub">Hesabınıza giriş yapın ve alışverişe devam edin.</p>
 
             <Suspense fallback={null}>
-              <LoginForm />
+              <LoginForm nonce={nonce} />
             </Suspense>
 
             <div className="ga-footer">

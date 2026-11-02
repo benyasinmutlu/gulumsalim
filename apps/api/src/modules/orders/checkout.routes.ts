@@ -61,7 +61,10 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
   // verilse bile guest customer OLUŞTURULMAZ (bkz. checkout.service.ts
   // previewContract yorumu), aksi halde her önizleme açılışı boş misafir
   // hesabı biriktirirdi.
-  app.post("/checkout/contract-preview", async (request, reply) => {
+  app.post(
+    "/checkout/contract-preview",
+    { preHandler: [app.publicAnalyticsRateLimit, app.csrfProtection] },
+    async (request, reply) => {
     const { shippingAddress, identityNumber, email, selectedLines } = contractPreviewSchema.parse(request.body);
     try {
       const cart = filterCartBySelection(request.session.cart ?? [], selectedLines);
@@ -91,7 +94,8 @@ const checkoutRoutes: FastifyPluginAsync = async (app) => {
       if (couponErrorReply(reply, err)) return;
       throw err;
     }
-  });
+    },
+  );
 
   app.post("/checkout", { preHandler: app.csrfProtection }, async (request, reply) => {
     const { shippingAddress, identityNumber, email, orderNote, contractAccepted, contractAcceptanceToken, selectedLines } = checkoutSchema.parse(request.body);

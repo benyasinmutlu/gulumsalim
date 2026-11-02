@@ -576,6 +576,23 @@ export interface AdminProfile {
   id: number;
   username: string;
   fullName: string;
+  mfaEnabled: boolean;
+}
+
+export interface AdminLoginResponse {
+  mfaRequired?: true;
+  mfaEnrollmentRequired?: true;
+}
+
+export interface AdminMfaSetup {
+  secret: string;
+  otpauthUri: string;
+  qrCodeDataUrl: string;
+}
+
+export interface AdminMfaEnableResponse {
+  admin: AdminProfile;
+  recoveryCodes: string[];
 }
 
 export interface AdminVendorRow {

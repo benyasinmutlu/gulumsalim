@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { findAdminById, findAdminByUsername, updateAdminProfile } from "./admin.repository";
 import type { AdminLoginInput } from "./admin-auth.schemas";
 import type { UpdateAdminProfileInput } from "./admin-settings.schemas";
+import { DUMMY_PASSWORD_HASH } from "../../lib/password-security";
 
 const SALT_ROUNDS = 12;
 
@@ -10,10 +11,8 @@ export class WrongCurrentPasswordError extends Error {}
 
 export async function verifyAdminCredentials(input: AdminLoginInput) {
   const admin = await findAdminByUsername(input.username);
-  if (!admin) throw new InvalidCredentialsError();
-
-  const valid = await bcrypt.compare(input.password, admin.passwordHash);
-  if (!valid) throw new InvalidCredentialsError();
+  const valid = await bcrypt.compare(input.password, admin?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!admin || !valid) throw new InvalidCredentialsError();
 
   return admin;
 }

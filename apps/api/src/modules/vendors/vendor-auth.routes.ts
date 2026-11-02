@@ -105,7 +105,7 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
     const input = vendorLoginSchema.parse(request.body);
     try {
       const vendor = await verifyVendorCredentials(input);
-      await request.session.regenerate(["cart", "customerId", "adminId"]);
+      await request.session.regenerate(["cart", "customerId", "adminId", "adminMfaVerified"]);
       request.session.vendorId = vendor.id;
       return reply.send(publicVendor(vendor));
     } catch (err) {
@@ -204,13 +204,13 @@ const vendorAuthRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post("/vendor/auth/logout", { preHandler: app.csrfProtection }, async (request, reply) => {
-    delete request.session.vendorId;
+    await request.session.regenerate(["cart", "customerId", "adminId", "adminMfaVerified"]);
     return reply.send({ ok: true });
   });
 
   // bkz. auth.routes.ts /auth/logout - düz link tabanlı, JS'e bağımlı değil.
   app.get("/vendor/auth/logout", async (request, reply) => {
-    delete request.session.vendorId;
+    await request.session.regenerate(["cart", "customerId", "adminId", "adminMfaVerified"]);
     return reply.redirect("/satici/giris");
   });
 

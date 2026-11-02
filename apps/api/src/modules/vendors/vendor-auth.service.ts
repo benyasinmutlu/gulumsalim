@@ -26,6 +26,7 @@ import {
   updateVendorProfile,
 } from "./vendor.repository";
 import type { BecomeIndividualSellerInput, UpdateVendorProfileInput, VendorLoginInput, VendorRegisterInput } from "./vendor-auth.schemas";
+import { DUMMY_PASSWORD_HASH } from "../../lib/password-security";
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -194,10 +195,8 @@ export async function becomeIndividualSeller(customerId: number, input: BecomeIn
 
 export async function verifyVendorCredentials(input: VendorLoginInput) {
   const vendor = await findVendorByEmail(input.email);
-  if (!vendor) throw new InvalidCredentialsError();
-
-  const valid = await bcrypt.compare(input.password, vendor.passwordHash);
-  if (!valid) throw new InvalidCredentialsError();
+  const valid = await bcrypt.compare(input.password, vendor?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!vendor || !valid) throw new InvalidCredentialsError();
 
   if (vendor.status === "closed") {
     throw new VendorClosedError();

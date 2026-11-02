@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Cormorant_Garamond, Outfit } from "next/font/google";
 import { publicFetchJson } from "@/lib/api";
 import type { SiteSettings } from "@/lib/types";
@@ -106,6 +107,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const settings = await getSiteSettings();
   // Admin panelde gerçekten özelleştirilmiş marka renkleri varsa yeni tema
   // varsayılanlarının üzerine yazılır. Önceki pembe ve Fildişi varsayılanları
@@ -131,9 +133,12 @@ export default async function RootLayout({
     .filter(Boolean)
     .join(" ");
 
-  const gaId = settings.ga_measurement_id;
-  const gtmId = settings.gtm_container_id;
-  const pixelId = settings.meta_pixel_id;
+  // Değerler admin panelinden gelir; script metnine yalnız beklenen kimlik
+  // biçimleri sokulur. Böylece bozuk/zararlı bir ayar nonce sahibi inline
+  // script bağlamına taşınamaz.
+  const gaId = /^[A-Z0-9_-]{3,40}$/i.test(settings.ga_measurement_id ?? "") ? settings.ga_measurement_id : undefined;
+  const gtmId = /^GTM-[A-Z0-9]+$/i.test(settings.gtm_container_id ?? "") ? settings.gtm_container_id : undefined;
+  const pixelId = /^\d{5,30}$/.test(settings.meta_pixel_id ?? "") ? settings.meta_pixel_id : undefined;
   // JSON-LD içindeki admin kontrollü bir metin `</script>` içerirse HTML
   // parser'ının script etiketini erken kapatmasını engeller.
   const serializedOrganizationJsonLd = JSON.stringify(organizationJsonLd(settings)).replace(/</g, "\\u003c");
@@ -143,8 +148,8 @@ export default async function RootLayout({
       <head>
         {/* gulumsalim.com'daki ikon setiyle birebir aynı - Font Awesome 6.5.1 */}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-        {colorOverrides && <style dangerouslySetInnerHTML={{ __html: `:root { ${colorOverrides} }` }} />}
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedOrganizationJsonLd }} />
+        {colorOverrides && <style nonce={nonce} dangerouslySetInnerHTML={{ __html: `:root { ${colorOverrides} }` }} />}
+        <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedOrganizationJsonLd }} />
 
         {/* admin/settings.php > Analitik sekmesinin karşılığı - üçü de
             admin ayarlarında boşsa hiç enjekte edilmez. */}
@@ -153,6 +158,7 @@ export default async function RootLayout({
           // nonce akışına bağlı özel snippet.
           // eslint-disable-next-line @next/next/next-script-for-ga
           <script
+            nonce={nonce}
             dangerouslySetInnerHTML={{
               __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${gtmId}');`,
             }}
@@ -160,8 +166,9 @@ export default async function RootLayout({
         )}
         {gaId && (
           <>
-            <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+            <script nonce={nonce} async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
             <script
+              nonce={nonce}
               dangerouslySetInnerHTML={{
                 __html: `window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', '${gaId}');`,
               }}
@@ -170,6 +177,7 @@ export default async function RootLayout({
         )}
         {pixelId && (
           <script
+            nonce={nonce}
             dangerouslySetInnerHTML={{
               __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init', '${pixelId}');fbq('track', 'PageView');`,
             }}

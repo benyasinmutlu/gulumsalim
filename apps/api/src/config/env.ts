@@ -9,6 +9,10 @@ const envSchema = z.object({
   REDIS_URL: z.string().url(),
 
   SESSION_SECRET: z.string().min(32),
+  // Admin TOTP sırları ve kurtarma kodu doğrulama anahtarı. Opsiyonel parse
+  // edilir; MFA uçları değer yoksa fail-closed davranır. Production'da ayrı,
+  // rastgele en az 32 karakterlik bir secret olarak tanımlanır.
+  MFA_ENC_KEY: z.string().min(32).optional(),
 
   MEILISEARCH_URL: z.string().url(),
   MEILISEARCH_API_KEY: z.string().min(1),
@@ -68,6 +72,14 @@ const envSchema = z.object({
   PTT_PASSWORD: z.preprocess((value) => value === "" ? undefined : value, z.string().min(1).optional()),
   PTT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(15_000),
   PTT_TRACKING_POLL_INTERVAL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(900_000),
+}).superRefine((value, ctx) => {
+  if (value.NODE_ENV === "production" && !value.MFA_ENC_KEY) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["MFA_ENC_KEY"],
+      message: "MFA_ENC_KEY production ortamında zorunludur",
+    });
+  }
 });
 
 // Parsed once at boot. Fails fast with a readable error if the environment

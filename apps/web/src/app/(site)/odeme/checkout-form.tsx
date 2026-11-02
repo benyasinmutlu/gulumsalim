@@ -24,10 +24,12 @@ interface SelectedLine {
 // direkt dolu olarak gelsin" - form yine tamamen düzenlenebilir kalır,
 // sadece varsayılan değerler kayıtlı adresten gelir.
 export default function CheckoutForm({
+  nonce,
   isGuest,
   defaultAddress,
   selectedLines,
 }: {
+  nonce?: string;
   isGuest: boolean;
   defaultAddress?: CustomerAddress | null;
   // bkz. sepet/page.tsx checkbox seçimi - verilirse sadece bu kalemler
@@ -94,11 +96,12 @@ export default function CheckoutForm({
     container.innerHTML = result.checkoutFormContent;
     Array.from(container.querySelectorAll("script")).forEach((oldScript) => {
       const newScript = document.createElement("script");
+      if (nonce) newScript.nonce = nonce;
       Array.from(oldScript.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value));
       newScript.textContent = oldScript.textContent;
       oldScript.replaceWith(newScript);
     });
-  }, [result]);
+  }, [nonce, result]);
 
   // Önizlemeden sonra sözleşmeye giren herhangi bir bilgi değişirse eski
   // onay artık geçerli değildir. Sunucu token'ı da aynı alanlara bağlıdır;

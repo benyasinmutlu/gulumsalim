@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { apiFetchJson } from "@/lib/api";
 import type { CartResponse, CustomerAddress, CustomerProfile } from "@/lib/types";
 import CheckoutForm from "./checkout-form";
@@ -52,6 +53,7 @@ async function getDefaultAddress(): Promise<CustomerAddress | null> {
 // zorunlu değil, CheckoutForm oturum yoksa e-posta alanını da ister
 // (bkz. checkout-form.tsx, checkout.service.ts resolveCustomerId).
 export default async function CheckoutPage({ searchParams }: Props) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const { selected } = await searchParams;
   const customer = await getCustomer();
   const defaultAddress = customer ? await getDefaultAddress() : null;
@@ -98,7 +100,7 @@ export default async function CheckoutPage({ searchParams }: Props) {
           )}
 
           <div className="checkout-grid">
-            <CheckoutForm isGuest={!customer} defaultAddress={defaultAddress} selectedLines={selectedLines} />
+            <CheckoutForm nonce={nonce} isGuest={!customer} defaultAddress={defaultAddress} selectedLines={selectedLines} />
 
             <div className="cart-summary">
               <h3>Sipariş Özeti</h3>

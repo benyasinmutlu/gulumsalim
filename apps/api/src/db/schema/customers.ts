@@ -120,6 +120,12 @@ export const adminUsers = pgTable("admin_users", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   fullName: text("full_name").notNull(),
+  mfaSecretEncrypted: text("mfa_secret_encrypted"),
+  mfaRecoveryCodeHashes: jsonb("mfa_recovery_code_hashes").$type<string[]>().notNull().default([]),
+  mfaEnabledAt: timestamp("mfa_enabled_at", { withTimezone: true, precision: 3 }),
+  // Son kabul edilen 30 saniyelik TOTP adımı. Aynı kodun geçerlilik
+  // penceresi içinde yeniden oynatılmasını (replay) atomik olarak engeller.
+  mfaLastUsedStep: bigint("mfa_last_used_step", { mode: "number" }),
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
 });
 

@@ -120,7 +120,7 @@ const adminHomepageSectionsRoutes: FastifyPluginAsync = async (app) => {
 
   // homepage-preview-render.php'nin karşılığı - admin panelde henüz
   // kaydedilmemiş form değerleriyle canlı önizleme.
-  app.post("/admin/homepage-sections/preview", { preHandler: app.requireAdmin }, async (request, reply) => {
+  app.post("/admin/homepage-sections/preview", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const { algoType, config, sectionId } = previewSchema.parse(request.body);
     const result = await previewSectionConfig(app.redis, undefined, algoType, config, sectionId);
     return reply.send(result);

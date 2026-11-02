@@ -33,7 +33,7 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 // loginWithGoogle); Üyelik Sözleşmesi/KVKK onayı bu adımda alınamadığı
 // için yeni hesaplarda needsConsent true döner, kullanıcı /uyelik-tamamla'ya
 // yönlendirilir.
-export default function GoogleSignInButton({ onError }: { onError: (message: string) => void }) {
+export default function GoogleSignInButton({ onError, nonce }: { onError: (message: string) => void; nonce?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
@@ -65,7 +65,7 @@ export default function GoogleSignInButton({ onError }: { onError: (message: str
 
   return (
     <>
-      <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setScriptLoaded(true)} />
+      <Script nonce={nonce} src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onLoad={() => setScriptLoaded(true)} />
       <div className="oauth-divider">
         <span>veya</span>
       </div>

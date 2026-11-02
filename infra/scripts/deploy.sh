@@ -67,6 +67,7 @@ for required in \
   './services/discovery/go.mod' \
   './infra/scripts/backup-db.sh' \
   './infra/scripts/smoke-prod.sh' \
+  './infra/scripts/security-smoke.sh' \
   './infra/postgres/migrations/meta/_journal.json'; do
   if ! grep -Fxq -- "$required" "$ARCHIVE_LIST"; then
     echo "Artefakt zorunlu dosyayı içermiyor: $required" >&2
@@ -273,6 +274,7 @@ curl --fail --silent --show-error --retry 10 --retry-delay 1 --retry-all-errors 
 # Process health'in yanında kritik public akışların doğru release içeriğini
 # sunduğunu da kanıtla. Bir marker kaybolursa ERR trap önceki symlink'e döner.
 SITE_URL=http://127.0.0.1:3001 bash "$RELEASE/infra/scripts/smoke-prod.sh"
+SITE_URL=http://127.0.0.1:3001 REQUIRE_HSTS=0 REQUIRE_EDGE=0 bash "$RELEASE/infra/scripts/security-smoke.sh"
 
 SWITCHED=2
 trap - ERR INT TERM

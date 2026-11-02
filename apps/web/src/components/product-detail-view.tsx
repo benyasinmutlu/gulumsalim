@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { apiFetch, apiFetchJson } from "@/lib/api";
 import { SITE_ORIGIN } from "@/lib/env";
 import type { Category, CustomerProfile, ProductDetail, ProductListItem, ProductQuestion, ProductReviewsResponse, PublicVendorProfile } from "@/lib/types";
@@ -136,6 +137,7 @@ export default async function ProductDetailView({
   slug: string;
   expectedCategorySlug?: string;
 }): Promise<React.ReactElement | null> {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const product = await getProduct(slug);
   if (!product) return null;
 
@@ -216,8 +218,8 @@ export default async function ProductDetailView({
   return (
     <main className="main-content">
       <DwellTracker productId={product.id} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedJsonLd }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedBreadcrumbJsonLd }} />
+      <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedJsonLd }} />
+      <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedBreadcrumbJsonLd }} />
 
       <div className="breadcrumb-bar">
         <div className="container-hero">

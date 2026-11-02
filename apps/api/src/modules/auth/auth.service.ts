@@ -23,6 +23,7 @@ import {
 import type { LoginInput, RegisterInput, UpdateProfileInput } from "./auth.schemas";
 import type { SizePrefs } from "../../db/schema/customers";
 import { deleteObject } from "../../lib/storage";
+import { DUMMY_PASSWORD_HASH } from "../../lib/password-security";
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -95,10 +96,8 @@ export async function verifyCustomerCredentials(input: LoginInput) {
   // olduğunu enumeration'a açacak ayrı bir mesaj verilmez. Silinmiş hesap
   // (bkz. deleteCustomerAccount) da aynı genel hatayla reddedilir - hesabın
   // var olup silindiğini enumeration'a açmaz.
-  if (!customer || !customer.passwordHash || customer.deletedAt) throw new InvalidCredentialsError();
-
-  const valid = await bcrypt.compare(input.password, customer.passwordHash);
-  if (!valid) throw new InvalidCredentialsError();
+  const valid = await bcrypt.compare(input.password, customer?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!customer || !customer.passwordHash || customer.deletedAt || !valid) throw new InvalidCredentialsError();
 
   if (!customer.isGuest && !customer.emailVerifiedAt) throw new EmailNotVerifiedError();
 

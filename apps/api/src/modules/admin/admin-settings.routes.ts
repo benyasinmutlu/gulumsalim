@@ -37,14 +37,14 @@ const adminSettingsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/admin/profile", { preHandler: app.requireAdmin }, async (request, reply) => {
     const admin = await findAdminById(request.session.adminId!);
     if (!admin) return reply.status(404).send({ error: { message: "Admin bulunamadı" } });
-    return reply.send({ id: admin.id, username: admin.username, fullName: admin.fullName });
+    return reply.send({ id: admin.id, username: admin.username, fullName: admin.fullName, mfaEnabled: admin.mfaEnabledAt !== null });
   });
 
   app.patch("/admin/profile", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const input = updateAdminProfileSchema.parse(request.body);
     try {
       const admin = await updateAdminOwnProfile(request.session.adminId!, input);
-      return reply.send({ id: admin.id, username: admin.username, fullName: admin.fullName });
+      return reply.send({ id: admin.id, username: admin.username, fullName: admin.fullName, mfaEnabled: admin.mfaEnabledAt !== null });
     } catch (err) {
       if (err instanceof WrongCurrentPasswordError) {
         return reply.status(400).send({ error: { message: "Mevcut şifrenizi hatalı girdiniz" } });

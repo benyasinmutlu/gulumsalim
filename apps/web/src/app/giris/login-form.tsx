@@ -8,7 +8,7 @@ import { hardNavigateInternal } from "@/lib/navigation";
 import type { CustomerProfile } from "@/lib/types";
 import GoogleSignInButton from "@/components/google-signin-button";
 
-export default function LoginForm() {
+export default function LoginForm({ nonce }: { nonce?: string }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -114,7 +114,7 @@ export default function LoginForm() {
         {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
       </button>
 
-      <GoogleSignInButton onError={setError} />
+      <GoogleSignInButton nonce={nonce} onError={setError} />
     </form>
   );
 }
