@@ -15,7 +15,7 @@ const contentSecurityPolicy = [
   "frame-ancestors 'self'",
   "form-action 'self' https://*.iyzipay.com https://*.iyzico.com",
   `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""} https://accounts.google.com https://www.googletagmanager.com https://connect.facebook.net https://static.cloudflareinsights.com https://*.iyzipay.com https://*.iyzico.com`,
-  "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
   "font-src 'self' data: https://cdnjs.cloudflare.com https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
