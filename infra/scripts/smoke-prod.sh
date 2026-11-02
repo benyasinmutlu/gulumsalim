@@ -102,6 +102,10 @@ check_route "/magazalar" "Mağazalar" "Mağaza ve ürün keşfi" "Mağazaya Git"
 check_route "/kampanyalar" "Kampanyalar" "Kampanyalar"
 check_route "/siparis-takip" "Sipariş Takip" "Sipariş takibi"
 check_url "$API_HEALTH_URL" '"status":"ok"' "API/Postgres/Redis sağlığı" "/api/healthz"
+check_url "$SITE_URL/api/categories" '"slug":"cantalar"' "Kanonik kategori API'si" "/api/categories" '"slug":"ayakkabilar"'
+check_route "/cantalar" "Çantalar" "Çantalar kategorisi"
+check_route "/ayakkabilar" "Ayakkabılar" "Ayakkabılar kategorisi"
+check_route "/ayakkabi-canta" "Çantalar" "Eski birleşik kategori yönlendirmesi"
 
 if [[ -n "$SMOKE_VENDOR_SLUG" ]]; then
   check_route "/$SMOKE_VENDOR_SLUG" "Ürünler (" "Doğrudan mağaza ürünleri"

@@ -1,4 +1,5 @@
 import { permanentRedirect } from "next/navigation";
+import { resolveLegacyCategorySlug } from "@/lib/category-redirects";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -10,5 +11,5 @@ interface Props {
 // arama motoru kayıtları kırılmasın diye burası 308 kalıcı yönlendirme yapar.
 export default async function LegacyCategoryRedirect({ params }: Props) {
   const { slug } = await params;
-  permanentRedirect(`/${slug}`);
+  permanentRedirect(`/${resolveLegacyCategorySlug(slug) ?? slug}`);
 }

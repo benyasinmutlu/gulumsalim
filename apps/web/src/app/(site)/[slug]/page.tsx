@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { apiFetch, apiFetchJson } from "@/lib/api";
 import { SITE_ORIGIN } from "@/lib/env";
@@ -16,6 +16,7 @@ import ScrollReveal from "@/components/scroll-reveal";
 import TitleBackgroundIcons from "@/components/title-background-icons";
 import { sectionIcon } from "@/lib/title-icon";
 import LegalPagePrintButton from "@/components/legal-page-print-button";
+import { resolveLegacyCategorySlug } from "@/lib/category-redirects";
 
 interface CmsPage {
   id: number;
@@ -122,6 +123,8 @@ async function getSectionBySlug(slug: string): Promise<ResolvedHomepageSection |
 // değişirse/aynı içeriğe iki path'ten erişilirse diye açıkça belirtiliyor.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const redirectedSlug = resolveLegacyCategorySlug(slug);
+  if (redirectedSlug) permanentRedirect(`/${redirectedSlug}`);
   const canonical = `${SITE_ORIGIN}/${slug}`;
   const page = await getPage(slug);
   if (page) {
@@ -247,6 +250,8 @@ async function SectionPage({ section }: { section: ResolvedHomepageSection }) {
 // şeklinde olmasın direkt /elbiseler olsun") - hiçbiri yoksa 404.
 export default async function CatchAllRoute({ params, searchParams }: Props) {
   const { slug } = await params;
+  const redirectedSlug = resolveLegacyCategorySlug(slug);
+  if (redirectedSlug) permanentRedirect(`/${redirectedSlug}`);
   const page = await getPage(slug);
 
   if (!page) {

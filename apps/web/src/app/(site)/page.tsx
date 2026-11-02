@@ -87,7 +87,7 @@ async function getCategories(): Promise<Category[]> {
   }
 }
 
-const FEATURED_CATEGORY_SLUGS = ["elbise", "giyim", "ayakkabi-canta", "aksesuar"];
+const FEATURED_CATEGORY_SLUGS = ["elbise", "giyim", "cantalar", "aksesuar"];
 
 async function getCategoryShowcase(): Promise<HeroCategoryShowcaseItem[]> {
   const categories = await getCategories();

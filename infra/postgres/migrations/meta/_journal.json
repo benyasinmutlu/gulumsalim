@@ -533,6 +533,13 @@
       "when": 1793628790032,
       "tag": "0075_simple_lionheart",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1793649179484,
+      "tag": "0076_canonical_category_taxonomy",
+      "breakpoints": true
     }
   ]
 }
