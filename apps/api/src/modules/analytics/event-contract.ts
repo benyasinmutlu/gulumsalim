@@ -58,7 +58,7 @@ export const recommendationEventInputSchema = z.object({
   correlationId: z.string().min(1).optional(),
   consent: consentSchema,
   // Tipe özgü payload (search query, dwell süresi, seçilen beden ...).
-  payload: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  payload: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 export type RecommendationEventInput = z.infer<typeof recommendationEventInputSchema>;
 

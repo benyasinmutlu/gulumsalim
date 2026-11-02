@@ -9,8 +9,10 @@
 
 import type { SalesChannel } from "./inventory-sync";
 import { lookup } from "node:dns/promises";
+import { request } from "node:https";
 import { isIP } from "node:net";
 import type { IkasCreds, TicimaxCreds, TrendyolCreds } from "./credentials";
+import { createPinnedLookup } from "./safe-feed-http";
 
 export interface ChannelStockUpdate {
   externalBarcode: string;
@@ -57,15 +59,48 @@ async function httpJson(url: string, init: RequestInit): Promise<{ status: numbe
   }
 }
 
-async function httpText(url: string, init: RequestInit): Promise<{ status: number; body: string }> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), HTTP_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { ...init, redirect: "manual", signal: ctrl.signal });
-    return { status: res.status, body: await res.text() };
-  } finally {
-    clearTimeout(timer);
-  }
+const MAX_CHANNEL_TEXT_BYTES = 2 * 1024 * 1024;
+
+async function httpText(
+  rawUrl: string,
+  init: { method: string; headers: Record<string, string>; body: string },
+): Promise<{ status: number; body: string }> {
+  const url = new URL(rawUrl);
+  const resolved = await resolvePublicTicimaxHost(url.toString());
+
+  return new Promise((resolve, reject) => {
+    const req = request(url, {
+      method: init.method,
+      headers: {
+        ...init.headers,
+        "Content-Length": Buffer.byteLength(init.body),
+      },
+      lookup: createPinnedLookup(resolved),
+      servername: url.hostname,
+      timeout: HTTP_TIMEOUT_MS,
+    }, (response) => {
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      response.on("data", (chunk: Buffer | string) => {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        bytes += buffer.length;
+        if (bytes > MAX_CHANNEL_TEXT_BYTES) {
+          response.destroy(new Error("Kanal yanıtı 2 MB sınırını aşıyor"));
+          return;
+        }
+        chunks.push(buffer);
+      });
+      response.on("end", () => resolve({
+        status: response.statusCode ?? 0,
+        body: Buffer.concat(chunks).toString("utf8"),
+      }));
+      response.on("error", reject);
+    });
+    req.on("timeout", () => req.destroy(new Error("Kanal isteği zaman aşımına uğradı")));
+    req.on("error", reject);
+    req.write(init.body);
+    req.end();
+  });
 }
 
 // ---------- TRENDYOL ----------
@@ -211,25 +246,29 @@ function ticimaxEndpoint(siteUrl: string): string {
 }
 
 function isPrivateAddress(address: string): boolean {
-  if (isIP(address) === 4) {
-    const parts = address.split(".").map(Number);
+  const normalized = address.toLowerCase();
+  const mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+  const candidate = mapped ?? normalized;
+  if (isIP(candidate) === 4) {
+    const parts = candidate.split(".").map(Number);
     const a = parts[0] ?? 0;
     const b = parts[1] ?? 0;
     return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) || a >= 224;
   }
-  const normalized = address.toLowerCase();
-  return normalized === "::" || normalized === "::1" || normalized.startsWith("fc") || normalized.startsWith("fd") ||
-    normalized.startsWith("fe8") || normalized.startsWith("fe9") || normalized.startsWith("fea") || normalized.startsWith("feb");
+  if (isIP(candidate) !== 6) return true;
+  return candidate === "::" || candidate === "::1" || candidate.startsWith("fc") || candidate.startsWith("fd") ||
+    /^fe[89ab]/.test(candidate) || candidate.startsWith("ff");
 }
 
-async function assertPublicTicimaxHost(siteUrl: string): Promise<void> {
+async function resolvePublicTicimaxHost(siteUrl: string): Promise<{ address: string; family: number }> {
   const hostname = new URL(siteUrl).hostname;
   const addresses = await lookup(hostname, { all: true, verbatim: true });
   if (addresses.length === 0 || addresses.some((item) => isPrivateAddress(item.address))) {
     throw new Error("Ticimax mağaza adresi güvenli bir genel internet adresine çözülmüyor");
   }
+  return addresses[0]!;
 }
 
 export function buildTicimaxStockRequest(
@@ -280,7 +319,6 @@ export class TicimaxClient implements ChannelClient {
 
   async testConnection(): Promise<TestResult> {
     try {
-      await assertPublicTicimaxHost(this.creds.siteUrl);
       const req = buildTicimaxConnectionRequest(this.creds.siteUrl, this.creds.memberCode);
       const { status, body } = await httpText(req.url, { method: "POST", headers: req.headers, body: req.body });
       const fault = soapFault(body);
@@ -294,7 +332,6 @@ export class TicimaxClient implements ChannelClient {
   async pushStock(updates: ChannelStockUpdate[]): Promise<PushResult> {
     if (updates.length === 0) return { ok: true };
     try {
-      await assertPublicTicimaxHost(this.creds.siteUrl);
       const req = buildTicimaxStockRequest(this.creds.siteUrl, this.creds.memberCode, updates);
       const { status, body } = await httpText(req.url, { method: "POST", headers: req.headers, body: req.body });
       const fault = soapFault(body);

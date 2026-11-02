@@ -1,5 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
+
+// Status transitions notify customers in production. Integration tests verify
+// database transaction semantics only and must never call the real mail API.
+vi.mock("../../lib/mailer", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/mailer")>()),
+  sendMail: vi.fn().mockResolvedValue(undefined),
+}));
 
 // bkz. kargo/PTT denetim raporu Faz 2 (2026-09-10): Shipment domain modeli
 // gerçek transaction/FK/unique-constraint davranışına bağlı (onConflictDoNothing,

@@ -22,7 +22,7 @@ const trackSchema = z.object({
         categoryId: z.number().int().positive().optional(),
         occurredAt: z.number().optional(),
         source: z.string().max(40).optional(),
-        metadata: z.record(z.unknown()).optional(),
+        metadata: z.record(z.string(), z.unknown()).optional(),
       }),
     )
     .max(50),
@@ -72,7 +72,7 @@ const discoveryRoutes: FastifyPluginAsync = async (app) => {
   // Discover v1 flag'inden bağımsız çalışır (sinyal erkenden toplanabilir).
   // Etkileşim takibi (gösterim/tıklama). Anonim de izlenir (session_id). Kimlik
   // + consent server'da; motorun A/B ölçümü (CTR) + geri beslemesi için.
-  app.post("/discover/track", async (request, reply) => {
+  app.post("/discover/track", { preHandler: app.publicAnalyticsRateLimit }, async (request, reply) => {
     const parsed = trackSchema.safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ error: { message: "Geçersiz event verisi" } });
     const session = request.session as { customerId?: number; sessionId?: string } | undefined;

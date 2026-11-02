@@ -3,7 +3,6 @@ import { apiFetchJson } from "@/lib/api";
 import type { Category, ProductListResponse, PublicVendorListItem } from "@/lib/types";
 import ProductCard from "@/components/product-card";
 import ProductToolbar from "@/app/(site)/urunler/product-toolbar";
-import SortControl from "@/app/(site)/urunler/sort-control";
 import { CategoryNavSync } from "@/components/category-nav-context";
 import TitleBackgroundIcons from "@/components/title-background-icons";
 import { categoryBackgroundIcons } from "@/lib/title-icon";
@@ -198,7 +197,6 @@ export default async function ProductListing({
           <div>
             <div className="products-count-row">
               <div className="products-count">{items.length} adet ürün bulundu.</div>
-              <SortControl basePath={basePath} />
             </div>
 
             {items.length === 0 ? (

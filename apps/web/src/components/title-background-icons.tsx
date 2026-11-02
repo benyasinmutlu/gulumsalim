@@ -6,6 +6,7 @@
 // kaldı. `icon` prop'u geriye dönük uyumluluk için duruyor (5 çağıran yer
 // var) ama artık kullanılmıyor.
 export default function TitleBackgroundIcons({ icon: _icon }: { icon: string | string[] }) {
+  void _icon;
   return (
     <div className="section-theme-bg" aria-hidden="true">
       <span className="stb-blob stb-blob-1" />

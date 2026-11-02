@@ -7,7 +7,7 @@ test.describe("anasayfa ve üyelik düzeni", () => {
     await expect(page.locator(".home-hero-cards")).toHaveCount(0);
     await expect(page.locator(".home-categories")).toHaveCount(0);
 
-    const seasonTrendHeading = page.getByText("Sezon Trendleri", { exact: true });
+    const seasonTrendHeading = page.locator(".deal-shelf-title:visible").filter({ hasText: /^Sezon Trendleri$/ });
     if ((await page.locator(".product-card").count()) > 0) {
       await expect(seasonTrendHeading).toBeVisible();
     }
@@ -16,12 +16,10 @@ test.describe("anasayfa ve üyelik düzeni", () => {
   test("filtre ve sıralama tek panelden uygulanır", async ({ page }) => {
     await page.goto("/urunler");
 
-    const filterAndSortButton = page.getByRole("button", { name: /Filtrele ve Sırala/ });
-    await expect(filterAndSortButton).toBeVisible();
-    await filterAndSortButton.click();
-
-    await page.getByLabel("Sıralama").selectOption("price-asc");
-    await page.getByRole("button", { name: "Sonuçları Göster" }).click();
+    const panel = page.locator(".filter-sidebar-desktop");
+    await expect(panel.getByRole("heading", { name: "Filtrele ve Sırala" })).toBeVisible();
+    await panel.getByLabel("Sıralama").selectOption("price-asc");
+    await panel.getByRole("button", { name: "Sonuçları Göster" }).click();
     await expect(page).toHaveURL(/(?:\?|&)sort=price-asc(?:&|$)/);
   });
 

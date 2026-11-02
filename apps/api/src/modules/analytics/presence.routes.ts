@@ -22,13 +22,13 @@ const MAX_DWELL_MS = 10 * 60 * 1000;
 // sinyali, bu yüzden auth/CSRF gerektirmez (bkz. presence-heartbeat.tsx,
 // urun/[slug] dwell-tracker.tsx, section-analytics-tracker.tsx).
 const presenceRoutes: FastifyPluginAsync = async (app) => {
-  app.post("/presence/ping", async (request, reply) => {
+  app.post("/presence/ping", { preHandler: app.publicAnalyticsRateLimit }, async (request, reply) => {
     const { path } = pingSchema.parse(request.body ?? {});
     recordPresencePing(app.redis, request.session.sessionId, path).catch(() => {});
     return reply.send({ ok: true });
   });
 
-  app.post("/analytics/dwell", async (request, reply) => {
+  app.post("/analytics/dwell", { preHandler: app.publicAnalyticsRateLimit }, async (request, reply) => {
     const { productId, ms } = dwellSchema.parse(request.body ?? {});
     const clamped = Math.max(0, Math.min(ms, MAX_DWELL_MS));
     recordContentEvent("product", productId, "dwell", clamped).catch(() => {});
@@ -41,7 +41,7 @@ const presenceRoutes: FastifyPluginAsync = async (app) => {
   // kendine özel bir ucu olmadığından (bkz. [slug]/page.tsx) ve anasayfa
   // bölümü izleyicisinin istemci tarafı olması gerektiğinden (görünürlük
   // IntersectionObserver ile ölçülüyor) bu genel uç ikisi için kullanılır.
-  app.post("/analytics/track", async (request, reply) => {
+  app.post("/analytics/track", { preHandler: app.publicAnalyticsRateLimit }, async (request, reply) => {
     const { contentType, contentId, eventType, value } = trackSchema.parse(request.body ?? {});
     const clampedValue = eventType === "dwell" ? Math.max(0, Math.min(value ?? 0, MAX_DWELL_MS)) : 1;
     recordContentEvent(contentType, contentId, eventType, clampedValue).catch(() => {});

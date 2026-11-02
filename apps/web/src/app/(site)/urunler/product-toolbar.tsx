@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { Category, PublicVendorListItem } from "@/lib/types";
 import { PRODUCT_CONDITIONS } from "@/lib/product-condition";
 
@@ -71,7 +71,7 @@ export default function ProductToolbar({
   lockedCategorySlug?: string;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [sort, setSort] = useState(initial.sort ?? "");
   const [size, setSize] = useState(initial.size ?? "");
   const [color, setColor] = useState(initial.color ?? "");
   const [brand, setBrand] = useState(initial.brand ?? "");
@@ -105,11 +105,7 @@ export default function ProductToolbar({
       vendor,
       minPrice,
       maxPrice,
-      // Sıralama artık bu panelin dışında, ürün listesinin sağ üstünde
-      // ayrı/bağımsız bir SortControl'de (bkz. sort-control.tsx) - burada
-      // elden geçmiyor, sadece URL'deki GÜNCEL değeri korunuyor ki "Sonuçları
-      // Göster" diğer filtreleri uygularken sıralamayı sıfırlamasın.
-      sort: searchParams.get("sort") ?? undefined,
+      sort: sort || undefined,
       condition: condition || undefined,
       freeShipping: freeShipping ? "true" : undefined,
       vendorType: vendorType || undefined,
@@ -145,8 +141,7 @@ export default function ProductToolbar({
   const hasActiveFilters = Boolean(
     size || color || brand || vendor || minPrice || maxPrice || saleOnly || secondHand || freeShipping || condition || vendorType,
   );
-  const currentSort = searchParams.get("sort") ?? "";
-  const selectedSortLabel = SORT_OPTIONS.find((option) => option.value === currentSort)?.label ?? SORT_OPTIONS[0].label;
+  const selectedSortLabel = SORT_OPTIONS.find((option) => option.value === sort)?.label ?? SORT_OPTIONS[0].label;
 
   // bkz. keşfedilen hata: bu panel `.products-page`nin (TitleBackgroundIcons
   // katmanlaması için position:relative + z-index:1 taşıyan) içinde render
@@ -163,11 +158,29 @@ export default function ProductToolbar({
       <>
         <div className="pt-panel-head">
           <h3>
-            <i className="fas fa-sliders-h" /> Filtrele
+            <i className="fas fa-sliders-h" /> Filtrele ve Sırala
           </h3>
           <button type="button" className="pt-panel-close" aria-label="Kapat" onClick={() => setPanelOpen(false)}>
             <i className="fas fa-times" />
           </button>
+        </div>
+
+        <div className="filter-section">
+          <label className="pt-panel-label" htmlFor={`sort-${idSuffix}`}>
+            <i className="fas fa-arrow-down-wide-short" /> Sıralama
+          </label>
+          <select
+            id={`sort-${idSuffix}`}
+            className="form-control"
+            value={sort}
+            onChange={(event) => setSort(event.target.value)}
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value || "recommended"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="filter-section">

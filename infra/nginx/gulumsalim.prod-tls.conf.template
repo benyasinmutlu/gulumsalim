@@ -58,7 +58,7 @@ server {
     ssl_stapling on;
     ssl_stapling_verify on;
 
-    client_max_body_size 20m;
+    client_max_body_size 50m;
 
     # HSTS — YALNIZCA 443 doğrulandıktan sonra (CLAUDE-001). Bir kez
     # gönderildiğinde tarayıcı domaini HTTPS'e kilitler; TLS çalışmadan ASLA.

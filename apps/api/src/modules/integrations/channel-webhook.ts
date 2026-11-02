@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { SalesChannel } from "./inventory-sync";
 
 function canonicalJson(value: unknown): string {
@@ -37,4 +37,12 @@ export function deriveChannelWebhookIdentity(
   const material = providerEventId ? `provider:${providerEventId}` : `payload:${payloadHash}`;
   const eventKey = createHash("sha256").update(`${channel}:${material}`).digest("hex");
   return { eventKey, payloadHash };
+}
+
+export function webhookSecretMatches(provided: unknown, expected: string): boolean {
+  const candidate = Array.isArray(provided) ? provided[0] : provided;
+  if (typeof candidate !== "string" || candidate.length === 0) return false;
+  const candidateDigest = createHash("sha256").update(candidate).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(candidateDigest, expectedDigest);
 }

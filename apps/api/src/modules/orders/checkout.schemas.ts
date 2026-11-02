@@ -33,7 +33,7 @@ export const checkoutSchema = z.object({
   // Ön Bilgilendirme Formu önizlemesinin görülüp onaylandığının kanıtı -
   // bkz. contract-template.ts, order.contractSnapshot.
   contractAccepted: z.literal(true, {
-    errorMap: () => ({ message: "Mesafeli Satış Sözleşmesi'ni onaylamalısınız" }),
+    error: "Mesafeli Satış Sözleşmesi'ni onaylamalısınız",
   }),
   contractAcceptanceToken: z.string().min(1, "Sözleşmeyi yeniden görüntüleyin").max(1024),
   selectedLines: z.array(selectedLineSchema).min(1).optional(),

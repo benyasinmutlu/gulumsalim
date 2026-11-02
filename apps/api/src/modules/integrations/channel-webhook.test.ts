@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveChannelWebhookIdentity } from "./channel-webhook";
+import { deriveChannelWebhookIdentity, webhookSecretMatches } from "./channel-webhook";
 
 describe("channel webhook identity", () => {
   it("deduplicates the same payload even when object key order changes", () => {
@@ -20,5 +20,14 @@ describe("channel webhook identity", () => {
     const retry = deriveChannelWebhookIdentity("trendyol", { deliveryAttempt: 2 }, { "x-idempotency-key": "order-7" });
     expect(retry.eventKey).toBe(first.eventKey);
     expect(retry.payloadHash).not.toBe(first.payloadHash);
+  });
+});
+
+describe("channel webhook shared secret", () => {
+  it("accepts only an exact secret and supports Fastify array headers", () => {
+    expect(webhookSecretMatches("secret-123", "secret-123")).toBe(true);
+    expect(webhookSecretMatches(["secret-123"], "secret-123")).toBe(true);
+    expect(webhookSecretMatches("secret-124", "secret-123")).toBe(false);
+    expect(webhookSecretMatches(undefined, "secret-123")).toBe(false);
   });
 });

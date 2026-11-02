@@ -19,7 +19,7 @@ export const registerSchema = z.object({
   // (Ticari Elektronik İleti Onayı) ve analyticsConsent (Açık Rıza Metni)
   // opsiyonel, işaretlenmezse consentAt alanları null kalır.
   membershipConsent: z.literal(true, {
-    errorMap: () => ({ message: "Üyelik Sözleşmesi ve KVKK Aydınlatma Metnini kabul etmelisiniz" }),
+    error: "Üyelik Sözleşmesi ve KVKK Aydınlatma Metnini kabul etmelisiniz",
   }),
   marketingConsent: z.boolean().default(false),
   analyticsConsent: z.boolean().default(false),
@@ -38,7 +38,7 @@ export const googleLoginSchema = z.object({
 // hesabın girişten sonra tamamladığı zorunlu onay formu.
 export const completeConsentSchema = z.object({
   membershipConsent: z.literal(true, {
-    errorMap: () => ({ message: "Üyelik Sözleşmesi ve KVKK Aydınlatma Metnini kabul etmelisiniz" }),
+    error: "Üyelik Sözleşmesi ve KVKK Aydınlatma Metnini kabul etmelisiniz",
   }),
   marketingConsent: z.boolean().default(false),
   analyticsConsent: z.boolean().default(false),

@@ -16,7 +16,7 @@ import {
   markVendorCredentialError,
   setVendorCredentials,
 } from "./credentials.repository";
-import { deriveChannelWebhookIdentity } from "./channel-webhook";
+import { deriveChannelWebhookIdentity, webhookSecretMatches } from "./channel-webhook";
 import { processChannelOrderOnce, type ChannelOrderLine } from "./channel-order.service";
 
 const channelParam = z.enum(["trendyol", "ikas", "ticimax"]);
@@ -138,8 +138,10 @@ const integrationsRoutes: FastifyPluginAsync = async (app) => {
   // (kimse sahte siparişle stok sıfırlayamasın).
   const webhookHandler = (channel: SalesChannel) => async (request: import("fastify").FastifyRequest, reply: import("fastify").FastifyReply) => {
     const secret = process.env.INTEGRATIONS_WEBHOOK_SECRET;
-    const provided = (request.query as { token?: string })?.token ?? request.headers["x-webhook-secret"];
-    if (!secret || provided !== secret) return reply.status(401).send({ error: { message: "Yetkisiz webhook" } });
+    const provided = request.headers["x-webhook-secret"] ?? (request.query as { token?: string })?.token;
+    if (!secret || !webhookSecretMatches(provided, secret)) {
+      return reply.status(401).send({ error: { message: "Yetkisiz webhook" } });
+    }
     const lines = extractOrderLines(request.body);
     const identity = deriveChannelWebhookIdentity(channel, request.body, request.headers);
     const result = await processChannelOrderOnce({ channel, lines, ...identity });

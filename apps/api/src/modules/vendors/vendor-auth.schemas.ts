@@ -31,7 +31,7 @@ export const vendorRegisterSchema = z.object({
   taxId: corporateTaxIdSchema,
   legalAddress: z.string().trim().min(10, "Açık adres giriniz").max(500),
   consentAccepted: z.literal(true, {
-    errorMap: () => ({ message: "Satıcı Üyelik ve Hizmet Sözleşmesi'ni kabul etmelisiniz" }),
+    error: "Satıcı Üyelik ve Hizmet Sözleşmesi'ni kabul etmelisiniz",
   }),
 });
 
@@ -43,7 +43,7 @@ export const becomeIndividualSellerSchema = z.object({
   taxId: z.string().trim().regex(/^\d{11}$/, "11 haneli TCKN giriniz"),
   legalAddress: z.string().trim().min(10, "Açık adres giriniz").max(500),
   consentAccepted: z.literal(true, {
-    errorMap: () => ({ message: "Satıcı Üyelik ve Hizmet Sözleşmesi'ni kabul etmelisiniz" }),
+    error: "Satıcı Üyelik ve Hizmet Sözleşmesi'ni kabul etmelisiniz",
   }),
 });
 
