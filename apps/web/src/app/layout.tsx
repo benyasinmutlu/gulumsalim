@@ -134,6 +134,9 @@ export default async function RootLayout({
   const gaId = settings.ga_measurement_id;
   const gtmId = settings.gtm_container_id;
   const pixelId = settings.meta_pixel_id;
+  // JSON-LD içindeki admin kontrollü bir metin `</script>` içerirse HTML
+  // parser'ının script etiketini erken kapatmasını engeller.
+  const serializedOrganizationJsonLd = JSON.stringify(organizationJsonLd(settings)).replace(/</g, "\\u003c");
 
   return (
     <html lang="tr" className={`${outfit.variable} ${cormorant.variable}`} data-scroll-behavior="smooth">
@@ -141,7 +144,7 @@ export default async function RootLayout({
         {/* gulumsalim.com'daki ikon setiyle birebir aynı - Font Awesome 6.5.1 */}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
         {colorOverrides && <style dangerouslySetInnerHTML={{ __html: `:root { ${colorOverrides} }` }} />}
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd(settings)) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializedOrganizationJsonLd }} />
 
         {/* admin/settings.php > Analitik sekmesinin karşılığı - üçü de
             admin ayarlarında boşsa hiç enjekte edilmez. */}
