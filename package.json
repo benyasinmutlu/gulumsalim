@@ -9,7 +9,10 @@
     "overrides": {
       "postman-request@2.88.1-postman.51>qs": "6.16.1",
       "postman-request@2.88.1-postman.51>uuid": "11.1.1",
-      "exceljs@4.4.0>uuid": "11.1.1"
+      "exceljs@4.4.0>uuid": "11.1.1",
+      "exceljs@4.4.0>archiver": "8.0.0",
+      "exceljs@4.4.0>unzipper": "0.12.5",
+      "readdir-glob@3.0.0>minimatch": "11.0.1"
     }
   },
   "scripts": {

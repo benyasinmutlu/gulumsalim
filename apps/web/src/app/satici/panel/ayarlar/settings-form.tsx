@@ -20,8 +20,8 @@ export default function SettingsForm() {
   const [bankMessage, setBankMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): legalAddress'ten AYRI
-  // operasyonel kargo çıkış adresi - hiçbir checkout/kargo hesabına henüz
-  // bağlı değil, sadece ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  // operasyonel kargo çıkış adresi - checkout adresinden bağımsızdır ve
+  // PTT kabul kaydındaki gönderici anlık görüntüsünün kaynağıdır.
   const [shippingContactName, setShippingContactName] = useState("");
   const [shippingContactPhone, setShippingContactPhone] = useState("");
   const [shippingCity, setShippingCity] = useState("");
@@ -196,7 +196,8 @@ export default function SettingsForm() {
         </div>
         <div className="card-body">
           <p style={{ fontSize: "0.8rem", color: "var(--tx3)", marginTop: 0 }}>
-            Ürünlerinizin kargoya verildiği adres. Fatura/sözleşme adresinizden (yukarıdaki &quot;Adres&quot;) farklı olabilir.
+            Ürünlerinizin kargoya verildiği ve PTT kaydında gönderici olarak kullanılan adres. Fatura/sözleşme adresinizden
+            (yukarıdaki &quot;Adres&quot;) farklı olabilir.
           </p>
           <form className="fc" onSubmit={handleShippingSubmit}>
             <div className="fg">

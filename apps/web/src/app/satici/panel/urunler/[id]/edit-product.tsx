@@ -71,8 +71,8 @@ export default function EditProduct({
   // listVendorProducts).
   const [stock, setStock] = useState("0");
   // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): ürünün fiziksel kargo
-  // verisi - opsiyonel, HENÜZ hiçbir kargo ücreti hesabına bağlı değil,
-  // sadece ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  // verisi - opsiyonel. Müşteriden alınan platform kargo bedelini değiştirmez;
+  // PTT barkodu oluşturulurken varsayılan paket verisi olarak kullanılır.
   const [weightGrams, setWeightGrams] = useState("");
   const [widthCm, setWidthCm] = useState("");
   const [heightCm, setHeightCm] = useState("");
@@ -493,7 +493,8 @@ export default function EditProduct({
         </div>
         <div className="fc" style={{ padding: "20px" }}>
           <p style={{ fontSize: "0.8rem", color: "var(--tx3)", margin: 0 }}>
-            Opsiyonel. Kargo hesaplamasında henüz kullanılmıyor, ileride taşıyıcı entegrasyonu için toplanıyor.
+            Opsiyonel. PTT barkodu oluşturulurken varsayılan paket bilgisi olur; paketlenmiş gerçek ölçüler farklıysa sipariş ekranında değiştirebilirsiniz.
+            Müşteriden alınan platform kargo bedeli bu alanlardan bağımsızdır.
           </p>
           <div className="row2">
             <div className="fg">

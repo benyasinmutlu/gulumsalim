@@ -383,14 +383,18 @@ export default function SettingsManager() {
             <h2>Kargo Ayarları</h2>
           </div>
           <div className="admin-card-body">
+            <p style={{ margin: "0 0 16px", color: "var(--admin-text-muted)", fontSize: "0.82rem", lineHeight: 1.5 }}>
+              Bu alanlar müşterinin ödeme ekranında satıcı başına hesaplanan platform kargo bedelidir. PTT taşıma tarifesi değildir;
+              PTT gerçek taşıma ücretini gönderiyi kabul ederken kendi sözleşmenize, ölçü ve ağırlığa göre yeniden hesaplar.
+            </p>
             <div className="admin-form-row">
               <div className="admin-form-group">
-                <label>Kargo Ücreti (₺)</label>
-                <input type="number" step="0.01" className="admin-form-control" value={field("shipping_cost")} onChange={(e) => setField("shipping_cost", e.target.value)} placeholder="49.90" />
+                <label>Platform Kargo Bedeli / Satıcı (₺)</label>
+                <input type="number" min="0" step="0.01" className="admin-form-control" value={field("shipping_cost")} onChange={(e) => setField("shipping_cost", e.target.value)} placeholder="49.90" />
               </div>
               <div className="admin-form-group">
                 <label>Ücretsiz Kargo Limiti (₺)</label>
-                <input type="number" step="0.01" className="admin-form-control" value={field("free_shipping_limit")} onChange={(e) => setField("free_shipping_limit", e.target.value)} placeholder="500" />
+                <input type="number" min="0" step="0.01" className="admin-form-control" value={field("free_shipping_limit")} onChange={(e) => setField("free_shipping_limit", e.target.value)} placeholder="500" />
               </div>
             </div>
             <button className="admin-btn admin-btn-primary" disabled={saving} onClick={() => saveFields(["shipping_cost", "free_shipping_limit"])}>

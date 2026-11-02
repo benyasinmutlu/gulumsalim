@@ -31,6 +31,26 @@ ayrılmıştır.
    finansal hakedişi tek başına serbest bırakmaz; mevcut teslimat/ödeme kontrolü
    korunur.
 
+İstek, PTT sözleşmesindeki alan sınırlarını dış çağrıdan önce doğrular. Gönderici
+ülke kodu Türkiye için sabit `052`, ödeme şekli sözleşmeli mahsup için `MH` ve
+telefonlar baştaki `0` olmadan 10 hanedir. Ürün ağırlık/ölçüleri varsayılan paket
+bilgisidir; satıcı sipariş ekranında paketlenmiş gerçek ölçülerle değiştirebilir.
+
+## Ücret ayrımı
+
+Admin paneldeki **Platform Kargo Bedeli / Satıcı**, müşterinin checkout'ta
+ödediği pazaryeri bedelidir ve satıcı başına uygulanır. Bu değer PTT tarifesi
+değildir. `kabulEkle2` sözleşmesindeki `ucret` alanı opsiyoneldir ve PTT gerçek
+taşıma ücretini kabul anında kendi sözleşmesi, tartım ve ölçümüne göre yeniden
+hesaplar; bu nedenle uygulama PTT'ye uydurma bir ücret göndermez. PTT sözleşmeli
+fiyatını checkout'ta kullanmak istenirse PTT'den ayrı bir canlı fiyat servisi ve
+fiyat mutabakatı alınmalıdır.
+
+PTT'nin ek dokümanındaki `referansVeriSil` çağrısı client katmanında bulunur.
+Yalnız hatalı yüklenmiş ve PTT tarafından fiziksel kabulü henüz yapılmamış veri
+içindir; sipariş iptalini otomatik olarak dış servise taşımak güvenli olmadığı
+için operasyon akışına otomatik bağlanmamıştır.
+
 ## Test ortamı doğrulaması
 
 Secret'lar shell ortamında tanımlıyken:

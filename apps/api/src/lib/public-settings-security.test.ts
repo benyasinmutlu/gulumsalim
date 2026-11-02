@@ -10,6 +10,11 @@ describe("public settings security", () => {
     expect(isKnownPublicSettingSafe("color_primary", "red;}</style><script>alert(1)</script>")).toBe(false);
     expect(isKnownPublicSettingSafe("ga_measurement_id", "G-X');alert(1);//")).toBe(false);
     expect(isKnownPublicSettingSafe("site_instagram", "javascript:alert(1)")).toBe(false);
+    expect(isKnownPublicSettingSafe("shipping_cost", "49.90")).toBe(true);
+    expect(isKnownPublicSettingSafe("free_shipping_limit", "500")).toBe(true);
+    expect(isKnownPublicSettingSafe("shipping_cost", "-1")).toBe(false);
+    expect(isKnownPublicSettingSafe("shipping_cost", "49.999")).toBe(false);
+    expect(isKnownPublicSettingSafe("free_shipping_limit", "1e9")).toBe(false);
   });
 
   it("geçersiz korumalı anahtarı public yanıttan çıkarır", () => {

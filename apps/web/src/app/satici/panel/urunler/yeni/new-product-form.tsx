@@ -90,8 +90,8 @@ export default function NewProductForm() {
   // stok takibi olmadan DEĞİL, bu düz alandaki miktarla satılır (zorunlu).
   const [plainStock, setPlainStock] = useState("");
   // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): ürünün fiziksel kargo
-  // verisi - opsiyonel, HENÜZ hiçbir kargo ücreti hesabına bağlı değil,
-  // sadece ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  // verisi - opsiyonel. Müşteriden alınan platform kargo bedelini değiştirmez;
+  // PTT barkodu oluşturulurken varsayılan paket verisi olarak kullanılır.
   const [weightGrams, setWeightGrams] = useState("");
   const [widthCm, setWidthCm] = useState("");
   const [heightCm, setHeightCm] = useState("");
@@ -535,11 +535,14 @@ export default function NewProductForm() {
   );
 
   // bkz. kargo/PTT denetim raporu Faz 1 (2026-09-10): opsiyonel fiziksel
-  // kargo verisi - henüz hiçbir kargo ücreti hesabına bağlı değil, sadece
-  // ileride PTT/taşıyıcı entegrasyonu için toplanıyor.
+  // kargo verisi - platform kargo bedelinden bağımsızdır; PTT kaydında
+  // satıcı gerçek paket ölçüsü girmediyse güvenli varsayılan olur.
   const shippingBlock = (
     <div className="fg">
       <label>Kargo Bilgileri (opsiyonel)</label>
+      <p style={{ fontSize: "0.8rem", color: "var(--tx3)", margin: "0 0 10px" }}>
+        PTT barkodu oluşturulurken varsayılan paket bilgisi olarak kullanılır. Paketlenmiş ölçüler farklıysa sipariş ekranında değiştirebilirsiniz.
+      </p>
       <div className="row2">
         <div className="fg">
           <label>Ağırlık (gram)</label>

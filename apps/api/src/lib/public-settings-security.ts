@@ -11,6 +11,11 @@ const protectedSettingPatterns: Record<string, RegExp> = {
   ga_measurement_id: /^G-[A-Z0-9]{4,20}$/,
   gtm_container_id: /^GTM-[A-Z0-9]{4,20}$/,
   meta_pixel_id: /^\d{5,32}$/,
+  // Sepet toplamını etkileyen parasal ayarlar negatif, bilimsel gösterim
+  // veya ikiden fazla ondalık kabul etmez. Eski bozuk kayıtlar okuma
+  // katmanında yine güvenli varsayılana düşer (lib/shipping.ts).
+  shipping_cost: /^(?:0|[1-9]\d{0,6})(?:[.,]\d{1,2})?$/,
+  free_shipping_limit: /^(?:0|[1-9]\d{0,6})(?:[.,]\d{1,2})?$/,
 };
 
 const protectedSettingValidators: Record<string, (value: string) => boolean> = {

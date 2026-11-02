@@ -60,7 +60,8 @@ export const vendors = pgTable("vendors", {
   // farklı olabilir). customerAddresses (customers.ts) ile AYNI adres
   // standardı kullanılır (city/district/addressLine) - yeni bir adres
   // şablonu icat edilmedi. Nullable: mevcut satıcılarda boş kalır, hiçbir
-  // checkout/kargo hesabına henüz bağlı değildir (bkz. rapor Faz 1 kapsamı).
+  // checkout adresinden bağımsızdır; ödeme sonrasında oluşturulan shipment
+  // anlık görüntüsüne ve PTT gönderici bilgisine kaynak olur.
   // Not (tasarım kararı): bir satıcının birden fazla depo/gönderim noktası
   // olması ihtimali varsa bu, ileride ayrı bir vendor_shipping_locations
   // tablosuna genişletilebilir - bu faz TEK bir gönderim adresi varsayar,

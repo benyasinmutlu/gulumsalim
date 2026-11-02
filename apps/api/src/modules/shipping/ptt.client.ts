@@ -64,6 +64,11 @@ export interface PttRegistrationResult {
   description: string;
 }
 
+export interface PttDeletionResult {
+  code: number;
+  description: string;
+}
+
 export interface PttTrackingEvent {
   sequence: number | null;
   statusId: string | null;
@@ -115,6 +120,27 @@ export function normalizePttPhone(value: string): string {
 function positiveInteger(value: number, name: string): number {
   if (!Number.isFinite(value) || value <= 0) throw new PttError(`${name} sıfırdan büyük olmalı`, "PTT_INVALID_PACKAGE");
   return Math.ceil(value);
+}
+
+function requiredText(value: string, name: string, min: number, max: number): string {
+  const normalized = value.trim();
+  if (normalized.length < min || normalized.length > max) {
+    throw new PttError(`${name} ${min}-${max} karakter olmalı`, "PTT_INVALID_ADDRESS");
+  }
+  return normalized;
+}
+
+function optionalText(value: string | undefined, name: string, max: number): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) return undefined;
+  if (normalized.length > max) throw new PttError(`${name} en fazla ${max} karakter olmalı`, "PTT_INVALID_ADDRESS");
+  return normalized;
+}
+
+function senderNameParts(fullName: string): { firstName: string; lastName?: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return { firstName: parts[0] ?? "" };
+  return { firstName: parts.slice(0, -1).join(" "), lastName: parts.at(-1) };
 }
 
 function element(name: string, value: string | number | undefined): string {
@@ -176,7 +202,7 @@ export class PttClient {
   private readonly trackingUrl: string;
 
   constructor(private readonly options: PttClientOptions) {
-    if (!/^\d+$/.test(options.customerId)) throw new PttError("PTT müşteri numarası geçersiz", "PTT_INVALID_CUSTOMER_ID");
+    if (!/^\d{9,10}$/.test(options.customerId)) throw new PttError("PTT müşteri numarası 9-10 haneli olmalı", "PTT_INVALID_CUSTOMER_ID");
     if (!options.password) throw new PttError("PTT şifresi yapılandırılmamış", "PTT_NOT_CONFIGURED");
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.timeoutMs = options.timeoutMs ?? 15_000;
@@ -243,24 +269,46 @@ export class PttClient {
     }
     const recipientPhone = normalizePttPhone(input.recipient.phone);
     const senderPhone = normalizePttPhone(input.sender.phone);
+    const recipientName = requiredText(input.recipient.name, "Alıcı adı", 5, 100);
+    const recipientAddress = requiredText(input.recipient.address, "Alıcı adresi", 5, 255);
+    const recipientCity = requiredText(input.recipient.city, "Alıcı ili", 3, 100);
+    const recipientDistrict = requiredText(input.recipient.district, "Alıcı ilçesi", 3, 100);
+    const recipientEmail = optionalText(input.recipient.email, "Alıcı e-postası", 100);
+    const senderName = requiredText(input.sender.name, "Gönderici adı", 1, 100);
+    const senderAddress = requiredText(input.sender.address, "Gönderici adresi", 1, 255);
+    const senderCity = requiredText(input.sender.city, "Gönderici ili", 1, 30);
+    const senderDistrict = requiredText(input.sender.district, "Gönderici ilçesi", 1, 100);
+    const senderEmail = optionalText(input.sender.email, "Gönderici e-postası", 100);
+    const senderPostalCode = optionalText(input.sender.postalCode, "Gönderici posta kodu", 5);
+    if (senderPostalCode && !/^\d{1,5}$/.test(senderPostalCode)) {
+      throw new PttError("Gönderici posta kodu 1-5 haneli olmalı", "PTT_INVALID_ADDRESS");
+    }
+    const { firstName: senderFirstName, lastName: senderLastName } = senderNameParts(senderName);
+    if (senderFirstName.length > 50 || (senderLastName?.length ?? 0) > 50) {
+      throw new PttError("Gönderici adı ve soyadı ayrı ayrı en fazla 50 karakter olmalı", "PTT_INVALID_ADDRESS");
+    }
     const weight = positiveInteger(input.package.weightGrams, "Ağırlık");
     const width = input.package.widthCm == null ? undefined : positiveInteger(input.package.widthCm, "En");
     const length = input.package.lengthCm == null ? undefined : positiveInteger(input.package.lengthCm, "Boy");
     const height = input.package.heightCm == null ? undefined : positiveInteger(input.package.heightCm, "Yükseklik");
-    const desi = input.package.desi ?? (width && length && height ? Math.max(1, Math.ceil((width * length * height) / 3000 * 100) / 100) : undefined);
+    const calculatedDesi = width && length && height ? Math.max(1, Math.ceil((width * length * height) / 3000 * 100) / 100) : undefined;
+    const desi = input.package.desi ?? calculatedDesi;
+    if (desi !== undefined && (!Number.isFinite(desi) || desi <= 0 || desi > 99_999_999.99)) {
+      throw new PttError("Desi 0'dan büyük ve en fazla 10,2 basamaklı olmalı", "PTT_INVALID_PACKAGE");
+    }
 
     const dongu = [
-      element("aAdres", input.recipient.address),
+      element("aAdres", recipientAddress),
       element("agirlik", weight),
-      element("aliciAdi", input.recipient.name),
-      element("aliciEmail", input.recipient.email),
-      element("aliciIlAdi", input.recipient.city),
-      element("aliciIlceAdi", input.recipient.district),
+      element("aliciAdi", recipientName),
+      element("aliciEmail", recipientEmail),
+      element("aliciIlAdi", recipientCity),
+      element("aliciIlceAdi", recipientDistrict),
       element("aliciSms", recipientPhone),
       element("boy", length),
       element("desi", desi),
       element("en", width),
-      `<xsd:gondericibilgi>${element("gonderici_adi", input.sender.name)}${element("gonderici_adresi", input.sender.address)}${element("gonderici_email", input.sender.email)}${element("gonderici_il_ad", input.sender.city)}${element("gonderici_ilce_ad", input.sender.district)}${element("gonderici_posta_kodu", input.sender.postalCode)}${element("gonderici_sms", senderPhone)}</xsd:gondericibilgi>`,
+      `<xsd:gondericibilgi>${element("gonderici_adi", senderFirstName)}${element("gonderici_adresi", senderAddress)}${element("gonderici_email", senderEmail)}${element("gonderici_il_ad", senderCity)}${element("gonderici_ilce_ad", senderDistrict)}${element("gonderici_posta_kodu", senderPostalCode)}${element("gonderici_sms", senderPhone)}${element("gonderici_soyadi", senderLastName)}${element("gonderici_ulke_id", "052")}</xsd:gondericibilgi>`,
       element("musteriReferansNo", input.reference),
       element("odemesekli", "MH"),
       element("yukseklik", height),
@@ -284,6 +332,26 @@ export class PttClient {
       throw new PttError(this.safeMessage(rowDescription).slice(0, 300), `PTT_REGISTER_${rowCode}`);
     }
     return { barcode, code: rowCode, description: rowDescription };
+  }
+
+  async deleteByReference(fileName: string, reference: string): Promise<PttDeletionResult> {
+    if (!/^[A-Za-z0-9._-]{1,50}$/.test(fileName)) {
+      throw new PttError("PTT dosya adı 1-50 güvenli karakterden oluşmalı", "PTT_INVALID_FILE_NAME");
+    }
+    if (!/^[A-Za-z0-9]{1,100}$/.test(reference)) {
+      throw new PttError("PTT müşteri referansı 1-100 ASCII harf/rakamdan oluşmalı", "PTT_INVALID_REFERENCE");
+    }
+    const payload = soapEnvelope(
+      `<svc:referansVeriSil><svc:inpRefDelete>${element("dosyaAdi", fileName)}${element("musteriId", this.options.customerId)}${element("referansNo", reference)}${element("sifre", this.options.password)}</svc:inpRefDelete></svc:referansVeriSil>`,
+      UPLOAD_NS,
+      UPLOAD_XSD_NS,
+    );
+    const xml = await this.call(this.uploadUrl, "urn:referansVeriSil", payload, true);
+    const result = this.payload(xml, "referansVeriSilResponse");
+    const code = asNumber(result.hataKodu);
+    const description = asString(result.aciklama) ?? "PTT silme sonucu alınamadı";
+    if (code !== 1) throw new PttError(this.safeMessage(description).slice(0, 300), `PTT_DELETE_${code}`);
+    return { code, description };
   }
 
   async trackByReference(reference: string): Promise<PttTrackingResult> {

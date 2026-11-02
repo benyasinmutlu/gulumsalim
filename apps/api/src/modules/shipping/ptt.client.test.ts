@@ -45,6 +45,11 @@ describe("PttClient", () => {
       expect(body).toContain("<xsd:agirlik>850</xsd:agirlik>");
       expect(body).toContain("<xsd:desi>2</xsd:desi>");
       expect(body).toContain("<xsd:musteriReferansNo>GST1</xsd:musteriReferansNo>");
+      expect(body).toContain("<xsd:gonderici_adi>Gülüm</xsd:gonderici_adi>");
+      expect(body).toContain("<xsd:gonderici_soyadi>Şalım</xsd:gonderici_soyadi>");
+      expect(body).toContain("<xsd:gonderici_ulke_id>052</xsd:gonderici_ulke_id>");
+      expect(body).toContain("<xsd:odemesekli>MH</xsd:odemesekli>");
+      expect(body).not.toContain("<xsd:ucret>");
       return new Response(successXml, { status: 200 });
     }) as typeof fetch;
     const result = await makeClient(fetchMock).registerShipment(registration);
@@ -58,6 +63,25 @@ describe("PttClient", () => {
     await expect(client.registerShipment({ ...registration, reference: "GS-T-1" }))
       .rejects.toMatchObject({ code: "PTT_INVALID_REFERENCE" });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("dokümandaki adres ve isim sınırlarını dış servise gitmeden doğrular", async () => {
+    const fetchMock = vi.fn() as unknown as typeof fetch;
+    const client = makeClient(fetchMock);
+    await expect(client.registerShipment({ ...registration, recipient: { ...registration.recipient, name: "Ali" } }))
+      .rejects.toMatchObject({ code: "PTT_INVALID_ADDRESS" });
+    await expect(client.registerShipment({ ...registration, recipient: { ...registration.recipient, address: "x".repeat(256) } }))
+      .rejects.toMatchObject({ code: "PTT_INVALID_ADDRESS" });
+    await expect(client.registerShipment({ ...registration, package: { ...registration.package, desi: -1 } }))
+      .rejects.toMatchObject({ code: "PTT_INVALID_PACKAGE" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("PTT müşteri numarasının dokümandaki 9-10 hane sınırını uygular", () => {
+    expect(() => new PttClient({ environment: "test", customerId: "123", password: "x" }))
+      .toThrowError(PttError);
+    expect(() => new PttClient({ environment: "test", customerId: "12345678901", password: "x" }))
+      .toThrowError(PttError);
   });
 
   it("PTT satır hatasını başarı sanmaz", async () => {
@@ -101,6 +125,27 @@ describe("PttClient", () => {
     expect(result.found).toBe(true);
     expect(result.barcode).toBe("2750365698456");
     expect(result.events).toEqual([{ sequence: 1, statusId: "1", description: "Kabul Edildi", location: "ANKARA", date: "09/10/2026" }]);
+  });
+
+  it("kabul öncesi hatalı kaydı resmi referansVeriSil sözleşmesiyle silebilir", async () => {
+    const deleteXml = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><ns:referansVeriSilResponse xmlns:ns="http://kabul.ptt.gov.tr"><ns:return><x:aciklama xmlns:x="http://kabul.ptt.gov.tr/xsd">Silindi</x:aciklama><x:hataKodu xmlns:x="http://kabul.ptt.gov.tr/xsd">1</x:hataKodu></ns:return></ns:referansVeriSilResponse></soap:Body></soap:Envelope>`;
+    const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = String(init?.body);
+      expect(init?.headers).toMatchObject({ "content-type": 'application/soap+xml; charset=UTF-8; action="urn:referansVeriSil"' });
+      expect(body).toContain("<svc:referansVeriSil>");
+      expect(body).toContain("<xsd:dosyaAdi>GS1_TEST</xsd:dosyaAdi>");
+      expect(body).toContain("<xsd:referansNo>GST1</xsd:referansNo>");
+      return new Response(deleteXml, { status: 200 });
+    }) as typeof fetch;
+    await expect(makeClient(fetchMock).deleteByReference("GS1_TEST", "GST1"))
+      .resolves.toEqual({ code: 1, description: "Silindi" });
+  });
+
+  it("referansVeriSil hatasını başarı saymaz", async () => {
+    const deleteXml = `<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body><ns:referansVeriSilResponse xmlns:ns="http://kabul.ptt.gov.tr"><ns:return><x:aciklama xmlns:x="http://kabul.ptt.gov.tr/xsd">Kabul edilmiş gönderi silinemez</x:aciklama><x:hataKodu xmlns:x="http://kabul.ptt.gov.tr/xsd">42</x:hataKodu></ns:return></ns:referansVeriSilResponse></soap:Body></soap:Envelope>`;
+    const client = makeClient(vi.fn(async () => new Response(deleteXml, { status: 200 })) as typeof fetch);
+    await expect(client.deleteByReference("GS1_TEST", "GST1"))
+      .rejects.toMatchObject({ code: "PTT_DELETE_42", unknownOutcome: false });
   });
 
 });

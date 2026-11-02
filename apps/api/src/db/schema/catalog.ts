@@ -113,8 +113,9 @@ export const products = pgTable("products", {
   // YOK" tespitinin karşılığı - PTT (veya herhangi bir taşıyıcı) fiyat
   // sorması için mutlaka bu veri gerekir. Nullable ve BİLİNÇLİ OLARAK boş
   // bırakılır: mevcut ürünlere geriye dönük rastgele değer atanmıyor, sadece
-  // satıcı yeni girdiğinde dolar. Bu faz sadece veri toplar - kargo ücreti
-  // hesabına (bkz. lib/shipping.ts computeVendorShipping) HENÜZ bağlanmadı.
+  // satıcı yeni girdiğinde dolar. Müşteriden alınan platform kargo bedelini
+  // değiştirmez; PTT kabul kaydında varsayılan paket verisi olarak kullanılır
+  // (bkz. shipping/ptt-shipment.service.ts derivePackage).
   weightGrams: integer("weight_grams"),
   widthCm: numeric("width_cm", { precision: 6, scale: 1 }),
   heightCm: numeric("height_cm", { precision: 6, scale: 1 }),

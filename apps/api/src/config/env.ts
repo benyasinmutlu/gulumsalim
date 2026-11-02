@@ -68,7 +68,7 @@ const envSchema = z.object({
   // ayağa kalkar ancak PTT uçları güvenli biçimde 503 döner. Böylece secret
   // hiçbir zaman repoya yazılmaz ve yalnız sunucu ortamından enjekte edilir.
   PTT_ENV: z.enum(["test", "production"]).default("test"),
-  PTT_CUSTOMER_ID: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^\d+$/).optional()),
+  PTT_CUSTOMER_ID: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^\d{9,10}$/).optional()),
   PTT_PASSWORD: z.preprocess((value) => value === "" ? undefined : value, z.string().min(1).optional()),
   PTT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(15_000),
   PTT_TRACKING_POLL_INTERVAL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(900_000),
