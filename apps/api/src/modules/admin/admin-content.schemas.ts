@@ -40,12 +40,12 @@ export const createPromoBannerQuerySchema = z.object({
 
 export const updatePromoBannerSchema = z.object({
   title: z.string().min(1).optional(),
-  linkUrl: publicLinkUrlSchema.optional(),
+  linkUrl: publicLinkUrlSchema.nullable().optional(),
   linkType: z.enum(["url", "category", "vendor", "all_vendors", "collection"]).optional(),
   animStyle: bannerAnimStyleSchema.optional(),
-  subtitle: z.string().optional(),
-  buttonText: z.string().optional(),
-  textColor: z.string().optional(),
+  subtitle: z.string().nullable().optional(),
+  buttonText: z.string().nullable().optional(),
+  textColor: z.string().nullable().optional(),
   rotateSeconds: z.coerce.number().int().positive().optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.coerce.boolean().optional(),

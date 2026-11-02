@@ -5,10 +5,21 @@ import { fetchJson } from "@/lib/client-api";
 import { bestCampaignForProduct } from "@/lib/campaign-match";
 import type { ActiveCampaign } from "@/lib/types";
 
+const CAMPAIGN_CACHE_TTL_MS = 60_000;
 let campaignsPromise: Promise<ActiveCampaign[]> | null = null;
+let campaignsCache: { value: ActiveCampaign[]; expiresAt: number } | null = null;
 
 function getCampaigns(): Promise<ActiveCampaign[]> {
-  campaignsPromise ??= fetchJson<ActiveCampaign[]>("/campaigns").catch(() => []);
+  if (campaignsCache && campaignsCache.expiresAt > Date.now()) return Promise.resolve(campaignsCache.value);
+  campaignsPromise ??= fetchJson<ActiveCampaign[]>("/campaigns")
+    .then((value) => {
+      campaignsCache = { value, expiresAt: Date.now() + CAMPAIGN_CACHE_TTL_MS };
+      return value;
+    })
+    .catch(() => [])
+    .finally(() => {
+      campaignsPromise = null;
+    });
   return campaignsPromise;
 }
 
@@ -27,11 +38,16 @@ export default function ProductCampaignBadge({
 
   useEffect(() => {
     let active = true;
-    getCampaigns().then((campaigns) => {
-      if (active) setCampaign(bestCampaignForProduct(campaigns, { id: productId, categorySlug, vendorSlug }));
-    });
+    const refresh = () => {
+      getCampaigns().then((campaigns) => {
+        if (active) setCampaign(bestCampaignForProduct(campaigns, { id: productId, categorySlug, vendorSlug }));
+      });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, CAMPAIGN_CACHE_TTL_MS);
     return () => {
       active = false;
+      window.clearInterval(timer);
     };
   }, [productId, categorySlug, vendorSlug]);
 

@@ -8,13 +8,14 @@ import {
   listCollectionProducts,
   listVendorCollections,
   removeProductFromCollection,
-  swapCollectionProductOrder,
+  moveCollectionProduct,
   updateCollection,
   updateCollectionImage,
 } from "./vendor-collections.repository";
 import {
   addCollectionProductSchema,
   collectionIdParamsSchema,
+  collectionProductParamsSchema,
   createCollectionSchema,
   moveCollectionProductSchema,
   updateCollectionSchema,
@@ -28,7 +29,14 @@ const vendorCollectionsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/vendor/collections", { preHandler: [app.requireVendor, app.csrfProtection] }, async (request, reply) => {
     const input = createCollectionSchema.parse(request.body);
-    return reply.status(201).send(await createCollection(request.session.vendorId!, input));
+    try {
+      return reply.status(201).send(await createCollection(request.session.vendorId!, input));
+    } catch (err) {
+      if ((err as { code?: string })?.code === "23505") {
+        return reply.status(409).send({ error: { message: "Bu adreste bir koleksiyon zaten var" } });
+      }
+      throw err;
+    }
   });
 
   app.patch(
@@ -37,7 +45,15 @@ const vendorCollectionsRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { id } = collectionIdParamsSchema.parse(request.params);
       const input = updateCollectionSchema.parse(request.body);
-      const row = await updateCollection(request.session.vendorId!, id, input);
+      let row;
+      try {
+        row = await updateCollection(request.session.vendorId!, id, input);
+      } catch (err) {
+        if ((err as { code?: string })?.code === "23505") {
+          return reply.status(409).send({ error: { message: "Bu adreste bir koleksiyon zaten var" } });
+        }
+        throw err;
+      }
       if (!row) return reply.status(404).send({ error: { message: "Koleksiyon bulunamadı" } });
       return reply.send(row);
     },
@@ -105,6 +121,7 @@ const vendorCollectionsRoutes: FastifyPluginAsync = async (app) => {
       const product = await findVendorProduct(request.session.vendorId!, productId);
       if (!product) return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
       const row = await addProductToCollection(id, productId, sortOrder);
+      if (!row) return reply.status(409).send({ error: { message: "Ürün zaten bu koleksiyonda" } });
       return reply.status(201).send(row);
     },
   );
@@ -113,11 +130,11 @@ const vendorCollectionsRoutes: FastifyPluginAsync = async (app) => {
     "/vendor/collections/:id/products/:productId",
     { preHandler: [app.requireVendor, app.csrfProtection] },
     async (request, reply) => {
-      const { id } = collectionIdParamsSchema.parse(request.params);
+      const { id, productId } = collectionProductParamsSchema.parse(request.params);
       const collection = await findVendorCollection(request.session.vendorId!, id);
       if (!collection) return reply.status(404).send({ error: { message: "Koleksiyon bulunamadı" } });
-      const { productId } = request.params as { productId: string };
-      await removeProductFromCollection(id, Number(productId));
+      const removed = await removeProductFromCollection(id, productId);
+      if (!removed) return reply.status(404).send({ error: { message: "Ürün bu koleksiyonda bulunamadı" } });
       return reply.send({ ok: true });
     },
   );
@@ -129,22 +146,12 @@ const vendorCollectionsRoutes: FastifyPluginAsync = async (app) => {
     "/vendor/collections/:id/products/:productId/move",
     { preHandler: [app.requireVendor, app.csrfProtection] },
     async (request, reply) => {
-      const { id } = collectionIdParamsSchema.parse(request.params);
+      const { id, productId } = collectionProductParamsSchema.parse(request.params);
       const collection = await findVendorCollection(request.session.vendorId!, id);
       if (!collection) return reply.status(404).send({ error: { message: "Koleksiyon bulunamadı" } });
-      const { productId } = request.params as { productId: string };
       const { direction } = moveCollectionProductSchema.parse(request.body);
-
-      const items = await listCollectionProducts(id);
-      const idx = items.findIndex((p) => p.productId === Number(productId));
-      if (idx === -1) return reply.status(404).send({ error: { message: "Ürün bu koleksiyonda bulunamadı" } });
-
-      const neighborIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (neighborIdx >= 0 && neighborIdx < items.length) {
-        const current = items[idx]!;
-        const neighbor = items[neighborIdx]!;
-        await swapCollectionProductOrder(id, current.productId, current.sortOrder, neighbor.productId, neighbor.sortOrder);
-      }
+      const moved = await moveCollectionProduct(id, productId, direction);
+      if (!moved) return reply.status(404).send({ error: { message: "Ürün bu koleksiyonda bulunamadı" } });
       return reply.send(await listCollectionProducts(id));
     },
   );

@@ -18,7 +18,14 @@ const campaignsRoutes: FastifyPluginAsync = async (app) => {
       minOrderAmount: campaign.minOrderAmount == null ? null : Number(campaign.minOrderAmount),
       startsAt: campaign.startsAt,
       endsAt: campaign.endsAt,
-      scopeSlug: campaign.scope === "category" ? campaign.categorySlug : campaign.scope === "vendor" ? campaign.vendorSlug : null,
+      scopeSlug:
+        campaign.scope === "category"
+          ? campaign.categorySlug
+          : campaign.scope === "vendor"
+            ? campaign.vendorSlug
+            : campaign.scope === "product"
+              ? campaign.productSlug
+              : null,
     })));
   });
 

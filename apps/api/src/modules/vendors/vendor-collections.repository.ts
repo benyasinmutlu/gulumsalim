@@ -72,7 +72,7 @@ export async function listCollectionProducts(collectionId: number) {
     .innerJoin(products, eq(collectionProducts.productId, products.id))
     .leftJoin(productImages, and(eq(productImages.productId, products.id), eq(productImages.isPrimary, true)))
     .where(eq(collectionProducts.collectionId, collectionId))
-    .orderBy(asc(collectionProducts.sortOrder));
+    .orderBy(asc(collectionProducts.sortOrder), asc(collectionProducts.id));
 }
 
 // bkz. kullanıcı isteği: "koleksiyon sayfası nasıl gözükecek hangi ürünler
@@ -80,22 +80,34 @@ export async function listCollectionProducts(collectionId: number) {
 // yani sıraları tanımsızdı. Artık son sıradan sonraya eklenir, vitrindeki
 // gerçek gösterim sırası eklenme sırasıyla eşleşir.
 export async function addProductToCollection(collectionId: number, productId: number, sortOrder?: number) {
-  let nextSortOrder = sortOrder;
-  if (nextSortOrder === undefined) {
-    const [last] = await db
+  return db.transaction(async (tx) => {
+    // Collection row lock aynı koleksiyona eşzamanlı eklemeleri sıraya dizer;
+    // MAX+1 hesabı ve INSERT tek transaction sınırında kalır.
+    const [collection] = await tx
+      .select({ id: collections.id })
+      .from(collections)
+      .where(eq(collections.id, collectionId))
+      .limit(1)
+      .for("update");
+    if (!collection) return null;
+
+    let nextSortOrder = sortOrder;
+    if (nextSortOrder === undefined) {
+      const [last] = await tx
       .select({ sortOrder: collectionProducts.sortOrder })
       .from(collectionProducts)
       .where(eq(collectionProducts.collectionId, collectionId))
-      .orderBy(desc(collectionProducts.sortOrder))
+      .orderBy(desc(collectionProducts.sortOrder), desc(collectionProducts.id))
       .limit(1);
-    nextSortOrder = (last?.sortOrder ?? -1) + 1;
-  }
-  const [row] = await db
-    .insert(collectionProducts)
-    .values({ collectionId, productId, sortOrder: nextSortOrder })
-    .onConflictDoNothing({ target: [collectionProducts.collectionId, collectionProducts.productId] })
-    .returning();
-  return row ?? null;
+      nextSortOrder = (last?.sortOrder ?? -1) + 1;
+    }
+    const [row] = await tx
+      .insert(collectionProducts)
+      .values({ collectionId, productId, sortOrder: nextSortOrder })
+      .onConflictDoNothing({ target: [collectionProducts.collectionId, collectionProducts.productId] })
+      .returning();
+    return row ?? null;
+  });
 }
 
 export async function removeProductFromCollection(collectionId: number, productId: number) {
@@ -109,15 +121,32 @@ export async function removeProductFromCollection(collectionId: number, productI
 // bkz. kullanıcı isteği: "hangi ürünler olacak vs vs gibi bir çok detay
 // olmalı" - koleksiyon vitrinindeki ürün sırasını değiştirme imkanı hiç
 // yoktu. İki ürünün sortOrder'ı basitçe yer değiştirir (yukarı/aşağı taşı).
-export async function swapCollectionProductOrder(collectionId: number, productIdA: number, sortOrderA: number, productIdB: number, sortOrderB: number) {
-  await db.transaction(async (tx) => {
-    await tx
-      .update(collectionProducts)
-      .set({ sortOrder: sortOrderB })
-      .where(and(eq(collectionProducts.collectionId, collectionId), eq(collectionProducts.productId, productIdA)));
-    await tx
-      .update(collectionProducts)
-      .set({ sortOrder: sortOrderA })
-      .where(and(eq(collectionProducts.collectionId, collectionId), eq(collectionProducts.productId, productIdB)));
+export async function moveCollectionProduct(collectionId: number, productId: number, direction: "up" | "down") {
+  return db.transaction(async (tx) => {
+    const [collection] = await tx
+      .select({ id: collections.id })
+      .from(collections)
+      .where(eq(collections.id, collectionId))
+      .limit(1)
+      .for("update");
+    if (!collection) return false;
+
+    const items = await tx
+      .select({ id: collectionProducts.id, productId: collectionProducts.productId })
+      .from(collectionProducts)
+      .where(eq(collectionProducts.collectionId, collectionId))
+      .orderBy(asc(collectionProducts.sortOrder), asc(collectionProducts.id))
+      .for("update");
+    const index = items.findIndex((item) => item.productId === productId);
+    if (index === -1) return false;
+    const neighborIndex = direction === "up" ? index - 1 : index + 1;
+    if (neighborIndex < 0 || neighborIndex >= items.length) return true;
+
+    const reordered = [...items];
+    [reordered[index], reordered[neighborIndex]] = [reordered[neighborIndex]!, reordered[index]!];
+    for (let position = 0; position < reordered.length; position += 1) {
+      await tx.update(collectionProducts).set({ sortOrder: position }).where(eq(collectionProducts.id, reordered[position]!.id));
+    }
+    return true;
   });
 }

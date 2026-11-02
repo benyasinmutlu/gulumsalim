@@ -28,7 +28,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, collectionSlug } = await params;
   const data = await getCollection(slug, collectionSlug);
   if (!data) return { title: "Koleksiyon bulunamadı" };
-  return { title: `${data.collection.name} | ${data.vendor.storeName} | Gülüm Şalım` };
+  return {
+    title: data.collection.seoTitle || `${data.collection.name} | ${data.vendor.storeName} | Gülüm Şalım`,
+    description: data.collection.seoDescription || data.collection.description || undefined,
+  };
 }
 
 export default async function VendorCollectionPage({ params }: Props) {
@@ -55,6 +58,7 @@ export default async function VendorCollectionPage({ params }: Props) {
           {vendor.storeName}
         </Link>
         <h1 className="products-page-title">{collection.name}</h1>
+        {collection.description && <p className="products-page-description">{collection.description}</p>}
 
         {products.length === 0 ? (
           <div className="empty-state">

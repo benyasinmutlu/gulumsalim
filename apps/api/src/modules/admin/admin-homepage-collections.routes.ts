@@ -2,6 +2,7 @@ import { FastifyPluginAsync } from "fastify";
 import {
   addProductToCollection,
   deleteHomepageCollection,
+  homepageCollectionExists,
   insertHomepageCollection,
   listAllHomepageCollections,
   listCollectionProducts,
@@ -11,6 +12,7 @@ import {
 import {
   addCollectionProductSchema,
   collectionIdParamsSchema,
+  collectionProductParamsSchema,
   createCollectionSchema,
   updateCollectionSchema,
 } from "./admin-homepage-collections.schemas";
@@ -22,8 +24,7 @@ const adminHomepageCollectionsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post("/admin/homepage-collections", { preHandler: [app.requireAdmin, app.csrfProtection] }, async (request, reply) => {
     const input = createCollectionSchema.parse(request.body);
-    const existing = await listAllHomepageCollections();
-    const row = await insertHomepageCollection({ ...input, sortOrder: existing.length });
+    const row = await insertHomepageCollection(input);
     return reply.status(201).send(row);
   });
 
@@ -55,6 +56,9 @@ const adminHomepageCollectionsRoutes: FastifyPluginAsync = async (app) => {
     { preHandler: app.requireAdmin },
     async (request, reply) => {
       const { id } = collectionIdParamsSchema.parse(request.params);
+      if (!(await homepageCollectionExists(id))) {
+        return reply.status(404).send({ error: { message: "Koleksiyon bulunamadı" } });
+      }
       return reply.send(await listCollectionProducts(id));
     },
   );
@@ -65,10 +69,11 @@ const adminHomepageCollectionsRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { id } = collectionIdParamsSchema.parse(request.params);
       const { productId } = addCollectionProductSchema.parse(request.body);
-      const existing = await listCollectionProducts(id);
-      const row = await addProductToCollection(id, productId, existing.length);
-      if (!row) return reply.status(409).send({ error: { message: "Ürün zaten bu koleksiyonda" } });
-      return reply.status(201).send(row);
+      const result = await addProductToCollection(id, productId);
+      if (result.status === "collection_not_found") return reply.status(404).send({ error: { message: "Koleksiyon bulunamadı" } });
+      if (result.status === "product_not_found") return reply.status(404).send({ error: { message: "Ürün bulunamadı" } });
+      if (result.status === "duplicate") return reply.status(409).send({ error: { message: "Ürün zaten bu koleksiyonda" } });
+      return reply.status(201).send(result.row);
     },
   );
 
@@ -76,9 +81,10 @@ const adminHomepageCollectionsRoutes: FastifyPluginAsync = async (app) => {
     "/admin/homepage-collections/:id/products/:productId",
     { preHandler: [app.requireAdmin, app.csrfProtection] },
     async (request, reply) => {
-      const { id } = collectionIdParamsSchema.parse(request.params);
-      const { productId } = request.params as { productId: string };
-      await removeProductFromCollection(id, Number(productId));
+      const { id, productId } = collectionProductParamsSchema.parse(request.params);
+      if (!(await homepageCollectionExists(id))) return reply.status(404).send({ error: { message: "Koleksiyon bulunamadı" } });
+      const removed = await removeProductFromCollection(id, productId);
+      if (!removed) return reply.status(404).send({ error: { message: "Ürün bu koleksiyonda bulunamadı" } });
       return reply.send({ ok: true });
     },
   );

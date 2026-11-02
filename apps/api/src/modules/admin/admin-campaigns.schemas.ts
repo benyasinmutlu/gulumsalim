@@ -2,14 +2,15 @@ import { z } from "zod";
 
 const scopeEnum = z.enum(["all", "category", "vendor", "product"]);
 const typeEnum = z.enum(["percent", "free_shipping"]);
+const atMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
 
 const campaignFieldSchemas = {
     name: z.string().trim().min(2).max(120),
     type: typeEnum,
     scope: scopeEnum,
     scopeId: z.coerce.number().int().positive().nullable().optional(),
-    value: z.coerce.number().finite().min(0).max(100),
-    minOrderAmount: z.coerce.number().finite().positive().max(99_999_999.99).nullable().optional(),
+    value: z.coerce.number().finite().min(0).max(100).refine(atMostTwoDecimals, "En fazla 2 ondalık basamak kullanılabilir"),
+    minOrderAmount: z.coerce.number().finite().positive().max(99_999_999.99).refine(atMostTwoDecimals, "En fazla 2 ondalık basamak kullanılabilir").nullable().optional(),
     startsAt: z.coerce.date().nullable().optional(),
     endsAt: z.coerce.date().nullable().optional(),
     isActive: z.coerce.boolean(),

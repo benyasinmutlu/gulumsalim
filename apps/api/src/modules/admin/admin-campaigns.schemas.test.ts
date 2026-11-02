@@ -12,6 +12,8 @@ describe("campaignInputSchema", () => {
     [{ ...valid, scope: "vendor" }, "missing scoped target"],
     [{ ...valid, scopeId: 4 }, "target on all scope"],
     [{ ...valid, value: 0 }, "zero percent"],
+    [{ ...valid, value: 0.001 }, "precision that rounds to zero in the database"],
+    [{ ...valid, minOrderAmount: 10.999 }, "more than two monetary decimals"],
     [{ ...valid, type: "free_shipping", value: 10 }, "value on free shipping"],
     [{ ...valid, startsAt: "2026-08-18", endsAt: "2026-08-17" }, "reverse date range"],
   ])("rejects %s (%s)", (input, _label) => {

@@ -10,10 +10,13 @@ export function bestCampaignPercent(
 export function bestCampaignForProduct(
   campaigns: ActiveCampaign[],
   product: { id: number; categorySlug: string; vendorSlug: string },
+  now = new Date(),
 ): ActiveCampaign | null {
   let best: ActiveCampaign | null = null;
   for (const campaign of campaigns) {
     if (campaign.type !== "percent") continue;
+    if (campaign.startsAt && new Date(campaign.startsAt) > now) continue;
+    if (campaign.endsAt && new Date(campaign.endsAt) <= now) continue;
     const matches =
       campaign.scope === "all" ||
       (campaign.scope === "category" && campaign.scopeSlug === product.categorySlug) ||

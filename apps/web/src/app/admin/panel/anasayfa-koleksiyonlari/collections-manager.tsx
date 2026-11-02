@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ClientApiError, fetchJson, mutateJson } from "@/lib/client-api";
 import type { AdminHomepageCollection, AdminProductRow, HomepageCollectionProductRow } from "@/lib/types";
 
@@ -30,9 +30,15 @@ export default function CollectionsManager() {
   const [products, setProducts] = useState<HomepageCollectionProductRow[] | null>(null);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<AdminProductRow[]>([]);
+  const productsRequestRef = useRef(0);
 
   async function load() {
-    setCollections(await fetchJson<AdminHomepageCollection[]>("/admin/homepage-collections"));
+    try {
+      setCollections(await fetchJson<AdminHomepageCollection[]>("/admin/homepage-collections"));
+    } catch (caught) {
+      setCollections([]);
+      setError(caught instanceof ClientApiError ? caught.message : "Koleksiyonlar yüklenemedi");
+    }
   }
 
   useEffect(() => {
@@ -58,7 +64,17 @@ export default function CollectionsManager() {
     setLinkType(col.linkType ?? "");
     setLinkValue(col.linkValue ?? "");
     setError(null);
-    setProducts(await fetchJson<HomepageCollectionProductRow[]>(`/admin/homepage-collections/${col.id}/products`));
+    setProducts(null);
+    const requestId = ++productsRequestRef.current;
+    try {
+      const rows = await fetchJson<HomepageCollectionProductRow[]>(`/admin/homepage-collections/${col.id}/products`);
+      if (productsRequestRef.current === requestId) setProducts(rows);
+    } catch (caught) {
+      if (productsRequestRef.current === requestId) {
+        setProducts([]);
+        setError(caught instanceof ClientApiError ? caught.message : "Koleksiyon ürünleri yüklenemedi");
+      }
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -67,10 +83,10 @@ export default function CollectionsManager() {
     setLoading(true);
     const body = {
       title,
-      subtitle: subtitle || undefined,
-      textColor: textColor || undefined,
-      linkType: linkType || undefined,
-      linkValue: linkValue || undefined,
+      subtitle: subtitle || (editing ? null : undefined),
+      textColor: textColor || (editing ? null : undefined),
+      linkType: linkType || (editing ? null : undefined),
+      linkValue: linkType ? (linkValue || (editing ? null : undefined)) : (editing ? null : undefined),
     };
     try {
       if (editing) {
@@ -88,15 +104,25 @@ export default function CollectionsManager() {
   }
 
   async function toggleActive(col: AdminHomepageCollection) {
-    await mutateJson(`/admin/homepage-collections/${col.id}`, "PATCH", { isActive: !col.isActive });
-    await load();
+    setError(null);
+    try {
+      await mutateJson(`/admin/homepage-collections/${col.id}`, "PATCH", { isActive: !col.isActive });
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Durum güncellenemedi");
+    }
   }
 
   async function handleDelete(id: number) {
     if (!confirm("Bu koleksiyon silinsin mi?")) return;
-    await mutateJson(`/admin/homepage-collections/${id}`, "DELETE");
-    if (editing?.id === id) startNew();
-    await load();
+    setError(null);
+    try {
+      await mutateJson(`/admin/homepage-collections/${id}`, "DELETE");
+      if (editing?.id === id) startNew();
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Koleksiyon silinemedi");
+    }
   }
 
   async function runSearch() {
@@ -104,20 +130,39 @@ export default function CollectionsManager() {
       setSearchResults([]);
       return;
     }
-    const res = await fetchJson<{ items: AdminProductRow[] }>(`/admin/products?status=active&search=${encodeURIComponent(search.trim())}`);
-    setSearchResults(res.items);
+    setError(null);
+    try {
+      const res = await fetchJson<{ items: AdminProductRow[] }>(`/admin/products?status=active&search=${encodeURIComponent(search.trim())}`);
+      const existingIds = new Set((products ?? []).map((product) => product.id));
+      setSearchResults(res.items.filter((product) => !existingIds.has(product.id)));
+    } catch (caught) {
+      setSearchResults([]);
+      setError(caught instanceof ClientApiError ? caught.message : "Ürün araması başarısız oldu");
+    }
   }
 
   async function addProduct(productId: number) {
     if (!editing) return;
-    await mutateJson(`/admin/homepage-collections/${editing.id}/products`, "POST", { productId });
-    setProducts(await fetchJson<HomepageCollectionProductRow[]>(`/admin/homepage-collections/${editing.id}/products`));
+    setError(null);
+    try {
+      await mutateJson(`/admin/homepage-collections/${editing.id}/products`, "POST", { productId });
+      const rows = await fetchJson<HomepageCollectionProductRow[]>(`/admin/homepage-collections/${editing.id}/products`);
+      setProducts(rows);
+      setSearchResults((current) => current.filter((product) => product.id !== productId));
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Ürün eklenemedi");
+    }
   }
 
   async function removeProduct(productId: number) {
     if (!editing) return;
-    await mutateJson(`/admin/homepage-collections/${editing.id}/products/${productId}`, "DELETE");
-    setProducts(await fetchJson<HomepageCollectionProductRow[]>(`/admin/homepage-collections/${editing.id}/products`));
+    setError(null);
+    try {
+      await mutateJson(`/admin/homepage-collections/${editing.id}/products/${productId}`, "DELETE");
+      setProducts(await fetchJson<HomepageCollectionProductRow[]>(`/admin/homepage-collections/${editing.id}/products`));
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Ürün kaldırılamadı");
+    }
   }
 
   return (

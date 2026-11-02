@@ -1,6 +1,6 @@
 import { and, asc, count, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/client";
-import { promoBanners, promoBannerClicks, promoBannerImages } from "../../db/schema/index";
+import { homepageSectionBanners, promoBanners, promoBannerClicks, promoBannerImages } from "../../db/schema/index";
 import { resolveBannerScope } from "../content/promo-banner-scope";
 import { resolveCollectionLink } from "../content/content.repository";
 
@@ -67,8 +67,12 @@ export async function updateVendorPromoBanner(
   vendorId: number,
   id: number,
   data: Partial<
-    Pick<VendorBannerInput, "title" | "linkUrl" | "linkType" | "animStyle" | "subtitle" | "buttonText" | "textColor" | "rotateSeconds" | "sortOrder">
+    Pick<VendorBannerInput, "title" | "linkType" | "animStyle" | "rotateSeconds" | "sortOrder">
   > & {
+    linkUrl?: string | null;
+    subtitle?: string | null;
+    buttonText?: string | null;
+    textColor?: string | null;
     isActive?: boolean;
   },
 ) {
@@ -83,11 +87,27 @@ export async function updateVendorPromoBanner(
 }
 
 export async function deleteVendorPromoBanner(vendorId: number, id: number) {
-  const result = await db
-    .delete(promoBanners)
-    .where(and(eq(promoBanners.id, id), eq(promoBanners.vendorId, vendorId)))
-    .returning({ id: promoBanners.id });
-  return result.length > 0;
+  return db.transaction(async (tx) => {
+    const [owned] = await tx
+      .select({ id: promoBanners.id })
+      .from(promoBanners)
+      .where(and(eq(promoBanners.id, id), eq(promoBanners.vendorId, vendorId)))
+      .limit(1)
+      .for("update");
+    if (!owned) return false;
+
+    // Banner gösterildikten veya admin bir ana sayfa bölümüne bağladıktan sonra
+    // child FK'ler oluşur. Hepsini aynı transaction içinde temizlemeden parent
+    // DELETE production'da 500 veriyordu.
+    await tx.delete(homepageSectionBanners).where(eq(homepageSectionBanners.bannerId, id));
+    await tx.delete(promoBannerClicks).where(eq(promoBannerClicks.bannerId, id));
+    await tx.delete(promoBannerImages).where(eq(promoBannerImages.bannerId, id));
+    const result = await tx
+      .delete(promoBanners)
+      .where(and(eq(promoBanners.id, id), eq(promoBanners.vendorId, vendorId)))
+      .returning({ id: promoBanners.id });
+    return result.length > 0;
+  });
 }
 
 const STATS_WINDOW_DAYS = 14;

@@ -66,11 +66,13 @@ export async function insertPromoBanner(data: PromoBannerInput) {
 
 export async function updatePromoBanner(
   id: number,
-  data: Partial<
-    Pick<PromoBannerInput, "title" | "linkUrl" | "linkType" | "animStyle" | "subtitle" | "buttonText" | "textColor" | "rotateSeconds" | "sortOrder"> & {
-      isActive: boolean;
-    }
-  >,
+  data: Partial<Pick<PromoBannerInput, "title" | "linkType" | "animStyle" | "rotateSeconds" | "sortOrder">> & {
+    linkUrl?: string | null;
+    subtitle?: string | null;
+    buttonText?: string | null;
+    textColor?: string | null;
+    isActive?: boolean;
+  },
 ) {
   const [row] = await db.update(promoBanners).set(data).where(eq(promoBanners.id, id)).returning();
   return row ?? null;

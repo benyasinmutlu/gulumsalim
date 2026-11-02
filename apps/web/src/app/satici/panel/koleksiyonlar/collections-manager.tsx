@@ -41,15 +41,25 @@ export default function CollectionsManager() {
   const [editSeoDescription, setEditSeoDescription] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const collectionRequestRef = useRef(0);
 
   async function load() {
-    setCollections(await fetchJson<VendorCollection[]>("/vendor/collections"));
+    try {
+      setCollections(await fetchJson<VendorCollection[]>("/vendor/collections"));
+    } catch (caught) {
+      setCollections([]);
+      setError(caught instanceof ClientApiError ? caught.message : "Koleksiyonlar yüklenemedi");
+    }
   }
 
   useEffect(() => {
     load();
-    fetchJson<VendorProduct[]>("/vendor/products").then(setProducts);
-    fetchJson<VendorProfile>("/vendor/auth/me").then((v) => setStoreSlug(v.storeSlug));
+    fetchJson<VendorProduct[]>("/vendor/products").then(setProducts).catch((caught) => {
+      setError(caught instanceof ClientApiError ? caught.message : "Ürünler yüklenemedi");
+    });
+    fetchJson<VendorProfile>("/vendor/auth/me").then((v) => setStoreSlug(v.storeSlug)).catch((caught) => {
+      setError(caught instanceof ClientApiError ? caught.message : "Mağaza bilgisi yüklenemedi");
+    });
   }, []);
 
   function handleNameChange(value: string) {
@@ -76,21 +86,41 @@ export default function CollectionsManager() {
   }
 
   async function toggleActive(c: VendorCollection) {
-    await mutateJson(`/vendor/collections/${c.id}`, "PATCH", { isActive: !c.isActive });
-    await load();
+    setError(null);
+    try {
+      await mutateJson(`/vendor/collections/${c.id}`, "PATCH", { isActive: !c.isActive });
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Durum güncellenemedi");
+    }
   }
 
   async function handleDelete(id: number) {
     if (!confirm("Bu koleksiyon silinsin mi?")) return;
-    await mutateJson(`/vendor/collections/${id}`, "DELETE");
-    if (selected?.id === id) setSelected(null);
-    if (editing?.id === id) setEditing(null);
-    await load();
+    setError(null);
+    try {
+      await mutateJson(`/vendor/collections/${id}`, "DELETE");
+      if (selected?.id === id) setSelected(null);
+      if (editing?.id === id) setEditing(null);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Koleksiyon silinemedi");
+    }
   }
 
   async function openCollection(c: VendorCollection) {
     setSelected(c);
-    setCollectionProducts(await fetchJson<VendorCollectionProduct[]>(`/vendor/collections/${c.id}/products`));
+    setCollectionProducts([]);
+    setError(null);
+    const requestId = ++collectionRequestRef.current;
+    try {
+      const rows = await fetchJson<VendorCollectionProduct[]>(`/vendor/collections/${c.id}/products`);
+      if (collectionRequestRef.current === requestId) setCollectionProducts(rows);
+    } catch (caught) {
+      if (collectionRequestRef.current === requestId) {
+        setError(caught instanceof ClientApiError ? caught.message : "Koleksiyon ürünleri yüklenemedi");
+      }
+    }
   }
 
   function startEdit(c: VendorCollection) {
@@ -104,15 +134,20 @@ export default function CollectionsManager() {
 
   async function saveEdit() {
     if (!editing) return;
-    await mutateJson(`/vendor/collections/${editing.id}`, "PATCH", {
-      name: editName,
-      description: editDescription || undefined,
-      sortOrder: editSortOrder,
-      seoTitle: editSeoTitle || undefined,
-      seoDescription: editSeoDescription || undefined,
-    });
-    setEditing(null);
-    await load();
+    setError(null);
+    try {
+      await mutateJson(`/vendor/collections/${editing.id}`, "PATCH", {
+        name: editName,
+        description: editDescription || null,
+        sortOrder: editSortOrder,
+        seoTitle: editSeoTitle || null,
+        seoDescription: editSeoDescription || null,
+      });
+      setEditing(null);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Koleksiyon güncellenemedi");
+    }
   }
 
   async function handleImageUpload() {
@@ -134,22 +169,37 @@ export default function CollectionsManager() {
 
   async function addProduct() {
     if (!selected || !addProductId) return;
-    await mutateJson(`/vendor/collections/${selected.id}/products`, "POST", { productId: addProductId });
-    setCollectionProducts(await fetchJson<VendorCollectionProduct[]>(`/vendor/collections/${selected.id}/products`));
-    setAddProductId("");
+    setError(null);
+    try {
+      await mutateJson(`/vendor/collections/${selected.id}/products`, "POST", { productId: addProductId });
+      setCollectionProducts(await fetchJson<VendorCollectionProduct[]>(`/vendor/collections/${selected.id}/products`));
+      setAddProductId("");
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Ürün eklenemedi");
+    }
   }
 
   async function removeProduct(productId: number) {
     if (!selected) return;
-    await mutateJson(`/vendor/collections/${selected.id}/products/${productId}`, "DELETE");
-    setCollectionProducts(await fetchJson<VendorCollectionProduct[]>(`/vendor/collections/${selected.id}/products`));
+    setError(null);
+    try {
+      await mutateJson(`/vendor/collections/${selected.id}/products/${productId}`, "DELETE");
+      setCollectionProducts(await fetchJson<VendorCollectionProduct[]>(`/vendor/collections/${selected.id}/products`));
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Ürün kaldırılamadı");
+    }
   }
 
   async function moveProduct(productId: number, direction: "up" | "down") {
     if (!selected) return;
-    setCollectionProducts(
-      await mutateJson<VendorCollectionProduct[]>(`/vendor/collections/${selected.id}/products/${productId}/move`, "POST", { direction }),
-    );
+    setError(null);
+    try {
+      setCollectionProducts(
+        await mutateJson<VendorCollectionProduct[]>(`/vendor/collections/${selected.id}/products/${productId}/move`, "POST", { direction }),
+      );
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Ürün sırası güncellenemedi");
+    }
   }
 
   return (
@@ -345,7 +395,7 @@ export default function CollectionsManager() {
               <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                 <select className="fi" value={addProductId} onChange={(e) => setAddProductId(Number(e.target.value))}>
                   <option value="">Ürün seç...</option>
-                  {products.map((p) => (
+                  {products.filter((p) => !collectionProducts.some((item) => item.productId === p.id)).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>

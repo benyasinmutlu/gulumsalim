@@ -14,8 +14,8 @@ vi.mock("./vendor-collections.repository", () => ({
   findVendorCollection: repositories.findVendorCollection,
   listCollectionProducts: vi.fn(),
   listVendorCollections: vi.fn(),
+  moveCollectionProduct: vi.fn(),
   removeProductFromCollection: vi.fn(),
-  swapCollectionProductOrder: vi.fn(),
   updateCollection: vi.fn(),
   updateCollectionImage: vi.fn(),
 }));

@@ -14,6 +14,20 @@ function toIso(value: string): string | undefined {
   return value ? new Date(value).toISOString() : undefined;
 }
 
+function toLocalInput(value: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+function campaignStatus(campaign: AdminCampaign) {
+  if (!campaign.isActive) return { label: "Pasif", className: "admin-badge-draft" };
+  const now = Date.now();
+  if (campaign.startsAt && new Date(campaign.startsAt).getTime() > now) return { label: "Planlandı", className: "admin-badge-pending" };
+  if (campaign.endsAt && new Date(campaign.endsAt).getTime() <= now) return { label: "Sona Erdi", className: "admin-badge-inactive" };
+  return { label: "Aktif", className: "admin-badge-active" };
+}
+
 export default function CampaignsManager() {
   const [campaigns, setCampaigns] = useState<AdminCampaign[] | null>(null);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
@@ -30,6 +44,7 @@ export default function CampaignsManager() {
   const [productSearch, setProductSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const loadCampaigns = useCallback(async () => {
     setCampaigns(await fetchJson<AdminCampaign[]>("/admin/campaigns"));
@@ -49,8 +64,13 @@ export default function CampaignsManager() {
       return;
     }
     setError(null);
-    const result = await fetchJson<{ items: AdminProductRow[] }>(`/admin/products?status=active&search=${encodeURIComponent(productSearch.trim())}`);
-    setProducts(result.items);
+    try {
+      const result = await fetchJson<{ items: AdminProductRow[] }>(`/admin/products?status=active&search=${encodeURIComponent(productSearch.trim())}`);
+      setProducts(result.items);
+    } catch (caught) {
+      setProducts([]);
+      setError(caught instanceof ClientApiError ? caught.message : "Ürün araması başarısız oldu");
+    }
   }
 
   function resetTarget(nextScope: Scope) {
@@ -65,7 +85,7 @@ export default function CampaignsManager() {
     setBusy(true);
     setError(null);
     try {
-      await mutateJson("/admin/campaigns", "POST", {
+      const body = {
         name,
         type,
         scope,
@@ -74,20 +94,49 @@ export default function CampaignsManager() {
         minOrderAmount: minimum ? Number(minimum) : undefined,
         startsAt: toIso(startsAt),
         endsAt: toIso(endsAt),
-        isActive: true,
-      });
+        isActive: editingId ? undefined : true,
+      };
+      if (editingId) await mutateJson(`/admin/campaigns/${editingId}`, "PATCH", body);
+      else await mutateJson("/admin/campaigns", "POST", body);
       setName("");
       setValue("");
       setMinimum("");
       setStartsAt("");
       setEndsAt("");
       resetTarget("all");
+      setEditingId(null);
       await loadCampaigns();
     } catch (caught) {
-      setError(caught instanceof ClientApiError ? caught.message : "Kampanya oluşturulamadı");
+      setError(caught instanceof ClientApiError ? caught.message : editingId ? "Kampanya güncellenemedi" : "Kampanya oluşturulamadı");
     } finally {
       setBusy(false);
     }
+  }
+
+  function startEdit(campaign: AdminCampaign) {
+    setEditingId(campaign.id);
+    setName(campaign.name);
+    setType(campaign.type);
+    setScope(campaign.scope);
+    setScopeId(campaign.scopeId == null ? "" : String(campaign.scopeId));
+    setValue(campaign.type === "percent" ? String(Number(campaign.value)) : "");
+    setMinimum(campaign.minOrderAmount == null ? "" : String(Number(campaign.minOrderAmount)));
+    setStartsAt(toLocalInput(campaign.startsAt));
+    setEndsAt(toLocalInput(campaign.endsAt));
+    setProducts([]);
+    setProductSearch("");
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setName("");
+    setValue("");
+    setMinimum("");
+    setStartsAt("");
+    setEndsAt("");
+    resetTarget("all");
   }
 
   async function toggle(campaign: AdminCampaign) {
@@ -114,7 +163,7 @@ export default function CampaignsManager() {
   return (
     <>
       <form className="admin-card" onSubmit={handleCreate}>
-        <div className="admin-card-header"><h2>Yeni Kampanya</h2></div>
+        <div className="admin-card-header"><h2>{editingId ? "Kampanyayı Düzenle" : "Yeni Kampanya"}</h2></div>
         <div className="admin-card-body admin-campaign-form">
           <div className="admin-form-group">
             <label htmlFor="campaign-name">Kampanya Adı</label>
@@ -190,7 +239,8 @@ export default function CampaignsManager() {
         </div>
         {error && <p className="error-text admin-campaign-error" role="alert">{error}</p>}
         <div className="admin-card-body admin-campaign-actions">
-          <button className="admin-btn admin-btn-primary" disabled={busy || (scope !== "all" && !scopeId)}>{busy ? "Oluşturuluyor…" : "Kampanya Oluştur"}</button>
+          <button className="admin-btn admin-btn-primary" disabled={busy || (scope !== "all" && !scopeId)}>{busy ? "Kaydediliyor…" : editingId ? "Değişiklikleri Kaydet" : "Kampanya Oluştur"}</button>
+          {editingId && <button type="button" className="admin-btn" onClick={cancelEdit}>Vazgeç</button>}
         </div>
       </form>
 
@@ -202,20 +252,24 @@ export default function CampaignsManager() {
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead><tr><th>Ad</th><th>Tür</th><th>Kapsam</th><th>Değer</th><th>Tarih</th><th>Durum</th><th>İşlem</th></tr></thead>
-              <tbody>{campaigns.map((campaign) => (
+              <tbody>{campaigns.map((campaign) => {
+                const status = campaignStatus(campaign);
+                return (
                 <tr key={campaign.id}>
                   <td><strong>{campaign.name}</strong></td>
                   <td>{TYPE_LABEL[campaign.type]}</td>
                   <td>{SCOPE_LABEL[campaign.scope]}{campaign.scopeId ? ` #${campaign.scopeId}` : ""}</td>
                   <td>{campaign.type === "percent" ? `%${Number(campaign.value)}` : "Ücretsiz"}</td>
                   <td>{campaign.endsAt ? new Date(campaign.endsAt).toLocaleDateString("tr-TR") : "Süresiz"}</td>
-                  <td><span className={`admin-badge ${campaign.isActive ? "admin-badge-active" : "admin-badge-draft"}`}>{campaign.isActive ? "Aktif" : "Pasif"}</span></td>
+                  <td><span className={`admin-badge ${status.className}`}>{status.label}</span></td>
                   <td className="admin-row-actions">
+                    <button className="admin-btn admin-btn-sm" onClick={() => startEdit(campaign)}>Düzenle</button>
                     <button className="admin-btn admin-btn-sm" onClick={() => toggle(campaign)}>{campaign.isActive ? "Pasifleştir" : "Aktifleştir"}</button>
                     <button className="admin-btn admin-btn-sm" onClick={() => remove(campaign)}>Sil</button>
                   </td>
                 </tr>
-              ))}</tbody>
+                );
+              })}</tbody>
             </table>
           </div>
         )}

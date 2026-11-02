@@ -67,9 +67,15 @@ export default function BannersManager() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statsFor, setStatsFor] = useState<number | null>(null);
   const [stats, setStats] = useState<BannerStats | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   async function load() {
-    setBanners(await fetchJson<AdminPromoBanner[]>("/vendor/promo-banners"));
+    try {
+      setBanners(await fetchJson<AdminPromoBanner[]>("/vendor/promo-banners"));
+    } catch (caught) {
+      setBanners([]);
+      setError(caught instanceof ClientApiError ? caught.message : "Bannerlar yüklenemedi");
+    }
   }
 
   async function toggleStats(id: number) {
@@ -80,7 +86,12 @@ export default function BannersManager() {
     }
     setStatsFor(id);
     setStats(null);
-    setStats(await fetchJson<BannerStats>(`/vendor/promo-banners/${id}/stats`));
+    try {
+      setStats(await fetchJson<BannerStats>(`/vendor/promo-banners/${id}/stats`));
+    } catch (caught) {
+      setStatsFor(null);
+      setError(caught instanceof ClientApiError ? caught.message : "İstatistikler yüklenemedi");
+    }
   }
 
   useEffect(() => {
@@ -89,7 +100,7 @@ export default function BannersManager() {
 
   async function handleUpload() {
     const file = fileInputRef.current?.files?.[0];
-    if (!file) {
+    if (!editingId && !file) {
       setError("Lütfen bir görsel seçin");
       return;
     }
@@ -100,12 +111,27 @@ export default function BannersManager() {
     setUploading(true);
     setError(null);
     try {
+      if (editingId) {
+        await mutateJson(`/vendor/promo-banners/${editingId}`, "PATCH", {
+          title: form.title,
+          linkType: form.linkType,
+          linkUrl: form.linkUrl || null,
+          animStyle: form.animStyle,
+          subtitle: form.subtitle || null,
+          buttonText: form.buttonText || null,
+          textColor: form.textColor || null,
+        });
+        setEditingId(null);
+        setForm(EMPTY_FORM);
+        await load();
+        return;
+      }
       const params = new URLSearchParams({ title: form.title, linkType: form.linkType, animStyle: form.animStyle });
       if (form.linkUrl) params.set("linkUrl", form.linkUrl);
       if (form.subtitle) params.set("subtitle", form.subtitle);
       if (form.buttonText) params.set("buttonText", form.buttonText);
       if (form.textColor) params.set("textColor", form.textColor);
-      await uploadFile(`/vendor/promo-banners?${params.toString()}`, file);
+      await uploadFile(`/vendor/promo-banners?${params.toString()}`, file!);
       setForm(EMPTY_FORM);
       if (fileInputRef.current) fileInputRef.current.value = "";
       await load();
@@ -116,17 +142,37 @@ export default function BannersManager() {
     }
   }
 
+  function startEdit(banner: AdminPromoBanner) {
+    setEditingId(banner.id);
+    setForm({
+      title: banner.title,
+      linkType: (banner.linkType as BannerFormState["linkType"]) ?? "url",
+      linkUrl: banner.linkUrl ?? "",
+      animStyle: banner.animStyle ?? "fade-up",
+      subtitle: banner.subtitle ?? "",
+      buttonText: banner.buttonText ?? "",
+      textColor: banner.textColor ?? "#ffffff",
+    });
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function remove(id: number) {
     if (!confirm("Bu banner silinsin mi?")) return;
-    await mutateJson(`/vendor/promo-banners/${id}`, "DELETE");
-    await load();
+    setError(null);
+    try {
+      await mutateJson(`/vendor/promo-banners/${id}`, "DELETE");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof ClientApiError ? caught.message : "Banner silinemedi");
+    }
   }
 
   return (
     <div>
       <div className="card">
         <div className="ch">
-          <h3>Yeni Kampanya Bannerı</h3>
+          <h3>{editingId ? "Kampanya Bannerını Düzenle" : "Yeni Kampanya Bannerı"}</h3>
         </div>
         {/* Eski maxWidth:480 tüm formu dar sol şeride sıkıştırıyordu (UI bug).
             Alanlar row2 çiftleriyle genişçe yayıldı; renk seçici .fi'siz düzgün
@@ -142,7 +188,7 @@ export default function BannersManager() {
               <input className="fi" value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} />
             </div>
           </div>
-          <div className="fg">
+          {!editingId && <div className="fg">
             <label>Görsel</label>
             <ImageDropPreview
               inputRef={fileInputRef}
@@ -150,7 +196,7 @@ export default function BannersManager() {
               hint="JPG, PNG, WEBP, GIF"
               accept="image/jpeg,image/png,image/webp,image/gif"
             />
-          </div>
+          </div>}
           <div className="row2">
             <div className="fg">
               <label>Buton Metni</label>
@@ -202,8 +248,9 @@ export default function BannersManager() {
           </div>
           {error && <p style={{ color: "var(--er)", fontSize: "0.85rem" }}>{error}</p>}
           <button className="btn btn-pr" onClick={handleUpload} disabled={uploading}>
-            {uploading ? "Gönderiliyor..." : "Onaya Gönder"}
+            {uploading ? "Gönderiliyor..." : editingId ? "Değişiklikleri Onaya Gönder" : "Onaya Gönder"}
           </button>
+          {editingId && <button className="btn btn-sec" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); }}>Vazgeç</button>}
           <p style={{ fontSize: "0.8rem", color: "var(--tx3)" }}>
             Gönderdiğiniz banner admin onayından geçtikten sonra anasayfada yayınlanır.
           </p>
@@ -239,6 +286,7 @@ export default function BannersManager() {
                     <button className="btn btn-sec btn-sm" onClick={() => toggleStats(b.id)}>
                       <i className="fas fa-chart-line" /> İstatistik
                     </button>
+                    <button className="btn btn-sec btn-sm" onClick={() => startEdit(b)}>Düzenle</button>
                     <button className="btn btn-sec btn-sm" onClick={() => remove(b.id)}>
                       Sil
                     </button>

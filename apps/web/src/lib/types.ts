@@ -732,7 +732,7 @@ export interface AdminPromoBanner {
   title: string;
   image: string;
   linkUrl: string | null;
-  linkType: "url" | "category" | "vendor";
+  linkType: "url" | "category" | "vendor" | "all_vendors" | "collection";
   animStyle: string | null;
   subtitle: string | null;
   buttonText: string | null;
@@ -841,7 +841,10 @@ export interface PublicVendorCollection {
   id: number;
   name: string;
   slug: string;
+  description: string | null;
   coverImage: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 }
 
 export interface VendorStorefront {
@@ -1000,7 +1003,7 @@ export interface AdminHomepageCollection {
   title: string;
   subtitle: string | null;
   textColor: string | null;
-  linkType: "category" | "vendor" | "url" | null;
+  linkType: "category" | "vendor" | "url" | "all_vendors" | "collection" | null;
   linkValue: string | null;
   sortOrder: number;
   isActive: boolean;

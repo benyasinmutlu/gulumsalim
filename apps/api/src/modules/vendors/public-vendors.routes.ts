@@ -244,10 +244,12 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
         id: collections.id,
         name: collections.name,
         slug: collections.slug,
+        description: collections.description,
         coverImage: collections.coverImage,
       })
       .from(collections)
-      .where(and(eq(collections.vendorId, vendor.id), eq(collections.isActive, true)));
+      .where(and(eq(collections.vendorId, vendor.id), eq(collections.isActive, true)))
+      .orderBy(asc(collections.sortOrder), asc(collections.id));
     return reply.send(rows);
   });
 
@@ -260,7 +262,15 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(404).send({ error: { message: "Mağaza bulunamadı" } });
     }
     const [collection] = await db
-      .select({ id: collections.id, name: collections.name, slug: collections.slug, coverImage: collections.coverImage })
+      .select({
+        id: collections.id,
+        name: collections.name,
+        slug: collections.slug,
+        description: collections.description,
+        coverImage: collections.coverImage,
+        seoTitle: collections.seoTitle,
+        seoDescription: collections.seoDescription,
+      })
       .from(collections)
       .where(and(eq(collections.vendorId, vendor.id), eq(collections.slug, collectionSlug), eq(collections.isActive, true)))
       .limit(1);
@@ -271,7 +281,7 @@ const publicVendorsRoutes: FastifyPluginAsync = async (app) => {
       .select({ productId: collectionProducts.productId })
       .from(collectionProducts)
       .where(eq(collectionProducts.collectionId, collection.id))
-      .orderBy(asc(collectionProducts.sortOrder));
+      .orderBy(asc(collectionProducts.sortOrder), asc(collectionProducts.id));
     const products = await findProductsByIds(memberships.map((m) => m.productId));
     recordContentEvent("collection", collection.id, "view").catch(() => {});
     return reply.send({ vendor, collection, products });

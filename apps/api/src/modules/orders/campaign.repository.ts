@@ -37,10 +37,12 @@ export async function listLiveCampaignRows() {
       endsAt: campaigns.endsAt,
       categorySlug: categories.slug,
       vendorSlug: vendors.storeSlug,
+      productSlug: products.slug,
     })
     .from(campaigns)
     .leftJoin(categories, eq(campaigns.scopeId, categories.id))
     .leftJoin(vendors, eq(campaigns.scopeId, vendors.id))
+    .leftJoin(products, eq(campaigns.scopeId, products.id))
     .where(and(
       eq(campaigns.isActive, true),
       or(isNull(campaigns.startsAt), lte(campaigns.startsAt, now)),

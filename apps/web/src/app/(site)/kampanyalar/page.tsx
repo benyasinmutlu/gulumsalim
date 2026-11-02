@@ -46,6 +46,13 @@ async function getActiveCampaigns(): Promise<ActiveCampaign[]> {
   }
 }
 
+function campaignDestination(campaign: ActiveCampaign) {
+  if (campaign.scope === "category" && campaign.scopeSlug) return { href: `/${campaign.scopeSlug}`, label: "Bu kategoride" };
+  if (campaign.scope === "vendor" && campaign.scopeSlug) return { href: `/${campaign.scopeSlug}`, label: "Bu mağazada" };
+  if (campaign.scope === "product" && campaign.scopeSlug) return { href: `/urun/${campaign.scopeSlug}`, label: "Bu üründe" };
+  return { href: "/urunler", label: "Tüm ürünlerde" };
+}
+
 // bkz. kullanıcı isteği (2026-08-02): "kampanyalar bölümüne düzenleme getir" -
 // nav'daki "Kampanyalar" linki önceden sadece /urunler?saleOnly=true'ya
 // gidiyordu, ayrı bir sayfa/deneyim yoktu. Yeni bir "kampanya" veritabanı
@@ -103,12 +110,15 @@ export default async function CampaignsPage() {
                   <i className="fas fa-bullhorn" /> Aktif Kampanyalar
                 </div>
                 <div className="discount-tiers-grid">
-                  {activeCampaigns.map((campaign) => (
+                  {activeCampaigns.map((campaign) => {
+                    const destination = campaignDestination(campaign);
+                    return (
                     <article key={campaign.id} className="discount-tier-card">
                       <div className="discount-tier-percent">
                         {campaign.type === "percent" ? `%${campaign.value}` : <i className="fas fa-truck" aria-hidden />}
                       </div>
                       <strong className="discount-tier-label">{campaign.name}</strong>
+                      <span className="campaign-card-scope">{destination.label}</span>
                       <span className="campaign-card-meta">
                         {[
                           campaign.type === "free_shipping" ? "Ücretsiz Kargo" : null,
@@ -116,8 +126,10 @@ export default async function CampaignsPage() {
                           campaign.endsAt ? `${new Date(campaign.endsAt).toLocaleDateString("tr-TR")} tarihine kadar` : null,
                         ].filter(Boolean).join(" · ")}
                       </span>
+                      <Link href={destination.href} className="btn btn-sm btn-secondary">Uygun Ürünleri Gör</Link>
                     </article>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             )}

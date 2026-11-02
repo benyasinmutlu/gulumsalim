@@ -14,6 +14,9 @@ export const createCollectionSchema = z.object({
 });
 
 export const updateCollectionSchema = createCollectionSchema.partial().extend({
+  description: z.string().nullable().optional(),
+  seoTitle: z.string().nullable().optional(),
+  seoDescription: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -24,4 +27,8 @@ export const addCollectionProductSchema = z.object({
 
 export const moveCollectionProductSchema = z.object({
   direction: z.enum(["up", "down"]),
+});
+
+export const collectionProductParamsSchema = collectionIdParamsSchema.extend({
+  productId: z.coerce.number().int().positive(),
 });
