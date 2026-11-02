@@ -191,6 +191,7 @@ function cellToString(v: unknown): string {
 }
 
 async function parseXlsxRaw(buffer: Buffer): Promise<RawParsed> {
+  validateXlsxArchive(buffer);
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer as unknown as Parameters<typeof wb.xlsx.load>[0]);
@@ -214,6 +215,81 @@ async function parseXlsxRaw(buffer: Buffer): Promise<RawParsed> {
     rows.push(r);
   });
   return { headers, rows };
+}
+
+const MAX_XLSX_ENTRIES = 2_000;
+const MAX_XLSX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024;
+const MAX_XLSX_ENTRY_BYTES = 32 * 1024 * 1024;
+
+// XLSX aslında ZIP arşividir. ExcelJS arşivi açmadan önce merkezi dizindeki
+// boyutları sınırlandırmak, 10 MB görünen ama GB'larca açılan zip-bombaların
+// API belleğini tüketmesini engeller. Zip64 bu ürün içe-aktarma ölçeğinde
+// gerekli değildir; belirsiz/taşan boyut alanları fail-closed reddedilir.
+export function validateXlsxArchive(buffer: Buffer) {
+  const minEocdSize = 22;
+  const searchStart = Math.max(0, buffer.length - minEocdSize - 0xffff);
+  let eocdOffset = -1;
+  for (let offset = buffer.length - minEocdSize; offset >= searchStart; offset--) {
+    if (buffer.readUInt32LE(offset) === 0x06054b50) {
+      eocdOffset = offset;
+      break;
+    }
+  }
+  if (eocdOffset < 0) throw new Error("Geçersiz XLSX: ZIP merkezi dizini bulunamadı");
+
+  const entryCount = buffer.readUInt16LE(eocdOffset + 10);
+  const directorySize = buffer.readUInt32LE(eocdOffset + 12);
+  const directoryOffset = buffer.readUInt32LE(eocdOffset + 16);
+  if (entryCount === 0xffff || directorySize === 0xffffffff || directoryOffset === 0xffffffff) {
+    throw new Error("Zip64 XLSX dosyaları desteklenmiyor");
+  }
+  if (entryCount < 1 || entryCount > MAX_XLSX_ENTRIES) throw new Error("XLSX içinde çok fazla dosya var");
+  if (directoryOffset + directorySize > buffer.length || directoryOffset >= eocdOffset) {
+    throw new Error("Geçersiz XLSX merkezi dizin sınırları");
+  }
+
+  let cursor = directoryOffset;
+  let totalCompressed = 0;
+  let totalUncompressed = 0;
+  let hasContentTypes = false;
+  let hasWorkbook = false;
+  for (let index = 0; index < entryCount; index++) {
+    if (cursor + 46 > buffer.length || buffer.readUInt32LE(cursor) !== 0x02014b50) {
+      throw new Error("Geçersiz XLSX merkezi dizin kaydı");
+    }
+    const flags = buffer.readUInt16LE(cursor + 8);
+    const compressionMethod = buffer.readUInt16LE(cursor + 10);
+    const compressedSize = buffer.readUInt32LE(cursor + 20);
+    const uncompressedSize = buffer.readUInt32LE(cursor + 24);
+    const nameLength = buffer.readUInt16LE(cursor + 28);
+    const extraLength = buffer.readUInt16LE(cursor + 30);
+    const commentLength = buffer.readUInt16LE(cursor + 32);
+    const recordEnd = cursor + 46 + nameLength + extraLength + commentLength;
+    if (recordEnd > buffer.length || compressedSize === 0xffffffff || uncompressedSize === 0xffffffff) {
+      throw new Error("Geçersiz XLSX dosya boyutu");
+    }
+    if ((flags & 0x1) !== 0) throw new Error("Şifreli XLSX dosyaları desteklenmiyor");
+    if (![0, 8].includes(compressionMethod)) throw new Error("XLSX içinde desteklenmeyen sıkıştırma yöntemi var");
+    if (uncompressedSize > MAX_XLSX_ENTRY_BYTES) throw new Error("XLSX içindeki bir dosya izin verilen boyutu aşıyor");
+
+    const name = buffer.toString((flags & 0x800) !== 0 ? "utf8" : "latin1", cursor + 46, cursor + 46 + nameLength);
+    const normalizedName = name.replaceAll("\\", "/");
+    if (!normalizedName || normalizedName.includes("\0") || normalizedName.startsWith("/") || normalizedName.split("/").includes("..")) {
+      throw new Error("XLSX içinde güvensiz dosya yolu var");
+    }
+    hasContentTypes ||= normalizedName === "[Content_Types].xml";
+    hasWorkbook ||= normalizedName === "xl/workbook.xml";
+    totalCompressed += compressedSize;
+    totalUncompressed += uncompressedSize;
+    if (totalUncompressed > MAX_XLSX_UNCOMPRESSED_BYTES) throw new Error("XLSX açılmış boyutu 64 MB sınırını aşıyor");
+    cursor = recordEnd;
+  }
+
+  if (cursor !== directoryOffset + directorySize) throw new Error("Geçersiz XLSX merkezi dizin uzunluğu");
+  if (!hasContentTypes || !hasWorkbook) throw new Error("Dosya geçerli bir XLSX çalışma kitabı değil");
+  if (totalCompressed > 0 && totalUncompressed > 10 * 1024 * 1024 && totalUncompressed / totalCompressed > 100) {
+    throw new Error("XLSX şüpheli sıkıştırma oranı nedeniyle reddedildi");
+  }
 }
 
 // Dosya adına (uzantı) göre biçim tespiti + HAM satırlara dönüştürme.
